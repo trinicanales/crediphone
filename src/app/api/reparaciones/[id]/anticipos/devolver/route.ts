@@ -64,7 +64,7 @@ export async function POST(
 
     // Registrar en historial si hubo devolución
     if (totalDevuelto > 0) {
-      await supabase.from("reparacion_historial").insert({
+      await supabase.from("historial_estado_orden").insert({
         orden_id: id,
         estado_anterior: orden.estado,
         estado_nuevo: orden.estado,

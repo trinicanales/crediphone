@@ -97,7 +97,7 @@ export async function POST(
       .eq("id", id);
 
     // 6. Registrar historial
-    await supabase.from("reparacion_historial").insert({
+    await supabase.from("historial_estado_orden").insert({
       orden_id: id,
       estado_anterior: orden.estado,
       estado_nuevo: "entregado",
