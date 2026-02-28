@@ -69,7 +69,7 @@ export async function GET(
 
     // Obtener historial de estados (solo los campos públicos)
     const { data: historial } = await supabase
-      .from("historial_estados_reparacion")
+      .from("historial_estado_orden")
       .select("estado_nuevo, estado_anterior, comentario, created_at")
       .eq("orden_id", orden.id)
       .order("created_at", { ascending: true });
