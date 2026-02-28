@@ -16,7 +16,7 @@ export function TablaOrdenesRecientes({ ordenes }: TablaOrdenesRecientesProps) {
   if (!ordenes || ordenes.length === 0) {
     return (
       <Card title="📋 Órdenes Recientes">
-        <div className="text-center py-8 text-gray-500">
+        <div style={{ textAlign: "center", padding: "2rem 0", color: "var(--color-text-muted)" }}>
           No hay órdenes recientes
         </div>
       </Card>
@@ -38,23 +38,23 @@ export function TablaOrdenesRecientes({ ordenes }: TablaOrdenesRecientesProps) {
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+            <tr style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+              <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
                 Folio
               </th>
-              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+              <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
                 Cliente
               </th>
-              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+              <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
                 Dispositivo
               </th>
-              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+              <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
                 Estado
               </th>
-              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+              <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
                 Fecha Recepción
               </th>
-              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+              <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
                 Acciones
               </th>
             </tr>
@@ -63,23 +63,23 @@ export function TablaOrdenesRecientes({ ordenes }: TablaOrdenesRecientesProps) {
             {ordenes.map((orden) => (
               <tr
                 key={orden.id}
-                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                style={{ borderBottom: "1px solid var(--color-border-subtle)" }} onMouseEnter={e => (e.currentTarget.style.background = "var(--color-bg-elevated)")} onMouseLeave={e => (e.currentTarget.style.background = "")}
               >
-                <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                <td className="py-3 px-4 text-sm font-medium" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}>
                   {orden.folio}
                 </td>
-                <td className="py-3 px-4 text-sm text-gray-700">
+                <td className="py-3 px-4 text-sm" style={{ color: "var(--color-text-secondary)" }}>
                   {orden.clienteNombre
                     ? `${orden.clienteNombre} ${orden.clienteApellido || ""}`.trim()
                     : "Sin cliente"}
                 </td>
-                <td className="py-3 px-4 text-sm text-gray-700">
+                <td className="py-3 px-4 text-sm" style={{ color: "var(--color-text-secondary)" }}>
                   {orden.marcaDispositivo} {orden.modeloDispositivo}
                 </td>
                 <td className="py-3 px-4">
                   <EstadoBadge estado={orden.estado} />
                 </td>
-                <td className="py-3 px-4 text-sm text-gray-600">
+                <td className="py-3 px-4 text-sm" style={{ color: "var(--color-text-muted)" }}>
                   {formatFecha(orden.fechaRecepcion)}
                 </td>
                 <td className="py-3 px-4">

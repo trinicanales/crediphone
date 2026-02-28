@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { subirImagenReparacion } from "@/lib/storage-reparaciones";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

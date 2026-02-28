@@ -81,10 +81,10 @@ export function FormularioCuentas({
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+        <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--color-text-primary)" }}>
           <span>👤</span>
           <span>Cuentas del Dispositivo</span>
-          <span className="text-xs font-normal text-gray-500">
+          <span className="text-xs font-normal" style={{ color: "var(--color-text-muted)" }}>
             ({cuentas.length})
           </span>
         </h3>
@@ -92,7 +92,10 @@ export function FormularioCuentas({
           <button
             type="button"
             onClick={() => setMostrarFormulario(true)}
-            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors"
+            className="text-xs text-white px-3 py-1.5 rounded transition-colors"
+            style={{ background: "var(--color-accent)" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--color-accent-hover)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "var(--color-accent)")}
           >
             + Agregar Cuenta
           </button>
@@ -100,7 +103,7 @@ export function FormularioCuentas({
       </div>
 
       {cuentas.length === 0 && !mostrarFormulario && (
-        <div className="text-xs text-gray-500 text-center italic py-8 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="text-xs text-center italic py-8 rounded-lg" style={{ color: "var(--color-text-muted)", border: "1px solid var(--color-border-subtle)", background: "var(--color-bg-elevated)" }}>
           <div className="mb-2 text-2xl">🔐</div>
           <p>No hay cuentas registradas.</p>
           <p className="mt-1">
@@ -116,12 +119,13 @@ export function FormularioCuentas({
           {cuentas.map((cuenta, index) => (
             <div
               key={index}
-              className="border border-gray-200 rounded-lg p-3 bg-white hover:border-blue-300 transition-colors"
+              className="rounded-lg p-3 transition-colors"
+              style={{ border: "1px solid var(--color-border-subtle)", background: "var(--color-bg-surface)" }}
             >
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{obtenerIconoTipo(cuenta.tipo)}</span>
-                  <span className="text-sm font-semibold text-gray-800">
+                  <span className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
                     {cuenta.tipo}
                   </span>
                 </div>
@@ -129,21 +133,27 @@ export function FormularioCuentas({
                   <button
                     type="button"
                     onClick={() => editarCuenta(index)}
-                    className="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors"
+                    className="text-xs px-2 py-0.5 rounded transition-colors"
+                    style={{ color: "var(--color-accent)" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--color-accent-light)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
                     ✏️ Editar
                   </button>
                   <button
                     type="button"
                     onClick={() => eliminarCuenta(index)}
-                    className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-0.5 rounded transition-colors"
+                    className="text-xs px-2 py-0.5 rounded transition-colors"
+                    style={{ color: "var(--color-danger)" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--color-danger-bg)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
                     ✕ Eliminar
                   </button>
                 </div>
               </div>
 
-              <div className="text-xs space-y-1 text-gray-700">
+              <div className="text-xs space-y-1" style={{ color: "var(--color-text-secondary)" }}>
                 {cuenta.email && (
                   <div>
                     <strong>Email:</strong> {cuenta.email}
@@ -157,13 +167,13 @@ export function FormularioCuentas({
                 {cuenta.password && (
                   <div className="flex items-center gap-2">
                     <strong>Password:</strong>
-                    <code className="bg-gray-100 px-2 py-0.5 rounded font-mono">
+                    <code className="px-2 py-0.5 rounded font-mono" style={{ background: "var(--color-bg-elevated)" }}>
                       {"•".repeat(cuenta.password.length)}
                     </code>
                   </div>
                 )}
                 {cuenta.notas && (
-                  <div className="mt-1 text-gray-600 italic">
+                  <div className="mt-1 italic" style={{ color: "var(--color-text-muted)" }}>
                     <strong>Notas:</strong> {cuenta.notas}
                   </div>
                 )}
@@ -175,22 +185,25 @@ export function FormularioCuentas({
 
       {/* Formulario de agregar/editar */}
       {mostrarFormulario && (
-        <div className="border-2 border-blue-300 rounded-lg p-4 bg-blue-50 space-y-3">
+        <div className="rounded-lg p-4 space-y-3" style={{ border: "2px solid var(--color-accent)", background: "var(--color-accent-light)" }}>
           <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-semibold text-gray-800">
+            <h4 className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
               {editandoIndex !== null ? "Editar Cuenta" : "Nueva Cuenta"}
             </h4>
             <button
               type="button"
               onClick={resetForm}
-              className="text-xs text-gray-600 hover:text-gray-800"
+              className="text-xs"
+              style={{ color: "var(--color-text-secondary)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--color-text-primary)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--color-text-secondary)")}
             >
               ✕ Cancelar
             </button>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>
               Tipo de cuenta
             </label>
             <select
@@ -201,7 +214,8 @@ export function FormularioCuentas({
                   tipo: e.target.value as CuentaDispositivo["tipo"],
                 })
               }
-              className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)" }}
             >
               {TIPOS_CUENTA.map((tipo) => (
                 <option key={tipo.value} value={tipo.value}>
@@ -212,7 +226,7 @@ export function FormularioCuentas({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>
               Email o correo electrónico
             </label>
             <input
@@ -222,12 +236,13 @@ export function FormularioCuentas({
                 setFormData({ ...formData, email: e.target.value })
               }
               placeholder="usuario@ejemplo.com"
-              className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)" }}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>
               Nombre de usuario (opcional)
             </label>
             <input
@@ -237,12 +252,13 @@ export function FormularioCuentas({
                 setFormData({ ...formData, usuario: e.target.value })
               }
               placeholder="@username o ID"
-              className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)" }}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>
               Contraseña (opcional)
             </label>
             <input
@@ -252,16 +268,17 @@ export function FormularioCuentas({
                 setFormData({ ...formData, password: e.target.value })
               }
               placeholder="Contraseña"
-              className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+              className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none font-mono"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)" }}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
               ⚠️ La contraseña se guarda en texto plano. Solo visible para personal
               autorizado.
             </p>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>
               Notas adicionales (opcional)
             </label>
             <textarea
@@ -271,14 +288,18 @@ export function FormularioCuentas({
               }
               placeholder="Ej: Verificación en 2 pasos activa, PIN de pantalla bloqueada, etc."
               rows={2}
-              className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full text-sm px-3 py-2 rounded-lg focus:outline-none resize-none"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)" }}
             />
           </div>
 
           <button
             type="button"
             onClick={agregarCuenta}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="w-full text-white py-2 rounded-lg transition-colors text-sm font-medium"
+            style={{ background: "var(--color-accent)" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--color-accent-hover)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "var(--color-accent)")}
           >
             {editandoIndex !== null ? "Guardar Cambios" : "Agregar Cuenta"}
           </button>
@@ -286,7 +307,7 @@ export function FormularioCuentas({
       )}
 
       {cuentas.length > 0 && (
-        <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2">
+        <div className="text-xs rounded p-2" style={{ color: "var(--color-text-secondary)", background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}>
           🔒 <strong>Seguridad:</strong> Las cuentas se guardan encriptadas en la
           base de datos y solo son visibles para personal autorizado.
         </div>

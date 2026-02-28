@@ -117,36 +117,36 @@ export function ModalCambiarEstado({
     <Modal isOpen={isOpen} onClose={handleClose} title="Cambiar Estado de Orden" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Orden Info */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-sm text-gray-600 mb-1">Orden</p>
-          <p className="font-semibold text-gray-900">{folio}</p>
+        <div className="p-4 rounded-lg" style={{ background: "var(--color-bg-elevated)" }}>
+          <p className="text-sm mb-1" style={{ color: "var(--color-text-secondary)" }}>Orden</p>
+          <p className="font-semibold" style={{ color: "var(--color-text-primary)" }}>{folio}</p>
         </div>
 
         {/* Estado Actual → Nuevo */}
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <p className="text-sm text-gray-600 mb-2">Estado Actual</p>
+            <p className="text-sm mb-2" style={{ color: "var(--color-text-secondary)" }}>Estado Actual</p>
             <EstadoBadge estado={estadoActual} />
           </div>
 
-          <ArrowRight className="w-6 h-6 text-gray-400 mt-6" />
+          <ArrowRight className="w-6 h-6 mt-6" style={{ color: "var(--color-text-muted)" }} />
 
           <div className="flex-1">
-            <p className="text-sm text-gray-600 mb-2">Nuevo Estado</p>
+            <p className="text-sm mb-2" style={{ color: "var(--color-text-secondary)" }}>Nuevo Estado</p>
             {nuevoEstado && <EstadoBadge estado={nuevoEstado} />}
           </div>
         </div>
 
         {/* Selector de Estado */}
         {estadosDisponibles.length === 0 ? (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-sm text-yellow-800">
+          <div className="rounded-lg p-4" style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}>
+            <p className="text-sm" style={{ color: "var(--color-warning-text)" }}>
               No hay transiciones disponibles desde el estado actual.
             </p>
           </div>
         ) : (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
               Seleccionar Nuevo Estado
             </label>
             <select
@@ -155,7 +155,8 @@ export function ModalCambiarEstado({
                 setNuevoEstado(e.target.value as EstadoOrdenReparacion);
                 setShowConfirmation(false);
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 rounded-lg focus:outline-none"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
               required
             >
               <option value="">-- Seleccione un estado --</option>
@@ -170,28 +171,29 @@ export function ModalCambiarEstado({
 
         {/* Notas */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Notas (opcional)
           </label>
           <textarea
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
             placeholder="Razón del cambio de estado, observaciones, etc."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
             rows={3}
           />
         </div>
 
         {/* Confirmación para estados críticos */}
         {showConfirmation && nuevoEstado && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="rounded-lg p-4" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
             <div className="flex gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--color-danger)" }} />
               <div>
-                <p className="text-sm font-medium text-red-900 mb-1">
+                <p className="text-sm font-medium mb-1" style={{ color: "var(--color-danger-text)" }}>
                   ¿Está seguro de cambiar al estado "{estadosLabels[nuevoEstado as EstadoOrdenReparacion]}"?
                 </p>
-                <p className="text-sm text-red-700">
+                <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>
                   Esta acción es irreversible y marcará la orden como finalizada sin completar
                   la reparación.
                 </p>
@@ -202,8 +204,8 @@ export function ModalCambiarEstado({
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="rounded-lg p-4" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
+            <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{error}</p>
           </div>
         )}
 

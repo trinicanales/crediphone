@@ -30,43 +30,29 @@ export function PresupuestoSummary({ orden }: PresupuestoSummaryProps) {
       {orden.partesReemplazadas && orden.partesReemplazadas.length > 0 && (
         <Card title="Partes a Reemplazar">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full">
+              <thead style={{ background: "var(--color-bg-elevated)", borderBottom: "1px solid var(--color-border-subtle)" }}>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Parte
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Cantidad
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Costo Unitario
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Subtotal
-                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase" style={{ color: "var(--color-text-muted)" }}>Parte</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase" style={{ color: "var(--color-text-muted)" }}>Cantidad</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase" style={{ color: "var(--color-text-muted)" }}>Costo Unitario</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase" style={{ color: "var(--color-text-muted)" }}>Subtotal</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody style={{ background: "var(--color-bg-surface)" }}>
                 {orden.partesReemplazadas.map((parte, index) => (
-                  <tr key={index}>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                  <tr key={index} style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                    <td className="px-4 py-3 text-sm" style={{ color: "var(--color-text-primary)" }}>
                       {parte.parte}
                       {parte.proveedor && (
-                        <span className="text-xs text-gray-500 block">
+                        <span className="text-xs block" style={{ color: "var(--color-text-muted)" }}>
                           Proveedor: {parte.proveedor}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {parte.cantidad}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {formatCurrency(parte.costo)}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {formatCurrency(parte.costo * parte.cantidad)}
-                    </td>
+                    <td className="px-4 py-3 text-sm" style={{ color: "var(--color-text-primary)" }}>{parte.cantidad}</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>{formatCurrency(parte.costo)}</td>
+                    <td className="px-4 py-3 text-sm font-medium" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>{formatCurrency(parte.costo * parte.cantidad)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -78,25 +64,23 @@ export function PresupuestoSummary({ orden }: PresupuestoSummaryProps) {
       {/* Resumen de Costos */}
       <Card title="Resumen de Costos">
         <div className="space-y-3">
-          <div className="flex justify-between items-center py-2 border-b border-gray-200">
-            <span className="text-sm text-gray-600">Mano de Obra</span>
-            <span className="text-base font-medium text-gray-900">
+          <div className="flex justify-between items-center py-2" style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+            <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Mano de Obra</span>
+            <span className="text-base font-medium" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
               {formatCurrency(orden.costoReparacion)}
             </span>
           </div>
 
-          <div className="flex justify-between items-center py-2 border-b border-gray-200">
-            <span className="text-sm text-gray-600">Partes y Refacciones</span>
-            <span className="text-base font-medium text-gray-900">
+          <div className="flex justify-between items-center py-2" style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+            <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Partes y Refacciones</span>
+            <span className="text-base font-medium" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
               {formatCurrency(costoPartes)}
             </span>
           </div>
 
-          <div className="flex justify-between items-center py-3 bg-blue-50 px-4 rounded-lg">
-            <span className="text-base font-semibold text-gray-900">
-              Total
-            </span>
-            <span className="text-xl font-bold text-blue-600">
+          <div className="flex justify-between items-center py-3 px-4 rounded-lg" style={{ background: "var(--color-accent-light)" }}>
+            <span className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>Total</span>
+            <span className="text-xl font-bold" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
               {formatCurrency(total)}
             </span>
           </div>
@@ -108,18 +92,16 @@ export function PresupuestoSummary({ orden }: PresupuestoSummaryProps) {
         <Card>
           <div className="flex items-center gap-3">
             <div
-              className={`w-3 h-3 rounded-full ${
-                orden.aprobadoPorCliente ? "bg-green-500" : "bg-yellow-500"
-              }`}
+              style={{ width: "0.75rem", height: "0.75rem", borderRadius: "9999px", background: orden.aprobadoPorCliente ? "var(--color-success)" : "var(--color-warning)" }}
             />
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
                 {orden.aprobadoPorCliente
                   ? "Presupuesto Aprobado"
                   : "Esperando Aprobación del Cliente"}
               </p>
               {orden.fechaAprobacion && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                   Aprobado el:{" "}
                   {new Date(orden.fechaAprobacion).toLocaleDateString("es-MX")}
                 </p>

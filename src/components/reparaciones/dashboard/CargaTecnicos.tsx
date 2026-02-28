@@ -2,8 +2,6 @@
 
 import { Card } from "@/components/ui/Card";
 import type { EstadisticasTecnico } from "@/types";
-import { cn } from "@/lib/utils";
-
 interface CargaTecnicosProps {
   tecnicos: EstadisticasTecnico[];
 }
@@ -12,23 +10,23 @@ export function CargaTecnicos({ tecnicos }: CargaTecnicosProps) {
   if (!tecnicos || tecnicos.length === 0) {
     return (
       <Card title="👷 Carga de Técnicos">
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8" style={{ color: "var(--color-text-muted)" }}>
           No hay técnicos registrados
         </div>
       </Card>
     );
   }
 
-  const getCargaColor = (total: number) => {
-    if (total < 10) return "bg-green-500";
-    if (total < 15) return "bg-yellow-500";
-    return "bg-red-500";
+  const getCargaBarColor = (total: number): string => {
+    if (total < 10) return "var(--color-success)";
+    if (total < 15) return "var(--color-warning)";
+    return "var(--color-danger)";
   };
 
-  const getCargaTextColor = (total: number) => {
-    if (total < 10) return "text-green-600";
-    if (total < 15) return "text-yellow-600";
-    return "text-red-600";
+  const getCargaTextColor = (total: number): string => {
+    if (total < 10) return "var(--color-success)";
+    if (total < 15) return "var(--color-warning)";
+    return "var(--color-danger)";
   };
 
   const getCargaPercentage = (total: number) => {
@@ -49,60 +47,47 @@ export function CargaTecnicos({ tecnicos }: CargaTecnicosProps) {
           <div key={tecnico.tecnicoId} className="space-y-2">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
                   {tecnico.nombreTecnico}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                   {tecnico.ordenesRecibidas + tecnico.ordenesDiagnostico + tecnico.ordenesEnReparacion} órdenes totales
                 </p>
               </div>
               <div className="text-right">
-                <p
-                  className={cn(
-                    "text-lg font-bold",
-                    getCargaTextColor(tecnico.ordenesActivas)
-                  )}
-                >
+                <p className="text-lg font-bold" style={{ color: getCargaTextColor(tecnico.ordenesActivas) }}>
                   {tecnico.ordenesActivas}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                   {getCargaLabel(tecnico.ordenesActivas)}
                 </p>
               </div>
             </div>
 
             {/* Barra de progreso */}
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full rounded-full h-3" style={{ background: "var(--color-bg-elevated)" }}>
               <div
-                className={cn(
-                  "h-3 rounded-full transition-all duration-300",
-                  getCargaColor(tecnico.ordenesActivas)
-                )}
+                className="h-3 rounded-full transition-all duration-300"
                 style={{
                   width: `${getCargaPercentage(tecnico.ordenesActivas)}%`,
+                  background: getCargaBarColor(tecnico.ordenesActivas),
                 }}
               />
             </div>
 
             {/* Desglose de estados */}
             <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="bg-blue-50 p-2 rounded">
-                <p className="text-gray-600">Diagnóstico</p>
-                <p className="font-semibold text-blue-600">
-                  {tecnico.ordenesDiagnostico || 0}
-                </p>
+              <div className="p-2 rounded" style={{ background: "var(--color-accent-light)" }}>
+                <p style={{ color: "var(--color-text-secondary)" }}>Diagnóstico</p>
+                <p className="font-semibold" style={{ color: "var(--color-accent)" }}>{tecnico.ordenesDiagnostico || 0}</p>
               </div>
-              <div className="bg-purple-50 p-2 rounded">
-                <p className="text-gray-600">En Reparación</p>
-                <p className="font-semibold text-purple-600">
-                  {tecnico.ordenesEnReparacion || 0}
-                </p>
+              <div className="p-2 rounded" style={{ background: "var(--color-info-bg)" }}>
+                <p style={{ color: "var(--color-text-secondary)" }}>En Reparación</p>
+                <p className="font-semibold" style={{ color: "var(--color-info)" }}>{tecnico.ordenesEnReparacion || 0}</p>
               </div>
-              <div className="bg-green-50 p-2 rounded">
-                <p className="text-gray-600">Completadas Hoy</p>
-                <p className="font-semibold text-green-600">
-                  {tecnico.ordenesCompletadasHoy || 0}
-                </p>
+              <div className="p-2 rounded" style={{ background: "var(--color-success-bg)" }}>
+                <p style={{ color: "var(--color-text-secondary)" }}>Completadas Hoy</p>
+                <p className="font-semibold" style={{ color: "var(--color-success)" }}>{tecnico.ordenesCompletadasHoy || 0}</p>
               </div>
             </div>
           </div>

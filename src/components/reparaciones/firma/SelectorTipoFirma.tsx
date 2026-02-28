@@ -185,7 +185,7 @@ export function SelectorTipoFirma({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+      <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--color-text-primary)" }}>
         <span>✍️</span>
         <span>Firma del Cliente</span>
       </h3>
@@ -195,20 +195,17 @@ export function SelectorTipoFirma({
         <button
           type="button"
           onClick={() => handleTipoChange("digital")}
-          className={`
-            p-4 rounded-lg border-2 transition-all text-center
-            ${
-              tipoSeleccionado === "digital"
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 bg-white hover:border-blue-300"
-            }
-          `}
+          className="p-4 rounded-lg transition-all text-center"
+          style={{
+            border: tipoSeleccionado === "digital" ? "2px solid var(--color-accent)" : "2px solid var(--color-border)",
+            background: tipoSeleccionado === "digital" ? "var(--color-accent-light)" : "var(--color-bg-surface)",
+          }}
         >
           <div className="text-3xl mb-2">⌨️</div>
-          <div className="text-sm font-semibold text-gray-800">
+          <div className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
             Firma Digital
           </div>
-          <div className="text-xs text-gray-600 mt-1">
+          <div className="text-xs mt-1" style={{ color: "var(--color-text-secondary)" }}>
             Nombre en cursiva
           </div>
         </button>
@@ -216,20 +213,17 @@ export function SelectorTipoFirma({
         <button
           type="button"
           onClick={() => handleTipoChange("manuscrita")}
-          className={`
-            p-4 rounded-lg border-2 transition-all text-center
-            ${
-              tipoSeleccionado === "manuscrita"
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 bg-white hover:border-blue-300"
-            }
-          `}
+          className="p-4 rounded-lg transition-all text-center"
+          style={{
+            border: tipoSeleccionado === "manuscrita" ? "2px solid var(--color-accent)" : "2px solid var(--color-border)",
+            background: tipoSeleccionado === "manuscrita" ? "var(--color-accent-light)" : "var(--color-bg-surface)",
+          }}
         >
           <div className="text-3xl mb-2">✍️</div>
-          <div className="text-sm font-semibold text-gray-800">
+          <div className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
             Firma Manuscrita
           </div>
-          <div className="text-xs text-gray-600 mt-1">
+          <div className="text-xs mt-1" style={{ color: "var(--color-text-secondary)" }}>
             Dibuja con el mouse
           </div>
         </button>
@@ -239,7 +233,7 @@ export function SelectorTipoFirma({
       {tipoSeleccionado === "digital" && (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
               Nombre completo del cliente
             </label>
             <input
@@ -251,16 +245,17 @@ export function SelectorTipoFirma({
               autoCorrect="off"
               spellCheck={false}
               onDrop={(e) => e.preventDefault()}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 rounded-lg focus:outline-none"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
             />
           </div>
 
           {nombreDigital && (
-            <div className="bg-white border-2 border-gray-300 rounded-lg p-8 text-center">
-              <div className="text-3xl font-serif italic text-gray-800">
+            <div className="rounded-lg p-8 text-center" style={{ background: "var(--color-bg-surface)", border: "2px solid var(--color-border)" }}>
+              <div className="text-3xl font-serif italic" style={{ color: "var(--color-text-primary)" }}>
                 {nombreDigital}
               </div>
-              <div className="text-xs text-gray-500 mt-2">Vista previa</div>
+              <div className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>Vista previa</div>
             </div>
           )}
 
@@ -268,7 +263,10 @@ export function SelectorTipoFirma({
             type="button"
             onClick={guardarFirmaDigital}
             disabled={!nombreDigital.trim()}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+            className="w-full text-white py-3 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: "var(--color-accent)" }}
+            onMouseEnter={e => { if (nombreDigital.trim()) (e.currentTarget.style.background = "var(--color-accent-hover)"); }}
+            onMouseLeave={e => (e.currentTarget.style.background = "var(--color-accent)")}
           >
             Guardar Firma Digital
           </button>
@@ -277,13 +275,14 @@ export function SelectorTipoFirma({
 
       {tipoSeleccionado === "manuscrita" && (
         <div className="space-y-3">
-          <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
+          <div className="rounded p-2 text-xs" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)", color: "var(--color-accent)" }}>
             ℹ️ Dibuja tu firma en el área blanca usando el mouse o tu dedo (en
             dispositivos táctiles)
           </div>
 
           <div
-            className="border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-100 p-2"
+            className="rounded-lg overflow-hidden p-2"
+            style={{ border: "2px solid var(--color-border)", background: "var(--color-bg-elevated)" }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => e.preventDefault()}
           >
@@ -301,8 +300,8 @@ export function SelectorTipoFirma({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className="w-full bg-white cursor-crosshair"
-              style={{ touchAction: "none", userSelect: "none" }}
+              className="w-full cursor-crosshair"
+              style={{ touchAction: "none", userSelect: "none", background: "#ffffff" }}
             />
           </div>
 
@@ -310,7 +309,10 @@ export function SelectorTipoFirma({
             <button
               type="button"
               onClick={limpiarCanvas}
-              className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+              className="flex-1 py-2 rounded-lg transition-colors"
+              style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-secondary)" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "var(--color-bg-sunken)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "var(--color-bg-elevated)")}
             >
               🗑️ Limpiar
             </button>
@@ -318,7 +320,10 @@ export function SelectorTipoFirma({
               type="button"
               onClick={guardarFirmaManuscrita}
               disabled={!firmaCapturaManuscrita}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+              className="flex-1 text-white py-2 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "var(--color-accent)" }}
+              onMouseEnter={e => { if (firmaCapturaManuscrita) (e.currentTarget.style.background = "var(--color-accent-hover)"); }}
+              onMouseLeave={e => (e.currentTarget.style.background = "var(--color-accent)")}
             >
               ✓ Guardar Firma
             </button>
@@ -328,10 +333,10 @@ export function SelectorTipoFirma({
 
       {/* Confirmación si ya hay firma guardada */}
       {tipoFirma && firmaData && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+        <div className="rounded-lg p-3" style={{ background: "var(--color-success-bg)", border: "1px solid var(--color-success)" }}>
           <div className="flex items-start gap-2">
-            <span className="text-green-600 text-lg">✓</span>
-            <div className="text-xs text-green-800 flex-1">
+            <span className="text-lg" style={{ color: "var(--color-success)" }}>✓</span>
+            <div className="text-xs flex-1" style={{ color: "var(--color-success-text)" }}>
               <div className="font-semibold mb-1">Firma guardada correctamente</div>
               <div>
                 Tipo: <strong>{tipoFirma === "digital" ? "Digital" : "Manuscrita"}</strong>
@@ -344,7 +349,7 @@ export function SelectorTipoFirma({
         </div>
       )}
 
-      <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2">
+      <div className="text-xs rounded p-2" style={{ color: "var(--color-text-secondary)", background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}>
         <strong>📋 Nota legal:</strong> La firma capturada forma parte del
         contrato de reparación y tiene validez legal. Asegúrate de que el cliente
         autorice antes de capturar la firma.

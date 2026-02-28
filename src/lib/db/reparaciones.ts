@@ -3,7 +3,7 @@
  * FASE 8: Sistema completo de gestión de órdenes de reparación
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   OrdenReparacion,
   OrdenReparacionDetallada,

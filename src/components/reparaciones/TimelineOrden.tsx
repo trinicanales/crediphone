@@ -40,52 +40,52 @@ const estadoConfig: Record<
 > = {
   recibido: {
     icon: Package,
-    color: "bg-blue-500",
+    color: "var(--color-accent)",
     label: "Recibido",
   },
   diagnostico: {
     icon: Wrench,
-    color: "bg-yellow-500",
+    color: "var(--color-warning)",
     label: "En Diagnóstico",
   },
   presupuesto: {
     icon: DollarSign,
-    color: "bg-orange-500",
+    color: "var(--color-warning)",
     label: "Presupuesto Pendiente",
   },
   aprobado: {
     icon: ThumbsUp,
-    color: "bg-green-500",
+    color: "var(--color-success)",
     label: "Aprobado",
   },
   en_reparacion: {
     icon: Settings,
-    color: "bg-purple-500",
+    color: "var(--color-info)",
     label: "En Reparación",
   },
   completado: {
     icon: CheckCircle,
-    color: "bg-green-600",
+    color: "var(--color-success)",
     label: "Completado",
   },
   listo_entrega: {
     icon: ShoppingBag,
-    color: "bg-teal-500",
+    color: "var(--color-accent)",
     label: "Listo para Entrega",
   },
   entregado: {
     icon: Truck,
-    color: "bg-gray-500",
+    color: "var(--color-text-muted)",
     label: "Entregado",
   },
   no_reparable: {
     icon: XCircle,
-    color: "bg-red-500",
+    color: "var(--color-danger)",
     label: "No Reparable",
   },
   cancelado: {
     icon: Ban,
-    color: "bg-gray-400",
+    color: "var(--color-text-muted)",
     label: "Cancelado",
   },
 };
@@ -136,8 +136,8 @@ export function TimelineOrden({ ordenId, estadoActual }: TimelineOrdenProps) {
     return (
       <Card title="📅 Historial de Estados">
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-          <span className="ml-2 text-gray-600">Cargando historial...</span>
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--color-accent)" }} />
+          <span className="ml-2" style={{ color: "var(--color-text-secondary)" }}>Cargando historial...</span>
         </div>
       </Card>
     );
@@ -147,8 +147,8 @@ export function TimelineOrden({ ordenId, estadoActual }: TimelineOrdenProps) {
     return (
       <Card title="📅 Historial de Estados">
         <div className="text-center py-8">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-2" />
-          <p className="text-red-600 text-sm">{error}</p>
+          <AlertCircle className="w-12 h-12 mx-auto mb-2" style={{ color: "var(--color-danger)" }} />
+          <p className="text-sm" style={{ color: "var(--color-danger)" }}>{error}</p>
         </div>
       </Card>
     );
@@ -158,8 +158,8 @@ export function TimelineOrden({ ordenId, estadoActual }: TimelineOrdenProps) {
     return (
       <Card title="📅 Historial de Estados">
         <div className="text-center py-8">
-          <Clock className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-          <p className="text-gray-500">No hay historial de cambios</p>
+          <Clock className="w-12 h-12 mx-auto mb-2" style={{ color: "var(--color-text-muted)" }} />
+          <p style={{ color: "var(--color-text-muted)" }}>No hay historial de cambios</p>
         </div>
       </Card>
     );
@@ -169,7 +169,7 @@ export function TimelineOrden({ ordenId, estadoActual }: TimelineOrdenProps) {
     <Card title="📅 Historial de Estados">
       <div className="relative">
         {/* Línea vertical del timeline */}
-        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200" />
+        <div className="absolute left-6 top-0 bottom-0 w-0.5" style={{ background: "var(--color-border-subtle)" }} />
 
         {/* Items del timeline */}
         <div className="space-y-6">
@@ -183,9 +183,11 @@ export function TimelineOrden({ ordenId, estadoActual }: TimelineOrdenProps) {
                 {/* Icono */}
                 <div className="relative z-10">
                   <div
-                    className={`w-12 h-12 rounded-full ${config.color} flex items-center justify-center ${
-                      isActual ? "ring-4 ring-blue-200" : ""
-                    }`}
+                    className="w-12 h-12 rounded-full flex items-center justify-center"
+                    style={{
+                      background: config.color,
+                      ...(isActual ? { outline: "4px solid var(--color-accent-light)", outlineOffset: "2px" } : {}),
+                    }}
                   >
                     <Icon className="w-6 h-6 text-white" />
                   </div>
@@ -194,23 +196,29 @@ export function TimelineOrden({ ordenId, estadoActual }: TimelineOrdenProps) {
                 {/* Contenido */}
                 <div className="flex-1 pb-6">
                   <div
-                    className={`bg-white border rounded-lg p-4 ${
-                      isActual
-                        ? "border-blue-300 shadow-md"
-                        : "border-gray-200"
-                    }`}
+                    className="rounded-lg p-4"
+                    style={{
+                      background: "var(--color-bg-surface)",
+                      border: isActual
+                        ? "1px solid var(--color-accent)"
+                        : "1px solid var(--color-border-subtle)",
+                      boxShadow: isActual ? "var(--shadow-md)" : "var(--shadow-xs)",
+                    }}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h4 className="font-semibold text-gray-900">
+                        <h4 className="font-semibold" style={{ color: "var(--color-text-primary)" }}>
                           {config.label}
                           {isActual && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                            <span
+                              className="ml-2 text-xs px-2 py-1 rounded"
+                              style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+                            >
                               Estado Actual
                             </span>
                           )}
                         </h4>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
                           {formatFecha(item.created_at)}
                         </p>
                       </div>
@@ -218,14 +226,14 @@ export function TimelineOrden({ ordenId, estadoActual }: TimelineOrdenProps) {
 
                     {/* Usuario que hizo el cambio */}
                     {item.usuario?.name && (
-                      <p className="text-xs text-gray-600 mb-2">
+                      <p className="text-xs mb-2" style={{ color: "var(--color-text-secondary)" }}>
                         Por: {item.usuario.name}
                       </p>
                     )}
 
                     {/* Transición */}
                     {item.estado_anterior && (
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="text-xs mb-2" style={{ color: "var(--color-text-muted)" }}>
                         {estadoConfig[item.estado_anterior]?.label} →{" "}
                         {config.label}
                       </p>
@@ -233,11 +241,11 @@ export function TimelineOrden({ ordenId, estadoActual }: TimelineOrdenProps) {
 
                     {/* Notas */}
                     {item.notas && (
-                      <div className="mt-3 p-2 bg-gray-50 rounded border border-gray-200">
-                        <p className="text-xs text-gray-500 mb-1 font-medium">
+                      <div className="mt-3 p-2 rounded" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}>
+                        <p className="text-xs mb-1 font-medium" style={{ color: "var(--color-text-muted)" }}>
                           Notas:
                         </p>
-                        <p className="text-sm text-gray-700">{item.notas}</p>
+                        <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{item.notas}</p>
                       </div>
                     )}
                   </div>

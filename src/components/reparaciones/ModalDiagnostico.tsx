@@ -192,19 +192,19 @@ export function ModalDiagnostico({
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Información de la orden */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-900">
+        <div className="rounded-lg p-4" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)" }}>
+          <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>
             <strong>Dispositivo:</strong> {dispositivo}
           </p>
-          <p className="text-sm text-blue-900 mt-1">
+          <p className="text-sm mt-1" style={{ color: "var(--color-text-primary)" }}>
             <strong>Folio:</strong> {ordenFolio}
           </p>
         </div>
 
         {/* Diagnóstico Técnico */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Diagnóstico Técnico <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
+            Diagnóstico Técnico <span style={{ color: "var(--color-danger)" }}>*</span>
           </label>
           <textarea
             name="diagnosticoTecnico"
@@ -213,17 +213,18 @@ export function ModalDiagnostico({
             required
             rows={4}
             placeholder="Describe detalladamente el problema encontrado y la solución propuesta"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
           />
         </div>
 
         {/* Costo de Mano de Obra */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Costo de Mano de Obra
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-2 text-gray-500">$</span>
+            <span className="absolute left-3 top-2" style={{ color: "var(--color-text-muted)" }}>$</span>
             <input
               type="number"
               name="costoReparacion"
@@ -232,15 +233,16 @@ export function ModalDiagnostico({
               min="0"
               step="0.01"
               placeholder="0.00"
-              className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-8 pr-4 py-2 rounded-lg focus:outline-none"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
             />
           </div>
         </div>
 
         {/* Lista de Partes */}
-        <div className="border-t pt-4">
+        <div className="pt-4" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold" style={{ color: "var(--color-text-primary)" }}>
               🔧 Partes a Reemplazar
             </h3>
             <Button
@@ -257,7 +259,8 @@ export function ModalDiagnostico({
             {partes.map((parte, index) => (
               <div
                 key={index}
-                className="grid grid-cols-12 gap-2 items-start bg-gray-50 p-3 rounded-lg"
+                className="grid grid-cols-12 gap-2 items-start p-3 rounded-lg"
+                style={{ background: "var(--color-bg-elevated)" }}
               >
                 {/* Nombre de la parte */}
                 <div className="col-span-5">
@@ -268,14 +271,15 @@ export function ModalDiagnostico({
                       handleParteChange(index, "parte", e.target.value)
                     }
                     placeholder="Ej: Pantalla LCD, Batería"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
                   />
                 </div>
 
                 {/* Costo unitario */}
                 <div className="col-span-3">
                   <div className="relative">
-                    <span className="absolute left-2 top-2 text-gray-500 text-sm">
+                    <span className="absolute left-2 top-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
                       $
                     </span>
                     <input
@@ -287,7 +291,8 @@ export function ModalDiagnostico({
                       min="0"
                       step="0.01"
                       placeholder="0.00"
-                      className="w-full pl-6 pr-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full pl-6 pr-2 py-2 rounded-lg text-sm focus:outline-none"
+                      style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
                     />
                   </div>
                 </div>
@@ -302,20 +307,24 @@ export function ModalDiagnostico({
                     }
                     min="1"
                     placeholder="1"
-                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-2 py-2 rounded-lg text-sm focus:outline-none"
+                    style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
                   />
                 </div>
 
                 {/* Subtotal y botón eliminar */}
                 <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
                     ${(parte.costo * parte.cantidad).toFixed(2)}
                   </span>
                   {partes.length > 1 && (
                     <button
                       type="button"
                       onClick={() => eliminarParte(index)}
-                      className="text-red-500 hover:text-red-700 ml-2"
+                      className="ml-2"
+                      style={{ color: "var(--color-danger)" }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = "0.7")}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                     >
                       <svg
                         className="w-5 h-5"
@@ -339,9 +348,9 @@ export function ModalDiagnostico({
 
           {/* Total de partes */}
           <div className="mt-3 flex justify-end">
-            <div className="bg-blue-50 px-4 py-2 rounded-lg">
-              <span className="text-sm text-blue-700">Total partes: </span>
-              <span className="text-lg font-bold text-blue-900">
+            <div className="px-4 py-2 rounded-lg" style={{ background: "var(--color-accent-light)" }}>
+              <span className="text-sm" style={{ color: "var(--color-accent)" }}>Total partes: </span>
+              <span className="text-lg font-bold" style={{ color: "var(--color-accent)" }}>
                 ${costoTotalPartes.toFixed(2)}
               </span>
             </div>
@@ -350,7 +359,7 @@ export function ModalDiagnostico({
 
         {/* Fecha Estimada */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Fecha Estimada de Entrega
           </label>
           <input
@@ -359,13 +368,14 @@ export function ModalDiagnostico({
             value={formData.fechaEstimadaEntrega}
             onChange={handleChange}
             min={new Date().toISOString().split("T")[0]}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
           />
         </div>
 
         {/* Notas del Técnico */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Notas del Técnico (Internas)
           </label>
           <textarea
@@ -374,25 +384,26 @@ export function ModalDiagnostico({
             onChange={handleChange}
             rows={2}
             placeholder="Observaciones adicionales, recomendaciones, etc."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
           />
         </div>
 
         {/* Requiere Aprobación */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="rounded-lg p-4" style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}>
           <label className="flex items-start cursor-pointer">
             <input
               type="checkbox"
               name="requiereAprobacion"
               checked={formData.requiereAprobacion}
               onChange={handleChange}
-              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="mt-1 h-4 w-4 rounded"
             />
             <div className="ml-3">
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
                 Requiere aprobación del cliente
               </span>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs mt-1" style={{ color: "var(--color-text-secondary)" }}>
                 {formData.requiereAprobacion ? (
                   <>
                     El presupuesto será enviado al cliente para aprobación
@@ -410,24 +421,24 @@ export function ModalDiagnostico({
         </div>
 
         {/* Resumen de Costos */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">
+        <div className="rounded-lg p-4" style={{ background: "var(--color-accent-light)", border: "2px solid var(--color-accent)" }}>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>
             💰 Resumen de Costos
           </h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-700">Mano de obra:</span>
-              <span className="font-medium">
+              <span style={{ color: "var(--color-text-secondary)" }}>Mano de obra:</span>
+              <span className="font-medium" style={{ color: "var(--color-text-primary)" }}>
                 ${formData.costoReparacion.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-700">Partes:</span>
-              <span className="font-medium">${costoTotalPartes.toFixed(2)}</span>
+              <span style={{ color: "var(--color-text-secondary)" }}>Partes:</span>
+              <span className="font-medium" style={{ color: "var(--color-text-primary)" }}>${costoTotalPartes.toFixed(2)}</span>
             </div>
-            <div className="border-t-2 border-blue-300 pt-2 flex justify-between">
-              <span className="font-bold text-gray-900">TOTAL:</span>
-              <span className="font-bold text-2xl text-blue-600">
+            <div className="pt-2 flex justify-between" style={{ borderTop: "2px solid var(--color-accent)" }}>
+              <span className="font-bold" style={{ color: "var(--color-text-primary)" }}>TOTAL:</span>
+              <span className="font-bold text-2xl" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
                 ${costoTotal.toFixed(2)}
               </span>
             </div>
@@ -436,7 +447,7 @@ export function ModalDiagnostico({
 
         {/* Botones */}
         {!diagnosticoGuardado && (
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-3 pt-4" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
             <Button
               type="button"
               variant="secondary"
@@ -459,13 +470,13 @@ export function ModalDiagnostico({
 
         {/* Sección de Envío de Presupuesto (solo si requiere aprobación) */}
         {diagnosticoGuardado && ordenActualizada && (
-          <div className="border-t-2 border-green-200 pt-6 mt-6">
+          <div className="pt-6 mt-6" style={{ borderTop: "2px solid var(--color-success)" }}>
             <div className="mb-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--color-text-primary)" }}>
                 <span>📱</span>
                 <span>Enviar Presupuesto al Cliente</span>
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>
                 El diagnóstico se guardó exitosamente. Ahora puedes enviar el
                 presupuesto al cliente por WhatsApp.
               </p>

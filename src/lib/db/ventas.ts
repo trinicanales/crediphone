@@ -3,7 +3,7 @@
  * Funciones para gestión de ventas directas en punto de venta
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   Venta,
   VentaDetallada,

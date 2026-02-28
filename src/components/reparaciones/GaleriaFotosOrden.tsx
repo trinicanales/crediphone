@@ -178,7 +178,7 @@ export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
             </Button>
 
             {imagenes.length > 0 && (
-              <span className="text-sm text-gray-500 ml-auto">
+              <span className="text-sm ml-auto" style={{ color: "var(--color-text-muted)" }}>
                 {imagenes.length} foto{imagenes.length !== 1 ? "s" : ""}
               </span>
             )}
@@ -186,15 +186,17 @@ export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
 
           {/* Panel QR expandible */}
           {mostrarQR && (
-            <div className="mt-4 border-t pt-4">
+            <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
               <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-semibold text-gray-700">
+                <span className="text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
                   📱 Escanear para subir fotos desde celular
                 </span>
                 <button
                   type="button"
                   onClick={() => setMostrarQR(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  style={{ color: "var(--color-text-muted)" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "var(--color-text-secondary)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "var(--color-text-muted)")}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -212,15 +214,15 @@ export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
       <Card title={`📸 Fotos (${loadingFotos ? "…" : imagenes.length})`}>
         {loadingFotos ? (
           <div className="text-center py-10">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-2" />
-            <p className="text-sm text-gray-500">Cargando fotos…</p>
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" style={{ color: "var(--color-accent)" }} />
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Cargando fotos…</p>
           </div>
         ) : imagenes.length === 0 ? (
           <div className="text-center py-12">
-            <ImageIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-2">No hay fotos agregadas</p>
+            <ImageIcon className="w-16 h-16 mx-auto mb-4" style={{ color: "var(--color-text-muted)" }} />
+            <p className="mb-2" style={{ color: "var(--color-text-muted)" }}>No hay fotos agregadas</p>
             {puedeAgregarFotos && (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
                 Sube fotos desde PC o usa el QR para que el cliente envíe fotos desde su celular
               </p>
             )}
@@ -230,7 +232,8 @@ export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
             {imagenes.map((imagen) => (
               <div
                 key={imagen.id}
-                className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-100 group cursor-pointer"
+                className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer"
+                style={{ border: "1px solid var(--color-border-subtle)", background: "var(--color-bg-elevated)" }}
                 onClick={() => setImagenSeleccionada(imagen.urlImagen)}
               >
                 <img
@@ -247,7 +250,8 @@ export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
                       handleEliminar(imagen.id);
                     }}
                     disabled={eliminando === imagen.id}
-                    className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                    className="absolute top-2 right-2 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                    style={{ background: "var(--color-danger)" }}
                   >
                     {eliminando === imagen.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -280,7 +284,9 @@ export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
           <div className="relative max-w-4xl max-h-[90vh]">
             <button
               onClick={() => setImagenSeleccionada(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-2xl font-bold"
+              className="absolute -top-10 right-0 text-white text-2xl font-bold"
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.7")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
             >
               ✕
             </button>

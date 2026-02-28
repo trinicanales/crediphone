@@ -121,6 +121,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
   // Presupuesto
   const [presupuestoTotal, setPresupuestoTotal] = useState<number>(0);
   const [anticipos, setAnticipos] = useState<any[]>([]);
+  // Archivos de foto pendientes de subir (modo creación)
+  const [archivosPendientes, setArchivosPendientes] = useState<File[]>([]);
 
   const [patronDesbloqueo, setPatronDesbloqueo] = useState<string>("");
   const [passwordDispositivo, setPasswordDispositivo] = useState<string>("");
@@ -281,6 +283,11 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
       return;
     }
 
+    if (isSuperAdmin && !distribuidorSeleccionado) {
+      alert("Por favor selecciona el distribuidor destino de la orden");
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -312,6 +319,9 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
         // Fase 8C - Presupuesto
         presupuestoTotal,
         anticiposData: anticipos,
+
+        // Super admin: asignar a distribuidor específico
+        ...(isSuperAdmin && distribuidorSeleccionado ? { distribuidorId: distribuidorSeleccionado } : {}),
       };
 
       const response = await fetch("/api/reparaciones", {
@@ -323,6 +333,20 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
       const data = await response.json();
 
       if (data.success) {
+        // Subir fotos pendientes (seleccionadas antes de guardar)
+        if (archivosPendientes.length > 0) {
+          try {
+            const fotosForm = new FormData();
+            fotosForm.append("ordenId", data.data.id);
+            fotosForm.append("tipoImagen", "dispositivo");
+            fotosForm.append("subidoDesde", "web");
+            archivosPendientes.forEach((file, i) => fotosForm.append(`imagen${i}`, file));
+            await fetch("/api/reparaciones/fotos", { method: "POST", body: fotosForm });
+          } catch (fotoError) {
+            console.error("Error al subir fotos pendientes:", fotoError);
+          }
+        }
+
         // Generar QR automáticamente
         try {
           await fetch("/api/reparaciones/qr/generar", {
@@ -421,6 +445,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     setCuentasDispositivo([]);
     setTipoFirma(null);
     setFirmaData(null);
+    setArchivosPendientes([]);
+    setDistribuidorSeleccionado("");
   }
 
   return (
@@ -432,41 +458,60 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* FOLIO PRE-GENERADO */}
-        <div className="flex items-center justify-between px-2 py-2 rounded-lg border border-dashed border-blue-300 bg-blue-50">
-          <span className="text-sm font-medium text-blue-700">Folio de la orden:</span>
-          <span className="font-mono font-bold text-blue-900 tracking-widest text-base">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.5rem 0.75rem", borderRadius: "0.5rem", border: "1px dashed var(--color-accent)", background: "var(--color-accent-light)" }}>
+          <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--color-accent)" }}>Folio de la orden:</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--color-primary)", letterSpacing: "0.1em", fontSize: "1rem" }}>
             {cargandoFolio ? "Generando..." : (folioReservado || "Pendiente")}
           </span>
         </div>
 
+        {/* SELECTOR DE DISTRIBUIDOR (solo super_admin) */}
+        {isSuperAdmin && (
+          <div className="px-2">
+            <div style={{ borderRadius: "0.5rem", border: "2px solid var(--color-warning)", background: "var(--color-warning-bg)", padding: "0.75rem" }}>
+              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--color-warning-text)", marginBottom: "0.25rem" }}>
+                🏪 Distribuidor de la Orden <span style={{ color: "var(--color-danger)" }}>*</span>
+              </label>
+              <select
+                value={distribuidorSeleccionado}
+                onChange={(e) => setDistribuidorSeleccionado(e.target.value)}
+                style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-warning)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)", padding: "0.5rem 0.75rem", fontSize: "0.875rem", fontWeight: 500 }}
+                required
+              >
+                <option value="">Seleccionar distribuidor destino...</option>
+                {distribuidores.map((d) => (
+                  <option key={d.id} value={d.id}>{d.nombre}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* El scroll lo maneja el Modal; solo añadimos padding lateral y espaciado */}
         <div className="px-2 space-y-6">
 
-          {/* SECCIÓN 1: DATOS BÁSICOS - DISEÑO ENTERPRISE */}
+          {/* SECCIÓN 1: DATOS BÁSICOS */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-xl border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-indigo-50 p-6 shadow-lg"
+            style={{ borderRadius: "0.75rem", border: "2px solid var(--color-primary-mid)", background: "var(--color-primary-light)", padding: "1.5rem", boxShadow: "var(--shadow-md)" }}
           >
-            {/* Glassmorphism overlay */}
-            <div className="absolute inset-0 bg-white/30 backdrop-blur-sm" />
-
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-3 shadow-lg">
-                  <User className="h-6 w-6 text-white" />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                <div style={{ borderRadius: "0.75rem", background: "var(--color-primary)", padding: "0.75rem", boxShadow: "var(--shadow-md)" }}>
+                  <User className="h-6 w-6" style={{ color: "var(--color-primary-text)" }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-blue-900">Datos Básicos</h2>
-                  <p className="text-sm text-blue-700">Información del cliente y dispositivo</p>
+                  <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--color-primary)" }}>Datos Básicos</h2>
+                  <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>Información del cliente y dispositivo</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 {/* Cliente con opción de crear nuevo */}
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Cliente <span className="text-red-500">*</span>
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                    Cliente <span style={{ color: "var(--color-danger)" }}>*</span>
                   </label>
 
                   {!mostrarFormNuevoCliente ? (
@@ -477,7 +522,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                         onChange={handleChange}
                         required
                         disabled={loadingClientes}
-                        className="flex-1 rounded-lg border-2 border-gray-300 bg-white px-4 py-3 font-medium shadow-sm transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        style={{ flex: 1, borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem" }}
                       >
                         <option value="">
                           {loadingClientes ? "Cargando clientes..." : "Seleccionar cliente"}
@@ -494,7 +539,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setMostrarFormNuevoCliente(true)}
-                        className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3 font-semibold text-white shadow-lg transition-all hover:shadow-xl"
+                        style={{ display: "flex", alignItems: "center", gap: "0.5rem", borderRadius: "0.5rem", background: "var(--color-success)", padding: "0.75rem 1rem", fontWeight: 600, color: "#fff", boxShadow: "var(--shadow-md)" }}
                       >
                         <UserPlus className="h-5 w-5" />
                         Nuevo
@@ -506,9 +551,9 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden rounded-xl border-2 border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 p-4 shadow-lg"
+                        style={{ overflow: "hidden", borderRadius: "0.75rem", border: "2px solid var(--color-success)", background: "var(--color-success-bg)", padding: "1rem", boxShadow: "var(--shadow-md)" }}
                       >
-                        <h4 className="mb-3 text-sm font-bold text-green-800">
+                        <h4 style={{ marginBottom: "0.75rem", fontSize: "0.875rem", fontWeight: 700, color: "var(--color-success-text)" }}>
                           Crear Nuevo Cliente
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -516,7 +561,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                             <select
                               value={distribuidorSeleccionado}
                               onChange={(e) => setDistribuidorSeleccionado(e.target.value)}
-                              className="md:col-span-2 rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm transition-all focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                              style={{ gridColumn: "span 2", borderRadius: "0.5rem", border: "2px solid var(--color-warning)", background: "var(--color-warning-bg)", color: "var(--color-text-primary)", padding: "0.5rem 0.75rem", fontSize: "0.875rem" }}
                               required
                             >
                               <option value="">Seleccionar distribuidor *</option>
@@ -528,50 +573,40 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                           <input
                             type="text"
                             value={nuevoCliente.nombre}
-                            onChange={(e) =>
-                              setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })
-                            }
+                            onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })}
                             placeholder="Nombre *"
-                            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm transition-all focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                            style={{ borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)", padding: "0.5rem 0.75rem", fontSize: "0.875rem" }}
                             required
                           />
                           <input
                             type="text"
                             value={nuevoCliente.apellido}
-                            onChange={(e) =>
-                              setNuevoCliente({ ...nuevoCliente, apellido: e.target.value })
-                            }
+                            onChange={(e) => setNuevoCliente({ ...nuevoCliente, apellido: e.target.value })}
                             placeholder="Apellido *"
-                            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm transition-all focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                            style={{ borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)", padding: "0.5rem 0.75rem", fontSize: "0.875rem" }}
                             required
                           />
                           <input
                             type="tel"
                             value={nuevoCliente.telefono}
-                            onChange={(e) =>
-                              setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })
-                            }
+                            onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })}
                             placeholder="Teléfono *"
-                            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm transition-all focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                            style={{ borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)", padding: "0.5rem 0.75rem", fontSize: "0.875rem" }}
                             required
                           />
                           <input
                             type="email"
                             value={nuevoCliente.email}
-                            onChange={(e) =>
-                              setNuevoCliente({ ...nuevoCliente, email: e.target.value })
-                            }
+                            onChange={(e) => setNuevoCliente({ ...nuevoCliente, email: e.target.value })}
                             placeholder="Email (opcional)"
-                            className="rounded-lg border-2 border-gray-200 px-3 py-2 text-sm transition-all focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                            style={{ borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)", padding: "0.5rem 0.75rem", fontSize: "0.875rem" }}
                           />
                           <input
                             type="text"
                             value={nuevoCliente.direccion}
-                            onChange={(e) =>
-                              setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })
-                            }
+                            onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })}
                             placeholder="Dirección (opcional)"
-                            className="md:col-span-2 rounded-lg border-2 border-gray-200 px-3 py-2 text-sm transition-all focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                            style={{ gridColumn: "span 2", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)", padding: "0.5rem 0.75rem", fontSize: "0.875rem" }}
                           />
                         </div>
                         <div className="mt-3 flex gap-2">
@@ -581,7 +616,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                             whileTap={{ scale: 0.98 }}
                             onClick={handleCrearCliente}
                             disabled={creandoCliente}
-                            className="flex-1 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg disabled:opacity-50"
+                            style={{ flex: 1, borderRadius: "0.5rem", background: "var(--color-success)", padding: "0.5rem 1rem", fontSize: "0.875rem", fontWeight: 600, color: "#fff", boxShadow: "var(--shadow-sm)", opacity: creandoCliente ? 0.5 : 1 }}
                           >
                             {creandoCliente ? "Creando..." : "Crear Cliente"}
                           </motion.button>
@@ -590,7 +625,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setMostrarFormNuevoCliente(false)}
-                            className="rounded-lg border-2 border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+                            style={{ borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", padding: "0.5rem 1rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-primary)" }}
                           >
                             Cancelar
                           </motion.button>
@@ -603,8 +638,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                 {/* Dispositivo */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Marca <span className="text-red-500">*</span>
+                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                      Marca <span style={{ color: "var(--color-danger)" }}>*</span>
                     </label>
                     <input
                       type="text"
@@ -613,13 +648,13 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                       onChange={handleChange}
                       required
                       placeholder="Samsung, Apple, Xiaomi"
-                      className="w-full rounded-lg border-2 border-gray-300 px-4 py-3 font-medium shadow-sm transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem" }}
                     />
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Modelo <span className="text-red-500">*</span>
+                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                      Modelo <span style={{ color: "var(--color-danger)" }}>*</span>
                     </label>
                     <input
                       type="text"
@@ -628,14 +663,14 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                       onChange={handleChange}
                       required
                       placeholder="Galaxy A54, iPhone 12"
-                      className="w-full rounded-lg border-2 border-gray-300 px-4 py-3 font-medium shadow-sm transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem" }}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                       IMEI (Opcional)
                     </label>
                     <input
@@ -645,12 +680,12 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                       onChange={handleChange}
                       placeholder="15 dígitos"
                       maxLength={15}
-                      className="w-full rounded-lg border-2 border-gray-300 px-4 py-3 shadow-sm transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontFamily: "var(--font-mono)", fontSize: "0.875rem" }}
                     />
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                       Número de Serie (Opcional)
                     </label>
                     <input
@@ -659,15 +694,15 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                       value={formData.numeroSerie}
                       onChange={handleChange}
                       placeholder="Número de serie"
-                      className="w-full rounded-lg border-2 border-gray-300 px-4 py-3 shadow-sm transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontFamily: "var(--font-mono)", fontSize: "0.875rem" }}
                     />
                   </div>
                 </div>
 
                 {/* Problema */}
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Problema Reportado <span className="text-red-500">*</span>
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                    Problema Reportado <span style={{ color: "var(--color-danger)" }}>*</span>
                   </label>
                   <textarea
                     name="problemaReportado"
@@ -676,19 +711,19 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                     required
                     rows={3}
                     placeholder="Describe el problema que presenta el dispositivo"
-                    className="w-full rounded-lg border-2 border-gray-300 px-4 py-3 shadow-sm transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontSize: "0.875rem", resize: "vertical" }}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                     Prioridad
                   </label>
                   <select
                     name="prioridad"
                     value={formData.prioridad}
                     onChange={handleChange}
-                    className="w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-3 font-medium shadow-sm transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem" }}
                   >
                     <option value="baja">🟢 Baja</option>
                     <option value="normal">🟡 Normal</option>
@@ -700,23 +735,21 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             </div>
           </motion.div>
 
-          {/* SECCIÓN 2: FOTOS - DISEÑO ENTERPRISE */}
+          {/* SECCIÓN 2: FOTOS */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="relative overflow-hidden rounded-xl border-2 border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 p-6 shadow-lg"
+            style={{ borderRadius: "0.75rem", border: "2px solid var(--color-success)", background: "var(--color-success-bg)", padding: "1.5rem", boxShadow: "var(--shadow-md)" }}
           >
-            <div className="absolute inset-0 bg-white/30 backdrop-blur-sm" />
-
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 p-3 shadow-lg">
-                  <Camera className="h-6 w-6 text-white" />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                <div style={{ borderRadius: "0.75rem", background: "var(--color-success)", padding: "0.75rem", boxShadow: "var(--shadow-md)" }}>
+                  <Camera className="h-6 w-6" style={{ color: "#fff" }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-green-900">Fotos del Dispositivo</h2>
-                  <p className="text-sm text-green-700">QR, subida directa o desde celular</p>
+                  <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--color-success-text)" }}>Fotos del Dispositivo</h2>
+                  <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>Subida directa o QR desde celular (tras guardar)</p>
                 </div>
               </div>
               <SistemaFotosOrden
@@ -724,10 +757,11 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                 modoCreacion={true}
                 imagenes={imagenes}
                 onChange={setImagenes}
+                onArchivosPendientes={setArchivosPendientes}
               />
 
               {/* Patrón de desbloqueo */}
-              <div className="border-t-2 border-green-200 mt-6 pt-6">
+              <div style={{ borderTop: "2px solid var(--color-success)", marginTop: "1.5rem", paddingTop: "1.5rem" }}>
                 <CapturaPatron
                   onPatronCapturado={(patron) => setPatronDesbloqueo(patron.codificado)}
                   patronActual={patronDesbloqueo}
@@ -735,14 +769,14 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
               </div>
 
               {/* Contraseña / PIN del dispositivo */}
-              <div className="border-t-2 border-yellow-200 mt-6 pt-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xl">🔐</span>
+              <div style={{ borderTop: "2px solid var(--color-warning)", marginTop: "1.5rem", paddingTop: "1.5rem" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                  <span style={{ fontSize: "1.25rem" }}>🔐</span>
                   <div>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                    <p style={{ fontWeight: 600, color: "var(--color-text-primary)", fontSize: "0.875rem" }}>
                       Contraseña / PIN / Código
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
                       Si el cliente tiene contraseña numérica o alfanumérica (opcional — el técnico la verá en la orden)
                     </p>
                   </div>
@@ -752,30 +786,28 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                   value={passwordDispositivo}
                   onChange={(e) => setPasswordDispositivo(e.target.value)}
                   placeholder="Ej: 1234, abc123, 0000..."
-                  className="w-full rounded-lg border-2 border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 px-4 py-3 text-sm font-mono text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-warning)", background: "var(--color-warning-bg)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontSize: "0.875rem", fontFamily: "var(--font-mono)", outline: "none" }}
                   maxLength={50}
                 />
               </div>
             </div>
           </motion.div>
 
-          {/* SECCIÓN 3: CONDICIONES - DISEÑO ENTERPRISE */}
+          {/* SECCIÓN 3: CONDICIONES */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="relative overflow-hidden rounded-xl border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50 p-6 shadow-lg"
+            style={{ borderRadius: "0.75rem", border: "2px solid var(--color-warning)", background: "var(--color-warning-bg)", padding: "1.5rem", boxShadow: "var(--shadow-md)" }}
           >
-            <div className="absolute inset-0 bg-white/30 backdrop-blur-sm" />
-
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 p-3 shadow-lg">
-                  <Settings className="h-6 w-6 text-white" />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                <div style={{ borderRadius: "0.75rem", background: "var(--color-warning)", padding: "0.75rem", boxShadow: "var(--shadow-md)" }}>
+                  <Settings className="h-6 w-6" style={{ color: "#fff" }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-orange-900">Condiciones del Dispositivo</h2>
-                  <p className="text-sm text-orange-700">Funcionamiento y estado físico</p>
+                  <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--color-warning-text)" }}>Condiciones del Dispositivo</h2>
+                  <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>Funcionamiento y estado físico</p>
                 </div>
               </div>
 
@@ -785,7 +817,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                   onChange={setCondicionesFuncionamiento}
                 />
 
-                <div className="border-t-2 border-orange-200 pt-6">
+                <div style={{ borderTop: "2px solid var(--color-warning)", paddingTop: "1.5rem" }}>
                   <IconosEstadoFisico
                     estadoFisico={estadoFisico}
                     onChange={setEstadoFisico}
@@ -795,23 +827,21 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             </div>
           </motion.div>
 
-          {/* SECCIÓN 4: PRESUPUESTO - NUEVO */}
+          {/* SECCIÓN 4: PRESUPUESTO */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="relative overflow-hidden rounded-xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 shadow-lg"
+            style={{ borderRadius: "0.75rem", border: "2px solid var(--color-accent)", background: "var(--color-accent-light)", padding: "1.5rem", boxShadow: "var(--shadow-md)" }}
           >
-            <div className="absolute inset-0 bg-white/30 backdrop-blur-sm" />
-
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 p-3 shadow-lg">
-                  <DollarSign className="h-6 w-6 text-white" />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                <div style={{ borderRadius: "0.75rem", background: "var(--color-accent)", padding: "0.75rem", boxShadow: "var(--shadow-md)" }}>
+                  <DollarSign className="h-6 w-6" style={{ color: "#fff" }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-emerald-900">Presupuesto y Anticipos</h2>
-                  <p className="text-sm text-emerald-700">Costos y pagos parciales</p>
+                  <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--color-accent-hover)" }}>Presupuesto y Anticipos</h2>
+                  <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>Costos y pagos parciales</p>
                 </div>
               </div>
 
@@ -826,23 +856,21 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             </div>
           </motion.div>
 
-          {/* SECCIÓN 5: CUENTAS DEL DISPOSITIVO - DISEÑO ENTERPRISE */}
+          {/* SECCIÓN 5: CUENTAS DEL DISPOSITIVO */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="relative overflow-hidden rounded-xl border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-fuchsia-50 p-6 shadow-lg"
+            style={{ borderRadius: "0.75rem", border: "2px solid var(--color-info)", background: "var(--color-info-bg)", padding: "1.5rem", boxShadow: "var(--shadow-md)" }}
           >
-            <div className="absolute inset-0 bg-white/30 backdrop-blur-sm" />
-
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-600 p-3 shadow-lg">
-                  <Lock className="h-6 w-6 text-white" />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                <div style={{ borderRadius: "0.75rem", background: "var(--color-info)", padding: "0.75rem", boxShadow: "var(--shadow-md)" }}>
+                  <Lock className="h-6 w-6" style={{ color: "#fff" }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-purple-900">Cuentas del Dispositivo</h2>
-                  <p className="text-sm text-purple-700">Google, Apple, Samsung, etc. (opcional)</p>
+                  <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--color-info-text)" }}>Cuentas del Dispositivo</h2>
+                  <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>Google, Apple, Samsung, etc. (opcional)</p>
                 </div>
               </div>
 
@@ -853,25 +881,23 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             </div>
           </motion.div>
 
-          {/* SECCIÓN 6: FIRMA - DISEÑO ENTERPRISE */}
+          {/* SECCIÓN 6: FIRMA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="relative overflow-hidden rounded-xl border-2 border-red-300 bg-gradient-to-br from-red-50 to-rose-50 p-6 shadow-lg"
+            style={{ borderRadius: "0.75rem", border: "2px solid var(--color-danger)", background: "var(--color-danger-bg)", padding: "1.5rem", boxShadow: "var(--shadow-md)" }}
           >
-            <div className="absolute inset-0 bg-white/30 backdrop-blur-sm" />
-
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="rounded-xl bg-gradient-to-br from-red-500 to-rose-600 p-3 shadow-lg">
-                  <PenTool className="h-6 w-6 text-white" />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                <div style={{ borderRadius: "0.75rem", background: "var(--color-danger)", padding: "0.75rem", boxShadow: "var(--shadow-md)" }}>
+                  <PenTool className="h-6 w-6" style={{ color: "#fff" }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-red-900">
-                    Firma del Cliente <span className="text-red-500">*</span>
+                  <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--color-danger-text)" }}>
+                    Firma del Cliente <span style={{ color: "var(--color-danger)" }}>*</span>
                   </h2>
-                  <p className="text-sm text-red-700">Digital o manuscrita</p>
+                  <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>Digital o manuscrita</p>
                 </div>
               </div>
 
@@ -887,11 +913,11 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
           </motion.div>
         </div>
 
-        {/* Botones fijos al final con glassmorphism */}
+        {/* Botones fijos al final */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="sticky bottom-0 -mx-6 -mb-6 flex gap-3 border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 px-6 pb-6 pt-4 backdrop-blur-lg"
+          style={{ position: "sticky", bottom: 0, margin: "0 -1.5rem -1.5rem", display: "flex", gap: "0.75rem", borderTop: "2px solid var(--color-border-subtle)", background: "var(--color-bg-elevated)", padding: "1rem 1.5rem 1.5rem", backdropFilter: "blur(12px)" }}
         >
           <motion.button
             type="button"
@@ -899,7 +925,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             whileTap={{ scale: 0.98 }}
             onClick={onClose}
             disabled={submitting}
-            className="flex-1 rounded-xl border-2 border-gray-300 bg-white px-6 py-3 font-bold text-gray-700 shadow-lg transition-all hover:shadow-xl disabled:opacity-50"
+            style={{ flex: 1, borderRadius: "0.75rem", border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", padding: "0.75rem 1.5rem", fontWeight: 700, color: "var(--color-text-primary)", boxShadow: "var(--shadow-md)", opacity: submitting ? 0.5 : 1 }}
           >
             Cancelar
           </motion.button>
@@ -908,16 +934,16 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             disabled={submitting || !tipoFirma || !firmaData}
-            className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 px-6 py-3 font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-50"
+            style={{ flex: 1, borderRadius: "0.75rem", background: "var(--color-primary)", padding: "0.75rem 1.5rem", fontWeight: 700, color: "var(--color-primary-text)", boxShadow: "var(--shadow-md)", opacity: (submitting || !tipoFirma || !firmaData) ? 0.5 : 1 }}
           >
             {submitting ? (
               <>
-                <span className="mr-2 animate-spin">⏳</span>
+                <span style={{ marginRight: "0.5rem" }}>⏳</span>
                 Creando orden y PDF...
               </>
             ) : (
               <>
-                <span className="mr-2">✓</span>
+                <span style={{ marginRight: "0.5rem" }}>✓</span>
                 Finalizar y Generar PDF
               </>
             )}

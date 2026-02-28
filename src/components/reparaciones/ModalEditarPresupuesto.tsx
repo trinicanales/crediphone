@@ -190,7 +190,7 @@ export function ModalEditarPresupuesto({
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Costo de Mano de Obra */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Costo de Mano de Obra
           </label>
           <Input
@@ -207,7 +207,7 @@ export function ModalEditarPresupuesto({
         {/* Lista de Partes */}
         <div>
           <div className="flex justify-between items-center mb-3">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
               Partes a Reemplazar
             </label>
             <Button
@@ -223,8 +223,8 @@ export function ModalEditarPresupuesto({
 
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {partes.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <p className="text-gray-500 text-sm">
+              <div className="text-center py-8 rounded-lg" style={{ background: "var(--color-bg-elevated)" }}>
+                <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
                   No hay partes agregadas. Haz clic en "Agregar Parte" para comenzar.
                 </p>
               </div>
@@ -232,7 +232,8 @@ export function ModalEditarPresupuesto({
               partes.map((parte, index) => (
                 <div
                   key={index}
-                  className="grid grid-cols-12 gap-2 items-start p-3 bg-gray-50 rounded-lg"
+                  className="grid grid-cols-12 gap-2 items-start p-3 rounded-lg"
+                  style={{ background: "var(--color-bg-elevated)" }}
                 >
                   {/* Nombre de la parte */}
                   <div className="col-span-4">
@@ -293,7 +294,10 @@ export function ModalEditarPresupuesto({
                     <button
                       type="button"
                       onClick={() => handleEliminarParte(index)}
-                      className="text-red-600 hover:text-red-800 p-1"
+                      className="p-1"
+                      style={{ color: "var(--color-danger)" }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = "0.7")}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -305,43 +309,39 @@ export function ModalEditarPresupuesto({
         </div>
 
         {/* Resumen de Costos */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-          <h3 className="font-semibold text-gray-900 mb-3">Resumen de Costos</h3>
+        <div className="rounded-lg p-4 space-y-2" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)" }}>
+          <h3 className="font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>Resumen de Costos</h3>
 
           <div className="flex justify-between text-sm">
-            <span className="text-gray-700">Mano de Obra:</span>
-            <span className="font-medium">{formatCurrency(costoManoObra)}</span>
+            <span style={{ color: "var(--color-text-secondary)" }}>Mano de Obra:</span>
+            <span className="font-medium" style={{ color: "var(--color-text-primary)" }}>{formatCurrency(costoManoObra)}</span>
           </div>
 
           <div className="flex justify-between text-sm">
-            <span className="text-gray-700">Partes ({partes.length}):</span>
-            <span className="font-medium">{formatCurrency(costoPartes)}</span>
+            <span style={{ color: "var(--color-text-secondary)" }}>Partes ({partes.length}):</span>
+            <span className="font-medium" style={{ color: "var(--color-text-primary)" }}>{formatCurrency(costoPartes)}</span>
           </div>
 
-          <div className="border-t border-blue-300 pt-2 mt-2">
+          <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--color-accent)" }}>
             <div className="flex justify-between text-base font-semibold">
-              <span className="text-gray-900">Costo Total:</span>
-              <span className="text-blue-600">{formatCurrency(costoTotal)}</span>
+              <span style={{ color: "var(--color-text-primary)" }}>Costo Total:</span>
+              <span style={{ color: "var(--color-accent)" }}>{formatCurrency(costoTotal)}</span>
             </div>
           </div>
 
           {anticipos.length > 0 && (
             <>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-700">Anticipos Recibidos:</span>
-                <span className="font-medium text-green-600">
+                <span style={{ color: "var(--color-text-secondary)" }}>Anticipos Recibidos:</span>
+                <span className="font-medium" style={{ color: "var(--color-success)" }}>
                   -{formatCurrency(totalAnticipos)}
                 </span>
               </div>
 
-              <div className="border-t border-blue-300 pt-2 mt-2">
+              <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--color-accent)" }}>
                 <div className="flex justify-between text-base font-semibold">
-                  <span className="text-gray-900">Saldo Pendiente:</span>
-                  <span
-                    className={
-                      saldoPendiente > 0 ? "text-orange-600" : "text-green-600"
-                    }
-                  >
+                  <span style={{ color: "var(--color-text-primary)" }}>Saldo Pendiente:</span>
+                  <span style={{ color: saldoPendiente > 0 ? "var(--color-warning)" : "var(--color-success)" }}>
                     {formatCurrency(saldoPendiente)}
                   </span>
                 </div>
@@ -352,14 +352,14 @@ export function ModalEditarPresupuesto({
 
         {/* Advertencias */}
         {orden.aprobadoPorCliente && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="rounded-lg p-4" style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}>
             <div className="flex gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--color-warning)" }} />
               <div>
-                <p className="text-sm font-medium text-yellow-900">
+                <p className="text-sm font-medium" style={{ color: "var(--color-warning-text)" }}>
                   Presupuesto Ya Aprobado
                 </p>
-                <p className="text-sm text-yellow-700 mt-1">
+                <p className="text-sm mt-1" style={{ color: "var(--color-warning-text)" }}>
                   Este presupuesto fue aprobado por el cliente. Modificarlo puede
                   requerir una nueva aprobación.
                 </p>
@@ -370,15 +370,15 @@ export function ModalEditarPresupuesto({
 
         {/* Error de Validación */}
         {errors.total && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-800">{errors.total}</p>
+          <div className="rounded-lg p-4" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
+            <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{errors.total}</p>
           </div>
         )}
 
         {/* Error General */}
         {errors.submit && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-800">{errors.submit}</p>
+          <div className="rounded-lg p-4" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
+            <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{errors.submit}</p>
           </div>
         )}
 

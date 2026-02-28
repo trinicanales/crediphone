@@ -3,7 +3,7 @@
  * Funciones para gestión de sesiones de caja y movimientos
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { CajaSesion, CajaMovimiento } from "@/types";
 
 // =====================================================

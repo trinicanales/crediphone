@@ -51,7 +51,7 @@ export function CapturaPatron({
 
     // Dibujar líneas de conexión
     if (puntos.length > 1) {
-      ctx.strokeStyle = "#3b82f6";
+      ctx.strokeStyle = "#0099B8";
       ctx.lineWidth = 3;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -77,9 +77,9 @@ export function CapturaPatron({
       // Círculo exterior
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, TAMANO_PUNTO, 0, 2 * Math.PI);
-      ctx.fillStyle = seleccionado ? "#3b82f6" : "#e5e7eb";
+      ctx.fillStyle = seleccionado ? "#0099B8" : "#DAE5EE";
       ctx.fill();
-      ctx.strokeStyle = seleccionado ? "#1d4ed8" : "#9ca3af";
+      ctx.strokeStyle = seleccionado ? "#09244A" : "#5A7A90";
       ctx.lineWidth = 2;
       ctx.stroke();
 
@@ -91,7 +91,7 @@ export function CapturaPatron({
         ctx.fill();
 
         // Mostrar orden
-        ctx.fillStyle = "#1d4ed8";
+        ctx.fillStyle = "#09244A";
         ctx.font = "bold 12px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -197,18 +197,18 @@ export function CapturaPatron({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+      <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--color-text-primary)" }}>
         <span>🔐</span>
         <span>Patrón de Desbloqueo</span>
       </h3>
 
-      <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700">
+      <div className="rounded p-2 text-xs" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)", color: "var(--color-accent)" }}>
         ℹ️ <strong>Dibuja el patrón de desbloqueo del dispositivo.</strong>{" "}
         Conecta al menos 4 puntos arrastrando el mouse o el dedo.
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <div className="border-2 border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div className="rounded-lg overflow-hidden" style={{ border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", boxShadow: "var(--shadow-sm)" }}>
           <canvas
             ref={canvasRef}
             width={CANVAS_SIZE}
@@ -226,20 +226,20 @@ export function CapturaPatron({
         </div>
 
         {patronActual && (
-          <div className="text-xs bg-green-50 border border-green-200 rounded p-2 text-green-700">
+          <div className="text-xs rounded p-2" style={{ background: "var(--color-success-bg)", border: "1px solid var(--color-success)", color: "var(--color-success-text)" }}>
             ✓ Patrón guardado: <code className="font-mono">{patronActual}</code>
           </div>
         )}
 
         {puntos.length > 0 && !mostrarConfirm && (
-          <div className="text-xs text-gray-600">
+          <div className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
             Puntos seleccionados: {puntos.length} / 9
           </div>
         )}
 
         {mostrarConfirm && (
           <div className="flex flex-col items-center gap-2 w-full max-w-xs">
-            <div className="text-xs text-gray-700 bg-yellow-50 border border-yellow-200 rounded p-2 w-full">
+            <div className="text-xs rounded p-2 w-full" style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)", color: "var(--color-warning-text)" }}>
               ⚠️ <strong>Verifica que el patrón sea correcto.</strong> Has
               conectado {puntos.length} puntos.
             </div>
@@ -247,14 +247,20 @@ export function CapturaPatron({
               <button
                 type="button"
                 onClick={limpiar}
-                className="flex-1 px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                className="flex-1 px-4 py-2 text-sm rounded-lg transition-colors"
+                style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-secondary)" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--color-bg-sunken)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "var(--color-bg-elevated)")}
               >
                 Reintentar
               </button>
               <button
                 type="button"
                 onClick={confirmar}
-                className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex-1 px-4 py-2 text-sm text-white rounded-lg transition-colors"
+                style={{ background: "var(--color-accent)" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--color-accent-hover)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "var(--color-accent)")}
               >
                 Confirmar
               </button>
@@ -266,14 +272,17 @@ export function CapturaPatron({
           <button
             type="button"
             onClick={limpiar}
-            className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+            className="text-xs hover:underline"
+            style={{ color: "var(--color-text-muted)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--color-text-secondary)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "var(--color-text-muted)")}
           >
             Limpiar patrón
           </button>
         )}
       </div>
 
-      <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded p-2">
+      <div className="text-xs rounded p-2" style={{ color: "var(--color-text-muted)", background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}>
         <strong>💡 Tip:</strong> El patrón se guarda codificado para seguridad.
         Solo el personal autorizado puede verlo en el sistema.
       </div>

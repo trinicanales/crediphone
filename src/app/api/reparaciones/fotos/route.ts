@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { subirImagenReparacion } from "@/lib/storage-reparaciones";
 
 export async function POST(request: NextRequest) {

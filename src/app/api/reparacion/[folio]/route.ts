@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * GET /api/reparacion/[folio]

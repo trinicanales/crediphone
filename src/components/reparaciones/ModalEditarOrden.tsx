@@ -148,11 +148,11 @@ export function ModalEditarOrden({
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Cliente */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Cliente *
           </label>
           {loadingClientes ? (
-            <div className="flex items-center gap-2 text-gray-500">
+            <div className="flex items-center gap-2" style={{ color: "var(--color-text-muted)" }}>
               <Loader2 className="w-4 h-4 animate-spin" />
               Cargando clientes...
             </div>
@@ -162,7 +162,8 @@ export function ModalEditarOrden({
               onChange={(e) =>
                 setFormData({ ...formData, clienteId: e.target.value })
               }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 rounded-lg focus:outline-none"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
               required
             >
               <option value="">-- Seleccione un cliente --</option>
@@ -174,19 +175,19 @@ export function ModalEditarOrden({
             </select>
           )}
           {errors.clienteId && (
-            <p className="mt-1 text-sm text-red-600">{errors.clienteId}</p>
+            <p className="mt-1 text-sm" style={{ color: "var(--color-danger)" }}>{errors.clienteId}</p>
           )}
         </div>
 
         {/* Información del Dispositivo */}
-        <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-          <h3 className="font-semibold text-gray-900 mb-3">
+        <div className="p-4 rounded-lg space-y-4" style={{ background: "var(--color-bg-elevated)" }}>
+          <h3 className="font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>
             Información del Dispositivo
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
                 Marca *
               </label>
               <Input
@@ -202,7 +203,7 @@ export function ModalEditarOrden({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
                 Modelo *
               </label>
               <Input
@@ -218,7 +219,7 @@ export function ModalEditarOrden({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
                 IMEI
               </label>
               <Input
@@ -232,7 +233,7 @@ export function ModalEditarOrden({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
                 Número de Serie
               </label>
               <Input
@@ -249,7 +250,7 @@ export function ModalEditarOrden({
 
         {/* Problema Reportado */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Problema Reportado *
           </label>
           <textarea
@@ -257,13 +258,14 @@ export function ModalEditarOrden({
             onChange={(e) =>
               setFormData({ ...formData, problemaReportado: e.target.value })
             }
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
             rows={4}
             placeholder="Descripción del problema reportado por el cliente"
             required
           />
           {errors.problemaReportado && (
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 text-sm" style={{ color: "var(--color-danger)" }}>
               {errors.problemaReportado}
             </p>
           )}
@@ -271,7 +273,7 @@ export function ModalEditarOrden({
 
         {/* Condición del Dispositivo */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Condición del Dispositivo
           </label>
           <textarea
@@ -279,7 +281,8 @@ export function ModalEditarOrden({
             onChange={(e) =>
               setFormData({ ...formData, condicionDispositivo: e.target.value })
             }
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
             rows={3}
             placeholder="Estado físico, rayones, golpes, etc."
           />
@@ -288,7 +291,7 @@ export function ModalEditarOrden({
         {/* Prioridad y Fecha */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
               Prioridad
             </label>
             <select
@@ -296,7 +299,8 @@ export function ModalEditarOrden({
               onChange={(e) =>
                 setFormData({ ...formData, prioridad: e.target.value as PrioridadOrden })
               }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
             >
               <option value="baja">Baja</option>
               <option value="normal">Normal</option>
@@ -306,7 +310,7 @@ export function ModalEditarOrden({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
               Fecha Estimada de Entrega
             </label>
             <Input
@@ -324,7 +328,7 @@ export function ModalEditarOrden({
 
         {/* Notas Internas */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Notas Internas
           </label>
           <textarea
@@ -332,18 +336,19 @@ export function ModalEditarOrden({
             onChange={(e) =>
               setFormData({ ...formData, notasInternas: e.target.value })
             }
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
             rows={3}
             placeholder="Notas internas (no visibles para el cliente)"
           />
         </div>
 
         {/* Campos NO Editables - Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-900 font-medium mb-2">
+        <div className="rounded-lg p-4" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)" }}>
+          <p className="text-sm font-medium mb-2" style={{ color: "var(--color-text-primary)" }}>
             Campos no editables desde este formulario:
           </p>
-          <ul className="text-sm text-blue-800 space-y-1">
+          <ul className="text-sm space-y-1" style={{ color: "var(--color-text-secondary)" }}>
             <li>• Folio (generado automáticamente)</li>
             <li>• Estado (usar botón "Cambiar Estado")</li>
             <li>• Técnico Asignado (requiere función específica)</li>
@@ -354,8 +359,8 @@ export function ModalEditarOrden({
 
         {/* Error General */}
         {errors.submit && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-800">{errors.submit}</p>
+          <div className="rounded-lg p-4" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
+            <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{errors.submit}</p>
           </div>
         )}
 

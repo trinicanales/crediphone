@@ -50,7 +50,7 @@ export function OrdenDetailHeader({ orden, onEdit }: OrdenDetailHeaderProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <div style={{ background: "var(--color-bg-surface)", borderRadius: "0.5rem", boxShadow: "var(--shadow-sm)", padding: "1.5rem", marginBottom: "1.5rem" }}>
       {/* Botón Volver */}
       <Button
         variant="ghost"
@@ -66,7 +66,7 @@ export function OrdenDetailHeader({ orden, onEdit }: OrdenDetailHeaderProps) {
         {/* Info Principal */}
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold text-gray-900">{orden.folio}</h1>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--color-text-primary)" }}>{orden.folio}</h1>
             <EstadoBadge estado={orden.estado} />
             <PrioridadBadge prioridad={orden.prioridad} />
           </div>
@@ -74,42 +74,42 @@ export function OrdenDetailHeader({ orden, onEdit }: OrdenDetailHeaderProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {/* Cliente */}
             <div>
-              <p className="text-sm text-gray-500">Cliente</p>
-              <p className="text-base font-medium text-gray-900">
+              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Cliente</p>
+              <p className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>
                 {orden.clienteNombre
                   ? `${orden.clienteNombre} ${orden.clienteApellido || ""}`.trim()
                   : "Sin cliente"}
               </p>
-              <p className="text-sm text-gray-600">{orden.clienteTelefono}</p>
+              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{orden.clienteTelefono}</p>
             </div>
 
             {/* Dispositivo */}
             <div>
-              <p className="text-sm text-gray-500">Dispositivo</p>
-              <p className="text-base font-medium text-gray-900">
+              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Dispositivo</p>
+              <p className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>
                 {orden.marcaDispositivo} {orden.modeloDispositivo}
               </p>
               {orden.imei && (
-                <p className="text-sm text-gray-600">IMEI: {orden.imei}</p>
+                <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>IMEI: {orden.imei}</p>
               )}
             </div>
 
             {/* Técnico */}
             <div>
-              <p className="text-sm text-gray-500">Técnico Asignado</p>
-              <p className="text-base font-medium text-gray-900">
+              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Técnico Asignado</p>
+              <p className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>
                 {orden.tecnicoNombre || "No asignado"}
               </p>
             </div>
 
             {/* Fechas */}
             <div>
-              <p className="text-sm text-gray-500">Fecha de Recepción</p>
-              <p className="text-base font-medium text-gray-900">
+              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Fecha de Recepción</p>
+              <p className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>
                 {formatFecha(orden.fechaRecepcion)}
               </p>
               {orden.fechaEstimadaEntrega && (
-                <p className="text-sm text-gray-600">
+                <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                   Entrega estimada: {formatFecha(orden.fechaEstimadaEntrega)}
                 </p>
               )}

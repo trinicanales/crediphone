@@ -3,7 +3,7 @@
  * Funciones específicas para obtener estadísticas y métricas
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getEstadisticasReparaciones,
   getCargaTecnicos,

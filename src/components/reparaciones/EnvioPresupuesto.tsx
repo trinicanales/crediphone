@@ -71,12 +71,18 @@ export function EnvioPresupuesto({ orden, onEnviado }: EnvioPresupuestoProps) {
     <div className="space-y-3">
       {/* Info del destinatario */}
       {telefono && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-xs text-gray-700">
-            <MessageSquare className="w-4 h-4 text-gray-500" />
+        <div
+          className="rounded-lg p-3"
+          style={{
+            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--color-border-subtle)",
+          }}
+        >
+          <div className="flex items-center gap-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
+            <MessageSquare className="w-4 h-4" style={{ color: "var(--color-text-muted)" }} />
             <span className="font-medium">Destinatario:</span>
-            <span className="font-semibold text-gray-900">{telefono}</span>
-            <span className="text-gray-600">
+            <span className="font-semibold" style={{ color: "var(--color-text-primary)" }}>{telefono}</span>
+            <span style={{ color: "var(--color-text-secondary)" }}>
               ({orden.clienteNombre} {orden.clienteApellido || ""})
             </span>
           </div>
@@ -90,10 +96,12 @@ export function EnvioPresupuesto({ orden, onEnviado }: EnvioPresupuestoProps) {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setMostrandoPreview(!mostrandoPreview)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5
-                     border-2 border-blue-300 bg-blue-50 text-blue-700
-                     rounded-lg font-semibold transition-all hover:bg-blue-100
-                     focus:ring-4 focus:ring-blue-100"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-all"
+          style={{
+            border: "2px solid var(--color-border-strong)",
+            background: "var(--color-bg-elevated)",
+            color: "var(--color-accent)",
+          }}
         >
           {mostrandoPreview ? (
             <>
@@ -114,11 +122,11 @@ export function EnvioPresupuesto({ orden, onEnviado }: EnvioPresupuestoProps) {
           whileTap={{ scale: 0.98 }}
           onClick={handleEnviar}
           disabled={enviando || !telefono}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5
-                     bg-gradient-to-r from-green-500 to-emerald-500 text-white
-                     rounded-lg font-semibold shadow-lg transition-all
-                     hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed
-                     focus:ring-4 focus:ring-green-100"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: "var(--color-success)",
+            color: "#ffffff",
+          }}
         >
           {enviando ? (
             <>
@@ -144,33 +152,54 @@ export function EnvioPresupuesto({ orden, onEnviado }: EnvioPresupuestoProps) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 rounded-xl p-5 shadow-inner">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-gray-300">
-                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+            <div
+              className="rounded-xl p-5"
+              style={{
+                background: "var(--color-bg-elevated)",
+                border: "2px solid var(--color-border)",
+              }}
+            >
+              <div
+                className="flex items-center gap-2 mb-4 pb-3"
+                style={{ borderBottom: "2px solid var(--color-border)" }}
+              >
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ background: "var(--color-success)" }}
+                >
                   <MessageSquare className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-gray-800">
+                  <h4 className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>
                     Mensaje de Presupuesto
                   </h4>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
                     Esto es lo que verá el cliente
                   </p>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg p-4 shadow-md">
-                <pre className="text-xs text-gray-800 whitespace-pre-wrap font-sans leading-relaxed">
+              <div
+                className="rounded-lg p-4"
+                style={{
+                  background: "var(--color-bg-surface)",
+                  boxShadow: "var(--shadow-sm)",
+                }}
+              >
+                <pre
+                  className="text-xs whitespace-pre-wrap font-sans leading-relaxed"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
                   {mensaje}
                 </pre>
               </div>
 
-              <div className="mt-4 flex items-center gap-2 text-xs text-gray-600">
-                <div className="flex-1 h-px bg-gray-300" />
+              <div className="mt-4 flex items-center gap-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                <div className="flex-1 h-px" style={{ background: "var(--color-border)" }} />
                 <span className="font-medium">
                   📱 Se enviará vía WhatsApp Web
                 </span>
-                <div className="flex-1 h-px bg-gray-300" />
+                <div className="flex-1 h-px" style={{ background: "var(--color-border)" }} />
               </div>
             </div>
           </motion.div>
@@ -179,9 +208,15 @@ export function EnvioPresupuesto({ orden, onEnviado }: EnvioPresupuestoProps) {
 
       {/* Alerta si no hay teléfono */}
       {!telefono && (
-        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 flex items-start gap-2">
-          <span className="text-red-600 text-lg">⚠️</span>
-          <div className="text-xs text-red-700">
+        <div
+          className="rounded-lg p-3 flex items-start gap-2"
+          style={{
+            background: "var(--color-danger-bg)",
+            border: "2px solid var(--color-danger)",
+          }}
+        >
+          <span className="text-lg" style={{ color: "var(--color-danger)" }}>⚠️</span>
+          <div className="text-xs" style={{ color: "var(--color-danger-text)" }}>
             <p className="font-semibold mb-1">No hay número de WhatsApp</p>
             <p>
               Este cliente no tiene un número de teléfono o WhatsApp registrado.

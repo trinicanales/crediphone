@@ -10,6 +10,8 @@ interface SistemaFotosOrdenProps {
   onChange: (imagenes: ImagenReparacion[]) => void;
   /** En modo creación el ordenId es temporal — deshabilitar QR hasta que la orden se guarde */
   modoCreacion?: boolean;
+  /** Callback para que el padre reciba los archivos pendientes de subir (modo creación) */
+  onArchivosPendientes?: (files: File[]) => void;
 }
 
 export function SistemaFotosOrden({
@@ -17,9 +19,35 @@ export function SistemaFotosOrden({
   imagenes,
   onChange,
   modoCreacion = false,
+  onArchivosPendientes,
 }: SistemaFotosOrdenProps) {
   const [metodo, setMetodo] = useState<"qr" | "directo" | null>(null);
   const [subiendo, setSubiendo] = useState(false);
+  // Para modoCreacion: guardar archivos localmente hasta que la orden tenga ID real
+  const [archivosPendiente, setArchivosPendiente] = useState<File[]>([]);
+  const [previewsPendiente, setPreviewsPendiente] = useState<string[]>([]);
+
+  // En modoCreacion: guardar archivos localmente, no llamar API todavía
+  const handleSubidaEnCreacion = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivos = e.target.files;
+    if (!archivos || archivos.length === 0) return;
+    const nuevosFiles = Array.from(archivos);
+    const nuevasPreviews = nuevosFiles.map((f) => URL.createObjectURL(f));
+    const todosFiles = [...archivosPendiente, ...nuevosFiles];
+    const todasPreviews = [...previewsPendiente, ...nuevasPreviews];
+    setArchivosPendiente(todosFiles);
+    setPreviewsPendiente(todasPreviews);
+    onArchivosPendientes?.(todosFiles);
+  };
+
+  const eliminarPendiente = (index: number) => {
+    URL.revokeObjectURL(previewsPendiente[index]);
+    const nuevosFiles = archivosPendiente.filter((_, i) => i !== index);
+    const nuevasPreviews = previewsPendiente.filter((_, i) => i !== index);
+    setArchivosPendiente(nuevosFiles);
+    setPreviewsPendiente(nuevasPreviews);
+    onArchivosPendientes?.(nuevosFiles);
+  };
 
   const handleSubidaDirecta = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivos = e.target.files;
@@ -129,43 +157,60 @@ export function SistemaFotosOrden({
             </button>
           )}
 
-          {modoCreacion ? (
-            <div className="p-6 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-center opacity-60 cursor-not-allowed">
-              <div className="text-4xl mb-2">💻</div>
-              <div className="text-sm font-semibold text-gray-500 mb-1">
-                Subida Directa
-              </div>
-              <div className="text-xs text-gray-400">
-                Disponible al guardar la orden
-              </div>
+          <label className="p-6 rounded-lg border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all text-center cursor-pointer group">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={modoCreacion ? handleSubidaEnCreacion : handleSubidaDirecta}
+              disabled={subiendo}
+              className="hidden"
+            />
+            <div className="text-4xl mb-2">💻</div>
+            <div className="text-sm font-semibold text-gray-800 mb-1">
+              Subida Directa
             </div>
-          ) : (
-            <label className="p-6 rounded-lg border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all text-center cursor-pointer group">
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleSubidaDirecta}
-                disabled={subiendo}
-                className="hidden"
-              />
-              <div className="text-4xl mb-2">💻</div>
-              <div className="text-sm font-semibold text-gray-800 mb-1">
-                Subida Directa
-              </div>
-              <div className="text-xs text-gray-600">
-                {subiendo ? "Subiendo..." : "Desde esta PC"}
-              </div>
-            </label>
-          )}
+            <div className="text-xs text-gray-600">
+              {subiendo ? "Subiendo..." : modoCreacion ? `Desde esta PC${archivosPendiente.length > 0 ? ` (${archivosPendiente.length} sel.)` : ""}` : "Desde esta PC"}
+            </div>
+          </label>
         </div>
 
         {modoCreacion && (
           <div className="mt-1 p-2 bg-amber-50 border border-amber-200 rounded-lg flex gap-2 text-xs text-amber-700">
             <span>💡</span>
             <span>
-              Las fotos se pueden agregar desde la <strong>página de detalle</strong> de la orden, una vez guardada. El QR también estará disponible ahí.
+              <strong>Subida directa disponible.</strong> Las fotos se subirán al guardar la orden. El QR desde celular estará disponible en la página de detalle.
             </span>
+          </div>
+        )}
+
+        {modoCreacion && previewsPendiente.length > 0 && (
+          <div className="mt-3">
+            <div className="text-xs font-semibold text-gray-700 mb-2">
+              Fotos seleccionadas — se subirán al guardar ({previewsPendiente.length})
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {previewsPendiente.map((preview, index) => (
+                <div
+                  key={index}
+                  className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-100 group"
+                >
+                  <img
+                    src={preview}
+                    alt={`Foto ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => eliminarPendiente(index)}
+                    className="absolute top-1 right-1 bg-red-600 text-white w-5 h-5 rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

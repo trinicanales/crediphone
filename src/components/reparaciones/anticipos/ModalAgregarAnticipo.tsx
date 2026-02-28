@@ -151,12 +151,12 @@ export function ModalAgregarAnticipo({
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Info del Saldo */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="rounded-lg p-4" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)" }}>
           <div className="flex items-center gap-3">
-            <DollarSign className="w-5 h-5 text-blue-600" />
+            <DollarSign className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
             <div>
-              <p className="text-sm text-blue-700">Saldo Pendiente</p>
-              <p className="text-xl font-bold text-blue-900">
+              <p className="text-sm" style={{ color: "var(--color-accent)" }}>Saldo Pendiente</p>
+              <p className="text-xl font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
                 {formatCurrency(saldoPendiente)}
               </p>
             </div>
@@ -165,13 +165,14 @@ export function ModalAgregarAnticipo({
 
         {/* Tipo de Pago */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Tipo de Pago
           </label>
           <select
             value={tipoPago}
             onChange={(e) => setTipoPago(e.target.value as TipoPago)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
           >
             <option value="efectivo">Efectivo</option>
             <option value="transferencia">Transferencia</option>
@@ -183,12 +184,12 @@ export function ModalAgregarAnticipo({
         {/* Monto o Desglose Mixto */}
         {tipoPago === "mixto" ? (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
               Desglose de Pago Mixto
             </label>
-            <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
+            <div className="space-y-3 p-4 rounded-lg" style={{ background: "var(--color-bg-elevated)" }}>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs mb-1" style={{ color: "var(--color-text-secondary)" }}>
                   Efectivo
                 </label>
                 <Input
@@ -207,7 +208,7 @@ export function ModalAgregarAnticipo({
               </div>
 
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs mb-1" style={{ color: "var(--color-text-secondary)" }}>
                   Transferencia
                 </label>
                 <Input
@@ -226,7 +227,7 @@ export function ModalAgregarAnticipo({
               </div>
 
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs mb-1" style={{ color: "var(--color-text-secondary)" }}>
                   Tarjeta
                 </label>
                 <Input
@@ -244,24 +245,24 @@ export function ModalAgregarAnticipo({
                 />
               </div>
 
-              <div className="border-t border-gray-300 pt-3 mt-3">
+              <div className="pt-3 mt-3" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
                     Total:
                   </span>
-                  <span className="text-lg font-bold text-blue-600">
+                  <span className="text-lg font-bold" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
                     {formatCurrency(monto)}
                   </span>
                 </div>
               </div>
             </div>
             {errors.desglose && (
-              <p className="mt-1 text-sm text-red-600">{errors.desglose}</p>
+              <p className="mt-1 text-sm" style={{ color: "var(--color-danger)" }}>{errors.desglose}</p>
             )}
           </div>
         ) : (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
               Monto del Anticipo
             </label>
             <Input
@@ -279,7 +280,7 @@ export function ModalAgregarAnticipo({
 
         {/* Referencia de Pago */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Referencia de Pago (Opcional)
           </label>
           <Input
@@ -288,7 +289,7 @@ export function ModalAgregarAnticipo({
             onChange={(e) => setReferenciaPago(e.target.value)}
             placeholder="Ej: Últimos 4 dígitos, número de transacción"
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
             Para tarjetas: últimos 4 dígitos. Para transferencias: número de
             operación
           </p>
@@ -296,13 +297,14 @@ export function ModalAgregarAnticipo({
 
         {/* Notas */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Notas (Opcional)
           </label>
           <textarea
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 rounded-lg focus:outline-none"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
             rows={3}
             placeholder="Observaciones sobre el pago"
           />
@@ -310,14 +312,14 @@ export function ModalAgregarAnticipo({
 
         {/* Advertencia si excede el saldo */}
         {monto > saldoPendiente && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="rounded-lg p-4" style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}>
             <div className="flex gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--color-warning)" }} />
               <div>
-                <p className="text-sm font-medium text-yellow-900">
+                <p className="text-sm font-medium" style={{ color: "var(--color-warning-text)" }}>
                   El monto excede el saldo pendiente
                 </p>
-                <p className="text-sm text-yellow-700 mt-1">
+                <p className="text-sm mt-1" style={{ color: "var(--color-warning-text)" }}>
                   El anticipo de {formatCurrency(monto)} es mayor que el saldo
                   pendiente de {formatCurrency(saldoPendiente)}
                 </p>
@@ -328,8 +330,8 @@ export function ModalAgregarAnticipo({
 
         {/* Error General */}
         {errors.submit && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-800">{errors.submit}</p>
+          <div className="rounded-lg p-4" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
+            <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{errors.submit}</p>
           </div>
         )}
 
