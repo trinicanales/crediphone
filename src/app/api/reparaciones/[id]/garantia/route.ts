@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAuthContext } from "@/lib/auth/server";
 import {
   getOrdenReparacionById,
   getGarantiaByOrden,
@@ -147,8 +148,14 @@ export async function POST(
         );
       }
 
-      // TODO: Obtener usuario autenticado
-      const creadoPor = body.creadoPor || orden.tecnicoId; // PLACEHOLDER
+      const { userId } = await getAuthContext();
+      if (!userId) {
+        return NextResponse.json(
+          { success: false, error: "No autenticado" },
+          { status: 401 }
+        );
+      }
+      const creadoPor = userId;
 
       const ordenGarantia = await createOrdenGarantia(
         id,
