@@ -1,13 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { subirImagenReparacion } from "@/lib/storage-reparaciones";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Cliente anónimo para acceso público
+// Cliente anónimo solo para validar la sesión QR pública
 const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+
+const BUCKET_NAME = "reparaciones";
+
+async function subirArchivoQR(
+  archivo: File,
+  ordenId: string,
+  tipoImagen: string
+): Promise<{ url: string; path: string } | null> {
+  try {
+    const tiposPermitidos = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!tiposPermitidos.includes(archivo.type)) return null;
+    if (archivo.size > 10 * 1024 * 1024) return null;
+
+    const supabase = createAdminClient();
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    const extension = archivo.name.split(".").pop() || "jpg";
+    const nombreArchivo = `${ordenId}/${tipoImagen}/${timestamp}-${random}.${extension}`;
+    const buffer = Buffer.from(await archivo.arrayBuffer());
+
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(nombreArchivo, buffer, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: archivo.type,
+      });
+
+    if (error) {
+      console.error("Error al subir imagen QR al storage:", error);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(nombreArchivo);
+    return { url: urlData.publicUrl, path: nombreArchivo };
+  } catch (error) {
+    console.error("Error en subirArchivoQR:", error);
+    return null;
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -69,12 +108,8 @@ export async function POST(
       );
     }
 
-    // Subir imagen al storage
-    const resultado = await subirImagenReparacion(
-      archivo,
-      sesion.orden_id,
-      tipoImagen as any
-    );
+    // Subir imagen al storage usando admin client (server-side, sin browser APIs)
+    const resultado = await subirArchivoQR(archivo, sesion.orden_id, tipoImagen);
 
     if (!resultado) {
       return NextResponse.json(
@@ -83,7 +118,6 @@ export async function POST(
       );
     }
 
-    // Usar cliente admin para insertar en la BD
     const supabaseAdmin = createAdminClient();
 
     // Guardar registro en la base de datos

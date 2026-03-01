@@ -1,6 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { subirImagenReparacion } from "@/lib/storage-reparaciones";
+
+const BUCKET_NAME = "reparaciones";
+
+function generarNombreArchivo(ordenId: string, tipoImagen: string, extension: string = "jpg"): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `${ordenId}/${tipoImagen}/${timestamp}-${random}.${extension}`;
+}
+
+async function subirArchivoAlStorage(
+  supabase: ReturnType<typeof createAdminClient>,
+  archivo: File,
+  ordenId: string,
+  tipoImagen: string
+): Promise<{ url: string; path: string } | null> {
+  try {
+    const tiposPermitidos = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!tiposPermitidos.includes(archivo.type)) return null;
+    if (archivo.size > 10 * 1024 * 1024) return null;
+
+    const extension = archivo.name.split(".").pop() || "jpg";
+    const nombreArchivo = generarNombreArchivo(ordenId, tipoImagen, extension);
+    const buffer = Buffer.from(await archivo.arrayBuffer());
+
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(nombreArchivo, buffer, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: archivo.type,
+      });
+
+    if (error) {
+      console.error("Error al subir imagen al storage:", error);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(nombreArchivo);
+    return { url: urlData.publicUrl, path: nombreArchivo };
+  } catch (error) {
+    console.error("Error en subirArchivoAlStorage:", error);
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,12 +108,8 @@ export async function POST(request: NextRequest) {
     const imagenesSubidas = [];
 
     for (const archivo of archivos) {
-      // Subir al storage
-      const resultado = await subirImagenReparacion(
-        archivo,
-        ordenId,
-        tipoImagen as any
-      );
+      // Subir al storage usando admin client (server-side, sin browser APIs)
+      const resultado = await subirArchivoAlStorage(supabase, archivo, ordenId, tipoImagen);
 
       if (!resultado) {
         console.error("Error al subir imagen:", archivo.name);
