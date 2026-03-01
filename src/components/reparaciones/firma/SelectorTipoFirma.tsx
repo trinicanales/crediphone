@@ -69,8 +69,8 @@ export function SelectorTipoFirma({
       }
       setFirmaCapturaManuscrita(false);
     }
-    if (tipo === "digital") {
-      setNombreDigital("");
+    if (tipo === "digital" && !nombreDigital && nombreInicial) {
+      setNombreDigital(nombreInicial);
     }
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -51,6 +52,7 @@ interface ModalOrdenProps {
 export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
+  const router = useRouter();
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
@@ -69,6 +71,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     modeloDispositivo: "",
     imei: "",
     numeroSerie: "",
+    accesoriosEntregados: "",
     problemaReportado: "",
     fechaEstimadaEntrega: "",
     prioridad: "normal",
@@ -359,7 +362,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
           console.error("Error al generar QR:", qrError);
         }
 
-        // Generar PDF automáticamente
+        // Generar PDF automáticamente y descargarlo
         try {
           const pdfResponse = await fetch(`/api/reparaciones/${data.data.id}/pdf`, {
             method: "POST",
@@ -368,28 +371,28 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
           if (pdfResponse.ok) {
             const pdfBlob = await pdfResponse.blob();
             const pdfUrl = URL.createObjectURL(pdfBlob);
-
-            // Abrir PDF en nueva pestaña
-            window.open(pdfUrl, "_blank");
+            const a = document.createElement("a");
+            a.href = pdfUrl;
+            a.download = `Orden-${data.data.folio}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(pdfUrl);
           }
         } catch (pdfError) {
           console.error("Error al generar PDF:", pdfError);
         }
 
-        alert(
-          `✓ Orden ${data.data.folio} creada exitosamente!\n\n` +
-          `${imagenes.length} fotos adjuntadas\n` +
-          `${deslindesLegales.length} deslindes legales aplicados\n` +
-          `Presupuesto Total: $${presupuestoTotal.toFixed(2)}\n` +
-          `Anticipos: $${anticipos.reduce((sum, a) => sum + a.monto, 0).toFixed(2)}\n\n` +
-          `El PDF se abrirá en una nueva pestaña.`
-        );
+        const ordenId = data.data.id;
 
         // Limpiar folio reservado (ya fue usado — no cancelar)
         setFolioReservado(null);
         onSuccess();
         onClose();
         resetForm();
+
+        // Redirigir al detalle: ahí el técnico puede usar el QR de fotos (tab Fotos)
+        router.push(`/dashboard/reparaciones/${ordenId}`);
       } else {
         alert(`Error: ${data.error || data.message || "No se pudo crear la orden"}`);
       }
@@ -408,6 +411,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
       modeloDispositivo: "",
       imei: "",
       numeroSerie: "",
+      accesoriosEntregados: "",
       problemaReportado: "",
       fechaEstimadaEntrega: "",
       prioridad: "normal",
@@ -705,6 +709,21 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                       style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontFamily: "var(--font-mono)", fontSize: "0.875rem" }}
                     />
                   </div>
+                </div>
+
+                {/* Accesorios Entregados */}
+                <div>
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                    Accesorios Entregados (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    name="accesoriosEntregados"
+                    value={formData.accesoriosEntregados}
+                    onChange={handleChange}
+                    placeholder="Ej: cargador, funda, caja original"
+                    style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontSize: "0.875rem" }}
+                  />
                 </div>
 
                 {/* Problema */}

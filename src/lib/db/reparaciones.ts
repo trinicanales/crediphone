@@ -443,7 +443,8 @@ export async function createOrdenReparacion(
       marca_dispositivo: ordenData.marcaDispositivo,
       modelo_dispositivo: ordenData.modeloDispositivo,
       imei: ordenData.imei || null,
-      numero_serie: ordenData.numeroSerie || null,   // columna agregada en migración
+      numero_serie: ordenData.numeroSerie || null,
+      accesorios_entregados: ordenData.accesoriosEntregados || null,
       problema_reportado: ordenData.problemaReportado,
       estado: "recibido",
       costo_reparacion: ordenData.costoReparacion || 0,
@@ -504,7 +505,9 @@ export async function createOrdenReparacion(
         desglose_mixto: anticipo.desgloseMixto || null,
         referencia_pago: anticipo.referenciaPago || null,
         notas: anticipo.notas || null,
+        created_by: creadoPor,
         recibido_por: creadoPor,
+        estado: "pendiente",
         fecha_anticipo: new Date(),
       }));
 

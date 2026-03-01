@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
@@ -81,10 +82,11 @@ function renderEstadoFisico(ef: unknown): string {
   if (!ef || typeof ef !== "object" || Array.isArray(ef)) return "";
   const obj = ef as Record<string, unknown>;
   const campos: Record<string, string> = {
-    pantalla: "Pantalla", carcasa: "Carcasa", puertos: "Puertos",
-    botones: "Botones", tapaTrasera: "Tapa trasera",
+    marco: "Marco", bisel: "Bisel/Cristal", pantallaFisica: "Pantalla física",
+    camaraLente: "Lente cámara", tapaTrasera: "Tapa trasera",
   };
   const estados: Record<string, string> = {
+    perfecto: "Perfecto", rallado: "Rallado", golpeado: "Golpeado", quebrado: "Quebrado",
     buen_estado: "Bueno", rayada: "Rayada", rota: "Rota",
     manchas: "Manchas", ok: "OK", danado: "Dañado", sucio: "Sucio",
   };
@@ -130,8 +132,6 @@ function parseCondiciones(cond: unknown): {
   if (obj.llegaApagado)    alertas.push({ text: "⚠ Llega apagado",     color: C.amber });
   if (obj.estaMojado)      alertas.push({ text: "⚠ Daño por líquido",  color: C.blue  });
   if (obj.bateriaHinchada) alertas.push({ text: "⚠ Batería hinchada",  color: C.red   });
-  if (obj.entregaSIM)      extras.push("SIM incluida");
-  if (obj.entregaSD)       extras.push("MicroSD incluida");
   return { oks, fallas, alertas, extras };
 }
 
@@ -151,7 +151,7 @@ function buildTerms(cond: unknown, imei?: string): string[] {
   const terms: string[] = [
     "El cliente declara ser propietario legítimo del equipo entregado —o contar con autorización expresa del propietario— y asume plena responsabilidad legal por dicha declaración (Art. 1794, Código Civil Federal).",
     "CREDIPHONE no se hace responsable por pérdida de datos, archivos, aplicaciones o configuraciones durante el diagnóstico o la reparación. Se recomienda realizar un respaldo completo antes de entregar el equipo.",
-    "La reparación cuenta con garantía de 90 días naturales sobre la mano de obra realizada, conforme al Art. 76 bis de la Ley Federal de Protección al Consumidor (LFPC, vigente 2026). La garantía no aplica a daños posteriores por golpes, mal uso, contacto con líquidos u otras causas ajenas al servicio prestado.",
+    `La reparación cuenta con garantía de 90 días naturales sobre la mano de obra realizada, conforme al Art. 76 bis de la Ley Federal de Protección al Consumidor (LFPC, vigente ${new Date().getFullYear()}). La garantía no aplica a daños posteriores por golpes, mal uso, contacto con líquidos u otras causas ajenas al servicio prestado.`,
   ];
 
   // Condiciones especiales (un solo ítem agrupado)
@@ -205,6 +205,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { userId } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json({ success: false, message: "No autenticado" }, { status: 401 });
+    }
+
     const { id } = await params;
     const supabase = createAdminClient();
 
@@ -364,6 +369,13 @@ export async function POST(
     y2 = sectionLabel(doc, "Condiciones al Recibir", c2, y2);
     const { oks, fallas, alertas: alts, extras } =
       parseCondiciones(orden.condiciones_funcionamiento);
+
+    // SIM y SD provienen de estado_fisico_dispositivo (tieneSIM/tieneMemoriaSD)
+    const efObj = (orden.estado_fisico_dispositivo && typeof orden.estado_fisico_dispositivo === "object" && !Array.isArray(orden.estado_fisico_dispositivo))
+      ? orden.estado_fisico_dispositivo as Record<string, unknown>
+      : null;
+    if (efObj?.tieneSIM)       extras.push("SIM incluida");
+    if (efObj?.tieneMemoriaSD) extras.push("MicroSD incluida");
 
     doc.setFontSize(7);
 

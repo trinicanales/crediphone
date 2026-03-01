@@ -146,6 +146,7 @@ export async function POST(request: Request) {
         modeloDispositivo: body.modeloDispositivo,
         imei: body.imei || undefined,
         numeroSerie: body.numeroSerie || undefined,
+        accesoriosEntregados: body.accesoriosEntregados || undefined,
         problemaReportado: body.problemaReportado,
         condicionDispositivo: body.condicionDispositivo || undefined,
         fechaEstimadaEntrega: body.fechaEstimadaEntrega

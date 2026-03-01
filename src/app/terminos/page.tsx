@@ -133,7 +133,7 @@ function Destacado({ texto }: { texto: string }) {
 /* ── Página principal ────────────────────────────────────────────────────── */
 
 export default function TerminosPage() {
-  const fechaActualizacion = "20 de febrero de 2026";
+  const fechaActualizacion = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
 
   return (
     <div className="min-h-screen app-bg py-10 px-4">
@@ -224,7 +224,7 @@ export default function TerminosPage() {
           icono={<Shield className="w-5 h-5" />}
           titulo="3. Garantía del Servicio"
         >
-          <Destacado texto="Garantía de 90 días naturales sobre la mano de obra realizada, conforme al Art. 76 bis de la Ley Federal de Protección al Consumidor (LFPC), vigente 2026." />
+          <Destacado texto={`Garantía de 90 días naturales sobre la mano de obra realizada, conforme al Art. 76 bis de la Ley Federal de Protección al Consumidor (LFPC), vigente ${new Date().getFullYear()}.`} />
           <Item
             numero={1}
             texto="La garantía cubre exclusivamente la mano de obra correspondiente al servicio realizado y las piezas instaladas por CREDIPHONE durante la reparación."
