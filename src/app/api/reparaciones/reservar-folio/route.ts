@@ -32,12 +32,24 @@ export async function POST() {
     const filterDistribuidorId = isSuperAdmin ? null : (distribuidorId || null);
 
     // Registrar en la tabla de seguimiento de folios
-    await supabase.from("folios_reparacion").insert({
-      folio,
-      estado: "reservado",
-      distribuidor_id: filterDistribuidorId,
-      creado_por: userId,
-    });
+    // Usamos upsert con ignoreDuplicates para evitar error si el folio ya existe
+    // (puede pasar si el usuario abre/cierra el modal sin crear la orden)
+    const { error: insertError } = await supabase
+      .from("folios_reparacion")
+      .upsert(
+        {
+          folio,
+          estado: "reservado",
+          distribuidor_id: filterDistribuidorId,
+          creado_por: userId,
+        },
+        { onConflict: "folio", ignoreDuplicates: true }
+      );
+
+    if (insertError) {
+      console.error("Error al registrar folio:", insertError);
+      // No es crítico — el folio ya fue generado correctamente
+    }
 
     return NextResponse.json({ success: true, folio });
   } catch (error) {

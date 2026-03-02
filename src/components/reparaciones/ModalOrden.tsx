@@ -133,6 +133,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
   const [tipoFirma, setTipoFirma] = useState<TipoFirma | null>(null);
   const [firmaData, setFirmaData] = useState<string | null>(null);
   const [clienteNombreCompleto, setClienteNombreCompleto] = useState<string>("");
+  // Flag para saber si el usuario ya escribió manualmente en "Problema Reportado"
+  const [problemaEditadoManualmente, setProblemaEditadoManualmente] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -147,6 +149,43 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
       }
     }
   }, [isOpen]);
+
+  // Auto-poblar "Problema Reportado" con las fallas del checklist
+  // Solo si el usuario no ha escrito nada manualmente
+  useEffect(() => {
+    if (problemaEditadoManualmente) return;
+
+    const nombresComponentes: Record<string, string> = {
+      bateria: "Batería",
+      pantallaTactil: "Pantalla/Táctil",
+      camaras: "Cámaras",
+      microfono: "Micrófono",
+      altavoz: "Altavoz",
+      bluetooth: "Bluetooth",
+      wifi: "WiFi",
+      botonEncendido: "Botón de encendido",
+      botonesVolumen: "Botones de volumen",
+      sensorHuella: "Sensor de huella",
+    };
+
+    const partes: string[] = [];
+
+    // Componentes con falla
+    const fallasComponentes = Object.entries(nombresComponentes)
+      .filter(([k]) => (condicionesFuncionamiento as Record<string, unknown>)[k] === "falla")
+      .map(([, v]) => v);
+    if (fallasComponentes.length > 0) {
+      partes.push(`Fallas detectadas: ${fallasComponentes.join(", ")}`);
+    }
+
+    // Alertas especiales
+    if (condicionesFuncionamiento.llegaApagado) partes.push("Llega apagado");
+    if (condicionesFuncionamiento.estaMojado) partes.push("Daño por líquido");
+    if (condicionesFuncionamiento.bateriaHinchada) partes.push("Batería hinchada");
+
+    const descripcionAuto = partes.join(". ");
+    setFormData((prev) => ({ ...prev, problemaReportado: descripcionAuto }));
+  }, [condicionesFuncionamiento, problemaEditadoManualmente]);
 
   async function fetchDistribuidores() {
     try {
@@ -265,6 +304,10 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target;
+    // Si el usuario escribe manualmente en "Problema Reportado", desactivar el auto-llenado
+    if (name === "problemaReportado") {
+      setProblemaEditadoManualmente(true);
+    }
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
@@ -453,6 +496,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     setClienteNombreCompleto("");
     setArchivosPendientes([]);
     setDistribuidorSeleccionado("");
+    setProblemaEditadoManualmente(false);
   }
 
   return (
@@ -728,18 +772,34 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
 
                 {/* Problema */}
                 <div>
-                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                    Problema Reportado <span style={{ color: "var(--color-danger)" }}>*</span>
-                  </label>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                    <label style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                      Problema Reportado <span style={{ color: "var(--color-danger)" }}>*</span>
+                    </label>
+                    {problemaEditadoManualmente && (
+                      <button
+                        type="button"
+                        onClick={() => setProblemaEditadoManualmente(false)}
+                        style={{ fontSize: "0.75rem", color: "var(--color-accent)", background: "none", border: "none", cursor: "pointer", padding: "0.25rem 0.5rem", borderRadius: "0.375rem" }}
+                      >
+                        ↩ Restaurar del checklist
+                      </button>
+                    )}
+                  </div>
                   <textarea
                     name="problemaReportado"
                     value={formData.problemaReportado}
                     onChange={handleChange}
                     required
                     rows={3}
-                    placeholder="Describe el problema que presenta el dispositivo"
+                    placeholder="Marca fallas en el checklist de condiciones (abajo) o escribe aquí el problema"
                     style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontSize: "0.875rem", resize: "vertical" }}
                   />
+                  {!problemaEditadoManualmente && (
+                    <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.25rem" }}>
+                      💡 Se llena automáticamente con las fallas marcadas en el checklist de condiciones
+                    </p>
+                  )}
                 </div>
 
                 <div>
