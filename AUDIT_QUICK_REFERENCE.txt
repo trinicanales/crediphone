@@ -1,0 +1,256 @@
+================================================================================
+CREDIPHONE AUDIT — QUICK REFERENCE
+Generated: 2026-03-01
+================================================================================
+
+SYSTEM STATUS: PRODUCTION-READY FOR CORE OPERATIONS
+Risk Level: MEDIUM (due to missing CFDI invoicing in Mexico)
+
+================================================================================
+WHAT'S WORKING EXCELLENTLY (✅)
+================================================================================
+
+✅ Multi-Tenant Architecture (FASE 21+)
+   - 23 tables with distribuidor_id
+   - Proper super_admin with NULL distribuidor_id
+   - RLS policies correctly implemented
+   
+✅ Repair Management System (95% complete)
+   - Full workflow: recibido → entregado
+   - Parts tracking, guarantees, photos
+   - Digital signature component exists
+   - Advance payments (anticipos_reparacion)
+   
+✅ Point of Sale (POS) - 100% Complete
+   - Barcode/QR scanning
+   - Multiple payment methods
+   - Cash register with reconciliation
+   - Receipt generation (PDF)
+   
+✅ Inventory System - 100% Complete
+   - Multi-location warehouse
+   - Physical verification workflow
+   - Stock alerts and thresholds
+   
+✅ Payjoy Payment Integration
+   - Webhook handling
+   - API logging
+   - Configuration UI
+   
+✅ Notifications & Communications
+   - WhatsApp integration (repairs)
+   - Web Push (web-push library)
+   - SMS/Email ready (not yet configured)
+   
+✅ Credit Scoring & Analysis
+   - Automatic scoring based on payment history
+   - Over 30 features tracked
+
+✅ Authentication & Security
+   - getAuthContext() pattern used consistently
+   - Service role for server, RLS for client
+   - Proper UUID linking for employees
+
+================================================================================
+CRITICAL GAPS (❌) — MEXICO BLOCKING ISSUES
+================================================================================
+
+❌ CFDI/INVOICING (Mexican Legal Requirement)
+   Impact: CANNOT legally invoice in Mexico
+   Effort: 40-60 hours
+   Priority: CRITICAL (BLOCKS PRODUCTION)
+   Missing: facturas table, Facturama API, XML generation, SAT compliance
+   
+❌ PRE/POST INSPECTION CHECKLIST
+   Impact: Equipment condition disputes, liability risk
+   Effort: 20-30 hours
+   Priority: HIGH
+   Missing: inspeccion_checklist table, damage workflow
+   
+❌ IMEI VERIFICATION
+   Impact: Cannot prevent financing stolen devices
+   Effort: 20-30 hours
+   Priority: HIGH
+   Missing: IMEI API integration, blacklist checking
+
+================================================================================
+IMPORTANT GAPS (⚠️) — OPERATIONAL GAPS
+================================================================================
+
+⚠️ EXCEL EXPORT (Reportes)
+   Effort: 8-15 hours
+   Priority: MEDIUM
+   Status: Reportes exist but no XLSX export
+   
+⚠️ CUSTOMER PORTAL (Incomplete)
+   Effort: 20-30 hours
+   Priority: MEDIUM
+   Status: Repair tracking works, missing payment portal + debt statements
+   
+⚠️ TECHNICIAN TIME TRACKING
+   Effort: 15-25 hours
+   Priority: MEDIUM
+   Missing: time_logs_tecnico table, efficiency metrics
+   
+⚠️ PURCHASE ORDER SYSTEM
+   Effort: 30-40 hours
+   Priority: LOW
+   Missing: ordenes_compra, receiving workflow
+
+================================================================================
+ARCHITECTURE SCORE CARD
+================================================================================
+
+Folder Structure:           A  (well-organized)
+Database Design:            A  (normalized, good migrations)
+API Design:                 A- (82 routes, consistent patterns, no OpenAPI)
+Frontend Organization:      A- (26 component groups, good separation)
+Code Quality:               B+ (strong patterns, no tests, no validation lib)
+Type Safety:                A  (full TypeScript, minimal any)
+Authentication:             A  (proper multi-tenant implementation)
+Deployment Readiness:       B  (production-ready, but some gaps)
+
+================================================================================
+CODEBASE METRICS
+================================================================================
+
+Total Files (src/):         ~200+
+Database Tables:            23
+API Routes:                 82
+Frontend Pages:             39
+Component Groups:           26+
+Node Dependencies:          29 packages
+Test Coverage:              0% ❌
+Migrations:                 26 (latest: fase29, Mar 1)
+Largest File:               1,819 lines (reparaciones.ts - needs refactoring)
+
+================================================================================
+DEPENDENCIES STATUS
+================================================================================
+
+INSTALLED & WORKING:
+- Next.js 16.1.6 (App Router)
+- React 19.2.4
+- TypeScript 5.9.3
+- Supabase (client + SSR)
+- Tailwind CSS 4.1.18
+- Recharts (charting)
+- jsPDF (PDF generation)
+- QRCode (qrcode + qrcode.react)
+- web-push (push notifications) ✅
+- Zustand (state management)
+- Framer Motion (animations)
+
+MISSING FOR ENTERPRISE:
+- xlsx / exceljs (Excel export)
+- facturama / cfdi-js (invoicing)
+- zod / valibot (schema validation)
+- jest / vitest (testing)
+- sentry / datadog (monitoring)
+- twilio / resend (SMS/Email)
+
+================================================================================
+IMMEDIATE ACTION ITEMS (Priority Order)
+================================================================================
+
+WEEK 1 (Quick Wins - 18 hours):
+  1. Add Excel Export (8 hrs)
+     - npm install xlsx
+     - Create /src/lib/export.ts
+     - Add buttons to reportes pages
+     
+  2. Document APIs (10 hrs)
+     - Generate OpenAPI schema
+     - Deploy API docs
+
+WEEKS 2-3 (Critical - 75 hours):
+  3. CFDI/Invoicing Implementation (50 hrs) ⚡ MUST DO
+     - This unblocks production in Mexico
+     - Coordinate with legal/compliance
+     
+  4. IMEI Verification (25 hrs)
+     - Fraud prevention critical
+
+WEEKS 4-6 (Complete Portal - 45 hours):
+  5. Customer Payment Portal (25 hrs)
+  6. Technician Time Tracking (20 hrs)
+
+MONTH 2 (Enterprise Features - 95 hours):
+  7. Purchase Order System (35 hrs)
+  8. Pre/Post Inspection (25 hrs)
+  9. Test Suite (40 hrs)
+
+================================================================================
+FILES TO KNOW
+================================================================================
+
+CRITICAL (read first):
+  /CLAUDE.md — Project documentation
+  /src/lib/auth/server.ts — getAuthContext() implementation
+  /src/lib/db/reparaciones.ts — Main repair logic (1,819 lines - needs refactor)
+  /src/app/api/*/route.ts — All API endpoints
+
+IMPORTANT (to modify):
+  /src/components/layout/Sidebar.tsx — Multi-tenant navigation
+  /src/app/dashboard/page.tsx — Main dashboard
+  /src/lib/db/creditos.ts — Credit logic
+  /src/lib/whatsapp-reparaciones.ts — Notifications
+
+REFERENCE (understand):
+  /supabase/migrations/ — All schema changes (26 files)
+  /.env.local.example — Environment setup
+  /tsconfig.json — TypeScript config
+  /tailwind.config.ts — Styling config
+
+================================================================================
+RECOMMENDATIONS FOR NEXT DEVELOPER
+================================================================================
+
+1. DO read /CLAUDE.md thoroughly - it's the project bible
+2. DO always use getAuthContext() in new APIs
+3. DO add distribuidor_id to all new queries
+4. DON'T use raw SQL - use /src/lib/db/ functions
+5. DON'T add inline styles - use CSS variables in globals.css
+6. DON'T create new tables without migration
+7. DON'T skip role/permission checks in APIs
+
+REFACTORING RECOMMENDATIONS:
+- Split reparaciones.ts (1,819 lines) into smaller modules
+- Add Zod for request validation in APIs
+- Add Jest tests for auth and payment flows
+- Create ErrorBoundary React component
+- Use react-hook-form for forms
+- Add Sentry for error tracking
+
+================================================================================
+PRODUCTION DEPLOYMENT STATUS
+================================================================================
+
+Current Status: NOT READY for Mexico
+Reason: Missing CFDI invoicing (legal requirement)
+
+Can Deploy To Production: YES
+But With Caveat: Only if NOT selling in Mexico OR using external invoicing
+
+Timeline to Full Production Readiness:
+  - CFDI invoicing: 1 week
+  - IMEI verification: 3-4 days
+  - Pre/Post inspection: 2-3 days
+  - Excel export: 1 day
+  - Tests & monitoring: 2 weeks
+  
+Total: 4-5 weeks to full enterprise readiness
+
+================================================================================
+CONTACT & ESCALATION
+================================================================================
+
+For CFDI/Legal Issues: Consult SAT compliance team
+For Architecture Questions: Refer to /CLAUDE.md section "Notas Importantes"
+For Database Questions: Review migrations in /supabase/migrations/
+For Frontend Standards: Check globals.css for design system
+
+================================================================================
+END OF QUICK REFERENCE
+Last Updated: 2026-03-01
+================================================================================

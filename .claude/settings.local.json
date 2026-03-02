@@ -30,7 +30,16 @@
       "Bash(git remote add origin https://github.com/crediphone/crediphone.git)",
       "Bash(git add .)",
       "Bash(git rm --cached nul)",
-      "Bash(git add --all -- ':!nul')"
+      "Bash(git add --all -- ':!nul')",
+      "Bash(git -c:*)",
+      "Bash(git push -u origin master)",
+      "Bash(git add src/app/api/reparaciones/[id]/anticipos/devolver/route.ts src/app/api/reparaciones/[id]/entregar/route.ts)",
+      "Bash(git commit -m \"fix: corregir tabla fantasma reparacion_historial → historial_estado_orden\")",
+      "Bash(git add src/app/api/reparaciones/[id]/pdf/route.ts src/app/api/reparaciones/route.ts src/app/terminos/page.tsx src/components/reparaciones/ModalOrden.tsx src/components/reparaciones/firma/SelectorTipoFirma.tsx src/lib/db/reparaciones.ts supabase/migrations/fase29-fix-anticipos-reparacion.sql)",
+      "Bash(git push origin master)",
+      "Bash(vercel --prod)",
+      "Bash(git add src/app/api/reparaciones/fotos/[imagenId]/route.ts src/app/api/reparaciones/qr/generar/route.ts src/components/reparaciones/GaleriaFotosOrden.tsx src/components/reparaciones/fotos/SistemaFotosOrden.tsx)",
+      "Bash(git commit:*)"
     ]
   }
 }
