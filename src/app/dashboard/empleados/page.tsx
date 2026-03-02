@@ -11,6 +11,12 @@ import { Badge } from "@/components/ui/Badge";
 import type { Empleado, UserRole } from "@/types";
 import type { CSSProperties } from "react";
 
+interface Distribuidor {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+
 interface EmpleadoStats {
   total: number;
   activos: number;
@@ -41,15 +47,30 @@ export default function EmpleadosPage() {
   const [selectedEmpleado, setSelectedEmpleado] = useState<Empleado | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
   const [empleadoToDelete, setEmpleadoToDelete] = useState<Empleado | null>(null);
+  const [distribuidores, setDistribuidores] = useState<Distribuidor[]>([]);
 
   const [formData, setFormData] = useState({
     email: "", name: "", role: "vendedor" as UserRole,
     telefono: "", direccion: "",
     fechaIngreso: new Date().toISOString().split("T")[0],
     sueldoBase: 0, comisionPorcentaje: 0, activo: true, notas: "",
+    distribuidorId: "",
   });
 
-  useEffect(() => { fetchEmpleados(); fetchStats(); }, []);
+  useEffect(() => {
+    fetchEmpleados();
+    fetchStats();
+  }, []);
+
+  // Cargar distribuidores solo para super_admin
+  useEffect(() => {
+    if (user?.role === "super_admin") {
+      fetch("/api/admin/distribuidores")
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setDistribuidores(d.data || []); })
+        .catch(() => {});
+    }
+  }, [user]);
 
   useEffect(() => {
     let filtered = empleados;
@@ -97,7 +118,7 @@ export default function EmpleadosPage() {
   const handleCreate = () => {
     setModalMode("create");
     setSelectedEmpleado(null);
-    setFormData({ email: "", name: "", role: "vendedor", telefono: "", direccion: "", fechaIngreso: new Date().toISOString().split("T")[0], sueldoBase: 0, comisionPorcentaje: 0, activo: true, notas: "" });
+    setFormData({ email: "", name: "", role: "vendedor", telefono: "", direccion: "", fechaIngreso: new Date().toISOString().split("T")[0], sueldoBase: 0, comisionPorcentaje: 0, activo: true, notas: "", distribuidorId: "" });
     setIsModalOpen(true);
   };
 
@@ -110,6 +131,7 @@ export default function EmpleadosPage() {
       fechaIngreso: empleado.fechaIngreso ? new Date(empleado.fechaIngreso).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
       sueldoBase: empleado.sueldoBase || 0, comisionPorcentaje: empleado.comisionPorcentaje || 0,
       activo: empleado.activo, notas: empleado.notas || "",
+      distribuidorId: empleado.distribuidorId || "",
     });
     setIsModalOpen(true);
   };
@@ -391,6 +413,27 @@ export default function EmpleadosPage() {
             <label className="block text-sm font-medium mb-1" style={labelStyle}>Dirección</label>
             <Input type="text" value={formData.direccion} onChange={(e) => setFormData({ ...formData, direccion: e.target.value })} />
           </div>
+
+          {/* Selector de sucursal — solo para super_admin */}
+          {user?.role === "super_admin" && distribuidores.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium mb-1" style={labelStyle}>Sucursal / Distribuidor</label>
+              <select
+                value={formData.distribuidorId}
+                onChange={(e) => setFormData({ ...formData, distribuidorId: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                style={selectStyle}
+              >
+                <option value="">— Sin asignar (global) —</option>
+                {distribuidores.filter((d) => d.activo).map((d) => (
+                  <option key={d.id} value={d.id}>{d.nombre}</option>
+                ))}
+              </select>
+              <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+                Asigna este empleado a una sucursal específica
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>

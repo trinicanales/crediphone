@@ -172,7 +172,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
 
     // Componentes con falla
     const fallasComponentes = Object.entries(nombresComponentes)
-      .filter(([k]) => (condicionesFuncionamiento as Record<string, unknown>)[k] === "falla")
+      .filter(([k]) => (condicionesFuncionamiento as unknown as Record<string, unknown>)[k] === "falla")
       .map(([, v]) => v);
     if (fallasComponentes.length > 0) {
       partes.push(`Fallas detectadas: ${fallasComponentes.join(", ")}`);
