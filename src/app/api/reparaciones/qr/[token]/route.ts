@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -40,6 +41,13 @@ export async function GET(
     const expiracion = new Date(sesion.expires_at);
 
     if (!sesion.activa || expiracion < ahora) {
+      // Si expiró pero activa=true, corregir el flag en BD
+      if (sesion.activa && expiracion < ahora) {
+        await createAdminClient()
+          .from("sesiones_fotos_qr")
+          .update({ activa: false })
+          .eq("id", sesion.id);
+      }
       return NextResponse.json(
         { success: false, message: "Sesión expirada" },
         { status: 403 }

@@ -81,6 +81,13 @@ export async function POST(
     const expiracion = new Date(sesion.expires_at);
 
     if (!sesion.activa || expiracion < ahora) {
+      // Si expiró pero activa=true, corregir el flag en BD
+      if (sesion.activa && expiracion < ahora) {
+        await createAdminClient()
+          .from("sesiones_fotos_qr")
+          .update({ activa: false })
+          .eq("id", sesion.id);
+      }
       return NextResponse.json(
         { success: false, message: "Sesión expirada" },
         { status: 403 }
