@@ -74,13 +74,17 @@ export function SistemaFotosOrden({
 
       if (data.success) {
         onChange([...imagenes, ...data.imagenes]);
-        alert(`✓ ${data.total} imagen(es) subida(s) exitosamente`);
+        if (data.advertencias?.length > 0) {
+          alert(`⚠️ Algunas fotos no se subieron:\n${data.advertencias.join("\n")}`);
+        }
       } else {
-        alert("Error al subir imágenes: " + data.message);
+        const msg = data.message || "Error desconocido";
+        alert(`❌ Error al subir fotos:\n\n${msg}`);
+        console.error("Error al subir imágenes:", data);
       }
     } catch (error) {
       console.error("Error al subir imágenes:", error);
-      alert("Error al subir imágenes");
+      alert("❌ Error de conexión al subir fotos. Verifica tu internet e intenta de nuevo.");
     } finally {
       setSubiendo(false);
     }

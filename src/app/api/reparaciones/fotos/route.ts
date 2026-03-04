@@ -3,28 +3,60 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET_NAME = "reparaciones";
 
+// Tipos aceptados por el bucket (debe coincidir con la configuración de Supabase)
+const TIPOS_PERMITIDOS = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+// Tipos comunes de iPhone/HEIC que el bucket NO acepta — avisar al usuario
+const TIPOS_NO_SOPORTADOS = ["image/heic", "image/heif", "image/tiff", "image/avif"];
+
 function generarNombreArchivo(ordenId: string, tipoImagen: string, extension: string = "jpg"): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
   return `${ordenId}/${tipoImagen}/${timestamp}-${random}.${extension}`;
 }
 
+type ResultadoSubida =
+  | { ok: true; url: string; path: string }
+  | { ok: false; razon: string };
+
 async function subirArchivoAlStorage(
   supabase: ReturnType<typeof createAdminClient>,
   archivo: File,
   ordenId: string,
   tipoImagen: string
-): Promise<{ url: string; path: string } | null> {
+): Promise<ResultadoSubida> {
   try {
-    const tiposPermitidos = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-    if (!tiposPermitidos.includes(archivo.type)) return null;
-    if (archivo.size > 10 * 1024 * 1024) return null;
+    const tipoNormalizado = archivo.type.toLowerCase();
 
-    const extension = archivo.name.split(".").pop() || "jpg";
+    // Detectar formatos no soportados (ej: HEIC de iPhone)
+    if (TIPOS_NO_SOPORTADOS.includes(tipoNormalizado)) {
+      return {
+        ok: false,
+        razon: `Formato "${archivo.type}" no soportado. Convierte a JPEG, PNG o WebP antes de subir. En iPhone: ve a Ajustes > Cámara > Formatos y selecciona "Más compatible".`,
+      };
+    }
+
+    // Verificar tipo permitido
+    if (!TIPOS_PERMITIDOS.includes(tipoNormalizado)) {
+      return {
+        ok: false,
+        razon: `Formato "${archivo.type}" no aceptado. Solo se permiten: JPEG, PNG y WebP.`,
+      };
+    }
+
+    // Verificar tamaño (10MB máximo)
+    if (archivo.size > 10 * 1024 * 1024) {
+      return {
+        ok: false,
+        razon: `El archivo "${archivo.name}" pesa ${(archivo.size / 1024 / 1024).toFixed(1)} MB. El límite es 10 MB.`,
+      };
+    }
+
+    const extension = archivo.name.split(".").pop()?.toLowerCase() || "jpg";
     const nombreArchivo = generarNombreArchivo(ordenId, tipoImagen, extension);
-    const buffer = Buffer.from(await archivo.arrayBuffer());
+    const arrayBuffer = await archivo.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    const { error } = await supabase.storage
+    const { error: storageError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(nombreArchivo, buffer, {
         cacheControl: "3600",
@@ -32,16 +64,22 @@ async function subirArchivoAlStorage(
         contentType: archivo.type,
       });
 
-    if (error) {
-      console.error("Error al subir imagen al storage:", error);
-      return null;
+    if (storageError) {
+      console.error(`[fotos] Error al subir "${archivo.name}" al storage:`, storageError);
+      return {
+        ok: false,
+        razon: `Error de almacenamiento: ${storageError.message}`,
+      };
     }
 
     const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(nombreArchivo);
-    return { url: urlData.publicUrl, path: nombreArchivo };
+    return { ok: true, url: urlData.publicUrl, path: nombreArchivo };
   } catch (error) {
-    console.error("Error en subirArchivoAlStorage:", error);
-    return null;
+    console.error(`[fotos] Excepción al subir "${archivo.name}":`, error);
+    return {
+      ok: false,
+      razon: `Error inesperado al procesar "${archivo.name}"`,
+    };
   }
 }
 
@@ -85,34 +123,36 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (ordenError || !orden) {
+      console.error("[fotos] Orden no encontrada:", ordenId, ordenError?.message);
       return NextResponse.json(
-        { success: false, message: "Orden no encontrada" },
+        { success: false, message: `Orden no encontrada (ID: ${ordenId})` },
         { status: 404 }
       );
     }
 
-    // Obtener el orden de visualización actual
+    // Obtener el orden de visualización actual (usar maybeSingle para evitar error si no hay imágenes)
     const { data: ultimaImagen } = await supabase
       .from("imagenes_reparacion")
       .select("orden_visualizacion")
       .eq("orden_id", ordenId)
       .order("orden_visualizacion", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     let ordenVisualizacion = ultimaImagen
-      ? ultimaImagen.orden_visualizacion + 1
+      ? (ultimaImagen.orden_visualizacion ?? 0) + 1
       : 0;
 
-    // Subir todas las imágenes
+    // Subir todas las imágenes y recolectar errores para reporte
     const imagenesSubidas = [];
+    const errores: string[] = [];
 
     for (const archivo of archivos) {
-      // Subir al storage usando admin client (server-side, sin browser APIs)
       const resultado = await subirArchivoAlStorage(supabase, archivo, ordenId, tipoImagen);
 
-      if (!resultado) {
-        console.error("Error al subir imagen:", archivo.name);
+      if (!resultado.ok) {
+        console.error(`[fotos] Fallo en "${archivo.name}": ${resultado.razon}`);
+        errores.push(`${archivo.name}: ${resultado.razon}`);
         continue;
       }
 
@@ -132,7 +172,8 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (imagenError) {
-        console.error("Error al guardar imagen en BD:", imagenError);
+        console.error("[fotos] Error al guardar imagen en BD:", imagenError);
+        errores.push(`${archivo.name}: Error al guardar en base de datos (${imagenError.message})`);
         continue;
       }
 
@@ -141,9 +182,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (imagenesSubidas.length === 0) {
+      const mensajeError = errores.length > 0
+        ? errores[0]  // Mostrar el primer error específico
+        : "No se pudieron subir las imágenes";
       return NextResponse.json(
-        { success: false, message: "No se pudieron subir las imágenes" },
-        { status: 500 }
+        {
+          success: false,
+          message: mensajeError,
+          errores,
+        },
+        { status: 422 }
       );
     }
 
@@ -151,6 +199,7 @@ export async function POST(request: NextRequest) {
       success: true,
       imagenes: imagenesSubidas,
       total: imagenesSubidas.length,
+      advertencias: errores.length > 0 ? errores : undefined,
     });
   } catch (error) {
     console.error("Error en POST /api/reparaciones/fotos:", error);

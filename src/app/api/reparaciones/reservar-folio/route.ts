@@ -15,7 +15,8 @@ export async function POST() {
       return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     }
 
-    if (!["admin", "super_admin"].includes(role ?? "")) {
+    // Cualquier empleado autenticado puede reservar folio (todos pueden crear órdenes)
+    if (!role) {
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
 
