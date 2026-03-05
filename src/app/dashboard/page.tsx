@@ -175,6 +175,9 @@ export default function DashboardPage() {
   const canUsePOS = user && ["admin", "vendedor", "super_admin"].includes(user.role);
   const canSeeEmpleados = user && ["admin", "super_admin"].includes(user.role);
   const canSeeReportes = user && ["admin", "super_admin"].includes(user.role);
+  // tecnico NO tiene acceso a clientes/créditos/pagos/inventario
+  const canSeeFinanzas = user && ["admin", "vendedor", "cobrador", "super_admin"].includes(user.role);
+  const canSeeInventario = user && ["admin", "vendedor", "super_admin"].includes(user.role);
 
   // Calcular distribución de riesgo como porcentajes para las barras
   const totalRiesgo =
@@ -306,7 +309,7 @@ export default function DashboardPage() {
               value={stats?.totalClientes || 0}
               subtitle={`${stats?.creditosActivos || 0} con crédito activo`}
               color="blue"
-              href="/dashboard/clientes"
+              href={canSeeFinanzas ? "/dashboard/clientes" : undefined}
               icon={
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -324,7 +327,7 @@ export default function DashboardPage() {
               value={stats?.creditosActivos || 0}
               subtitle={`${stats?.creditosConMora || 0} con mora`}
               color={(stats?.creditosConMora || 0) > 0 ? "yellow" : "green"}
-              href="/dashboard/creditos"
+              href={canSeeFinanzas ? "/dashboard/creditos" : undefined}
               icon={
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -342,7 +345,7 @@ export default function DashboardPage() {
               value={formatCurrency(stats?.totalCobradoHoy || 0)}
               subtitle={`${stats?.totalPagos || 0} pagos recibidos`}
               color="green"
-              href="/dashboard/pagos"
+              href={canSeeFinanzas ? "/dashboard/pagos" : undefined}
               icon={
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -639,11 +642,13 @@ export default function DashboardPage() {
               <h3 className="text-lg font-semibold" style={{ color: "var(--color-text-primary)" }}>
                 Distribución de Riesgo
               </h3>
-              <Link href="/dashboard/clientes">
-                <span className="text-xs font-medium" style={{ color: "var(--color-accent)" }}>
-                  Ver clientes →
-                </span>
-              </Link>
+              {canSeeFinanzas && (
+                <Link href="/dashboard/clientes">
+                  <span className="text-xs font-medium" style={{ color: "var(--color-accent)" }}>
+                    Ver clientes →
+                  </span>
+                </Link>
+              )}
             </div>
             <div className="space-y-3">
               {[
@@ -868,11 +873,13 @@ export default function DashboardPage() {
               <h3 className="text-lg font-semibold" style={{ color: "var(--color-text-primary)" }}>
                 Inventario
               </h3>
-              <Link href="/dashboard/inventario/alertas">
-                <span className="text-xs font-medium" style={{ color: "var(--color-accent)" }}>
-                  Ver alertas →
-                </span>
-              </Link>
+              {canSeeInventario && (
+                <Link href="/dashboard/inventario/alertas">
+                  <span className="text-xs font-medium" style={{ color: "var(--color-accent)" }}>
+                    Ver alertas →
+                  </span>
+                </Link>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -956,7 +963,8 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Acceso rápido a módulos de inventario */}
+            {/* Acceso rápido a módulos de inventario — solo admin/vendedor/super_admin */}
+            {canSeeInventario && (
             <div
               className="mt-4 pt-3 flex gap-2"
               style={{ borderTop: "1px solid var(--color-border-subtle)" }}
@@ -1022,6 +1030,7 @@ export default function DashboardPage() {
                 </div>
               </Link>
             </div>
+            )}
           </Card>
         )}
       </div>
