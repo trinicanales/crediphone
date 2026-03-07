@@ -85,14 +85,14 @@ export default function PaginaFotosQR({
 
     for (const archivo of archivosArray) {
       try {
-        // Comprimir imagen
+        // Comprimir imagen antes de subir (sin web worker para máxima compatibilidad con móviles)
         const archivoComprimido = await imageCompression(archivo, {
           maxSizeMB: 1,
           maxWidthOrHeight: 1920,
-          useWebWorker: true,
+          useWebWorker: false,
         });
 
-        // Subir imagen
+        // Preparar y enviar la foto al servidor
         const formData = new FormData();
         formData.append("imagen", archivoComprimido);
         formData.append("tipoImagen", "dispositivo");
@@ -112,7 +112,7 @@ export default function PaginaFotosQR({
           imagenesSubidas++;
           setProgreso(Math.round((imagenesSubidas / totalArchivos) * 100));
 
-          // Actualizar sesión
+          // Actualizar contador local de fotos subidas
           setSesion((prev) => {
             if (!prev) return prev;
             return {
@@ -121,9 +121,13 @@ export default function PaginaFotosQR({
             };
           });
         } else {
+          // Mostrar error visible al usuario (antes solo iba a consola)
+          alert(`Error al subir foto: ${data.message || "Error desconocido"}`);
           console.error("Error al subir imagen:", data.message);
         }
       } catch (error) {
+        // Mostrar error de red o compresión al usuario
+        alert("Error al procesar la foto. Verifica tu conexión e intenta de nuevo.");
         console.error("Error al procesar imagen:", error);
       }
     }
@@ -235,7 +239,6 @@ export default function PaginaFotosQR({
               ref={inputFileRef}
               type="file"
               accept="image/*"
-              capture="environment"
               multiple
               onChange={handleFileChange}
               disabled={subiendo}
