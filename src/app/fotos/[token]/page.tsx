@@ -29,7 +29,8 @@ export default function PaginaFotosQR({
   const [subiendo, setSubiendo] = useState(false);
   const [progreso, setProgreso] = useState(0);
 
-  const inputFileRef = useRef<HTMLInputElement>(null);
+  const inputFileRef = useRef<HTMLInputElement>(null);   // galería
+  const inputCamaraRef = useRef<HTMLInputElement>(null); // cámara directa
 
   useEffect(() => {
     validarSesion();
@@ -232,9 +233,21 @@ export default function PaginaFotosQR({
           </div>
         </div>
 
-        {/* Botón de captura */}
+        {/* Botones de captura */}
         {puedeSubir ? (
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white rounded-lg shadow-lg p-6 space-y-3">
+            {/* Input oculto — cámara directa (capture) */}
+            <input
+              ref={inputCamaraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              disabled={subiendo}
+              className="hidden"
+              id="file-camara"
+            />
+            {/* Input oculto — galería con selección múltiple */}
             <input
               ref={inputFileRef}
               type="file"
@@ -243,40 +256,43 @@ export default function PaginaFotosQR({
               onChange={handleFileChange}
               disabled={subiendo}
               className="hidden"
-              id="file-input"
+              id="file-galeria"
             />
-            <label
-              htmlFor="file-input"
-              className={`
-                block w-full py-6 rounded-lg text-center text-lg font-bold cursor-pointer transition-all
-                ${
-                  subiendo
-                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                    : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
-                }
-              `}
-            >
-              {subiendo ? (
-                <div>
-                  <div className="text-2xl mb-2 animate-pulse">⏳</div>
-                  <div>Subiendo... {progreso}%</div>
-                </div>
-              ) : (
-                <div>
-                  <div className="text-4xl mb-2">📷</div>
-                  <div>Tomar / Seleccionar Fotos</div>
-                </div>
-              )}
-            </label>
 
-            {subiendo && (
-              <div className="mt-4">
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+            {subiendo ? (
+              <div className="py-6 text-center">
+                <div className="text-2xl mb-2 animate-pulse">⏳</div>
+                <div className="text-lg font-bold text-gray-600">Subiendo... {progreso}%</div>
+                <div className="mt-3 w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                   <div
                     className="bg-blue-600 h-full transition-all duration-300 rounded-full"
                     style={{ width: `${progreso}%` }}
                   />
                 </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {/* Botón: abrir cámara directamente */}
+                <button
+                  type="button"
+                  onClick={() => inputCamaraRef.current?.click()}
+                  disabled={subiendo}
+                  className="py-6 rounded-lg text-center font-bold bg-blue-600 text-white active:scale-95 transition-transform"
+                >
+                  <div className="text-4xl mb-2">📷</div>
+                  <div className="text-sm">Tomar Foto</div>
+                </button>
+
+                {/* Botón: seleccionar de galería */}
+                <button
+                  type="button"
+                  onClick={() => inputFileRef.current?.click()}
+                  disabled={subiendo}
+                  className="py-6 rounded-lg text-center font-bold bg-green-600 text-white active:scale-95 transition-transform"
+                >
+                  <div className="text-4xl mb-2">🖼️</div>
+                  <div className="text-sm">Desde Galería</div>
+                </button>
               </div>
             )}
           </div>
