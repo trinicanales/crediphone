@@ -31,13 +31,22 @@ export async function GET(
       );
     }
 
-    // Obtener imágenes subidas vía QR para esta orden
-    const { data: imagenes, error: imagenesError } = await supabase
+    // Obtener imágenes subidas vía QR
+    // Si hay orden_id real → filtrar por orden_id
+    // Si orden_id es null (modo creación) → filtrar por path_storage "temp/{token}/..."
+    let query = supabase
       .from("imagenes_reparacion")
       .select("*")
-      .eq("orden_id", sesion.orden_id)
       .eq("subido_desde", "qr")
       .order("created_at", { ascending: true });
+
+    if (sesion.orden_id) {
+      query = query.eq("orden_id", sesion.orden_id);
+    } else {
+      query = query.like("path_storage", `temp/${token}/%`);
+    }
+
+    const { data: imagenes, error: imagenesError } = await query;
 
     if (imagenesError) {
       console.error("Error al obtener imágenes:", imagenesError);
@@ -47,10 +56,23 @@ export async function GET(
       );
     }
 
+    // Mapear snake_case → camelCase para que el componente pueda renderizar las fotos
+    const imagenesMapeadas = (imagenes || []).map((img) => ({
+      id: img.id,
+      ordenId: img.orden_id,
+      tipoImagen: img.tipo_imagen,
+      urlImagen: img.url_imagen,
+      pathStorage: img.path_storage,
+      ordenVisualizacion: img.orden_visualizacion,
+      descripcion: img.descripcion,
+      subidoDesde: img.subido_desde,
+      createdAt: img.created_at,
+    }));
+
     return NextResponse.json({
       success: true,
-      imagenes: imagenes || [],
-      total: imagenes?.length || 0,
+      imagenes: imagenesMapeadas,
+      total: imagenesMapeadas.length,
     });
   } catch (error) {
     console.error("Error en GET /api/reparaciones/qr/[token]/fotos:", error);
