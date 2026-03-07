@@ -5,8 +5,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { ImagenReparacion } from "@/types";
 
 interface GeneradorQRFotosProps {
-  ordenId: string;
+  ordenId: string | null;
   onImagenesActualizadas: (imagenes: ImagenReparacion[]) => void;
+  // Callback para informar al padre el token de sesión QR (necesario en modo creación)
+  onSesionCreada?: (sessionToken: string) => void;
 }
 
 interface Sesion {
@@ -21,6 +23,7 @@ interface Sesion {
 export function GeneradorQRFotos({
   ordenId,
   onImagenesActualizadas,
+  onSesionCreada,
 }: GeneradorQRFotosProps) {
   const [sesion, setSesion] = useState<Sesion | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -45,19 +48,22 @@ export function GeneradorQRFotos({
       const response = await fetch("/api/reparaciones/qr/generar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ordenId }),
+        // ordenId puede ser null en modo creación; el servidor lo acepta
+        body: JSON.stringify({ ordenId: ordenId || null }),
       });
 
       const data = await response.json();
 
       if (data.success) {
         // Si la URL es relativa (NEXT_PUBLIC_BASE_URL no configurado),
-        // construirla con el origin del navegador para que funcione desde otro dispositivo
+        // armar la URL completa con el origin para que funcione desde otro dispositivo
         const sesion = data.sesion;
         if (sesion.url && sesion.url.startsWith("/")) {
           sesion.url = `${window.location.origin}${sesion.url}`;
         }
         setSesion(sesion);
+        // Informar al padre el token para que pueda ligar las fotos a la orden después
+        onSesionCreada?.(data.sesion.token);
         iniciarPolling(data.sesion.token);
       } else {
         alert("Error al generar QR: " + data.message);

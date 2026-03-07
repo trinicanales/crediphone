@@ -124,8 +124,10 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
   // Presupuesto
   const [presupuestoTotal, setPresupuestoTotal] = useState<number>(0);
   const [anticipos, setAnticipos] = useState<any[]>([]);
-  // Archivos de foto pendientes de subir (modo creación)
+  // Archivos de foto pendientes de subir vía subida directa (modo creación)
   const [archivosPendientes, setArchivosPendientes] = useState<File[]>([]);
+  // Token de sesión QR generado antes de guardar (para ligar esas fotos a la orden)
+  const [qrSessionToken, setQrSessionToken] = useState<string | null>(null);
 
   const [patronDesbloqueo, setPatronDesbloqueo] = useState<string>("");
   const [passwordDispositivo, setPasswordDispositivo] = useState<string>("");
@@ -380,11 +382,26 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
       const data = await response.json();
 
       if (data.success) {
-        // Subir fotos pendientes (seleccionadas antes de guardar)
+        const ordenCreada = data.data;
+
+        // 1. Ligar fotos subidas por QR antes de guardar (si el empleado usó QR durante la creación)
+        if (qrSessionToken) {
+          try {
+            await fetch("/api/reparaciones/fotos/ligar-sesion-qr", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sessionToken: qrSessionToken, ordenId: ordenCreada.id }),
+            });
+          } catch (e) {
+            console.error("Error al ligar fotos QR a la orden:", e);
+          }
+        }
+
+        // 2. Subir fotos elegidas directamente (subida directa en creación)
         if (archivosPendientes.length > 0) {
           try {
             const fotosForm = new FormData();
-            fotosForm.append("ordenId", data.data.id);
+            fotosForm.append("ordenId", ordenCreada.id);
             fotosForm.append("tipoImagen", "dispositivo");
             fotosForm.append("subidoDesde", "web");
             archivosPendientes.forEach((file, i) => fotosForm.append(`imagen${i}`, file));
@@ -394,15 +411,15 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
           }
         }
 
-        // Generar QR automáticamente
+        // 3. Generar sesión QR para usar después (en la página de detalle)
         try {
           await fetch("/api/reparaciones/qr/generar", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ordenId: data.data.id }),
+            body: JSON.stringify({ ordenId: ordenCreada.id }),
           });
         } catch (qrError) {
-          console.error("Error al generar QR:", qrError);
+          console.error("Error al generar QR post-creación:", qrError);
         }
 
         // Generar PDF automáticamente y descargarlo
@@ -840,11 +857,12 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                 </div>
               </div>
               <SistemaFotosOrden
-                ordenId="temp-creacion"
+                ordenId={null}
                 modoCreacion={true}
                 imagenes={imagenes}
                 onChange={setImagenes}
                 onArchivosPendientes={setArchivosPendientes}
+                onQrSessionToken={setQrSessionToken}
               />
 
               {/* Patrón de desbloqueo */}

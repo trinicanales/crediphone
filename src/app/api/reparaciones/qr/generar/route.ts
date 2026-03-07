@@ -20,42 +20,39 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    // ordenId puede ser null cuando se genera QR durante la creación de una orden nueva
     const { ordenId } = body;
-
-    if (!ordenId) {
-      return NextResponse.json(
-        { success: false, message: "ordenId es requerido" },
-        { status: 400 }
-      );
-    }
 
     const supabase = createAdminClient();
 
-    // Verificar que la orden existe
-    const { data: orden, error: ordenError } = await supabase
-      .from("ordenes_reparacion")
-      .select("id")
-      .eq("id", ordenId)
-      .single();
+    // Si se proporcionó un ordenId, verificar que la orden existe en la BD
+    if (ordenId) {
+      const { data: orden, error: ordenError } = await supabase
+        .from("ordenes_reparacion")
+        .select("id")
+        .eq("id", ordenId)
+        .single();
 
-    if (ordenError || !orden) {
-      return NextResponse.json(
-        { success: false, message: "Orden no encontrada" },
-        { status: 404 }
-      );
+      if (ordenError || !orden) {
+        return NextResponse.json(
+          { success: false, message: "Orden no encontrada" },
+          { status: 404 }
+        );
+      }
     }
 
-    // Generar token único
+    // Generar token único aleatorio para la sesión
     const token = generarTokenQR();
 
-    // Crear sesión QR
+    // La sesión dura 2 horas
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 2); // Expira en 2 horas
+    expiresAt.setHours(expiresAt.getHours() + 2);
 
     const { data: sesion, error: sesionError } = await supabase
       .from("sesiones_fotos_qr")
       .insert({
-        orden_id: ordenId,
+        // orden_id puede ser null si se usa durante la creación (se liga después)
+        orden_id: ordenId || null,
         token,
         activa: true,
         imagenes_subidas: 0,

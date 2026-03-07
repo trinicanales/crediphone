@@ -5,8 +5,10 @@ const BUCKET_NAME = "reparaciones";
 
 async function subirArchivoQR(
   archivo: File,
-  ordenId: string,
-  tipoImagen: string
+  // ordenId puede ser null cuando se sube antes de crear la orden; en ese caso se usa sessionToken para el path
+  ordenId: string | null,
+  tipoImagen: string,
+  sessionToken: string
 ): Promise<{ url: string; path: string } | null> {
   try {
     const tiposPermitidos = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -17,7 +19,11 @@ async function subirArchivoQR(
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const extension = archivo.name.split(".").pop() || "jpg";
-    const nombreArchivo = `${ordenId}/${tipoImagen}/${timestamp}-${random}.${extension}`;
+
+    // Si hay orden: guardar bajo el ID de la orden
+    // Si no hay orden (creación): guardar bajo "temp/{token}" para poder ligar después
+    const carpeta = ordenId ? ordenId : `temp/${sessionToken}`;
+    const nombreArchivo = `${carpeta}/${tipoImagen}/${timestamp}-${random}.${extension}`;
     const buffer = Buffer.from(await archivo.arrayBuffer());
 
     const { error } = await supabase.storage
@@ -109,8 +115,8 @@ export async function POST(
       );
     }
 
-    // Subir imagen al storage usando admin client
-    const resultado = await subirArchivoQR(archivo, sesion.orden_id, tipoImagen);
+    // Subir imagen al storage; si orden_id es null (creación), usa el token como carpeta temp
+    const resultado = await subirArchivoQR(archivo, sesion.orden_id, tipoImagen, token);
 
     if (!resultado) {
       return NextResponse.json(
@@ -120,10 +126,12 @@ export async function POST(
     }
 
     // Guardar registro en la base de datos
+    // orden_id puede ser null si la foto se subió durante la creación de la orden;
+    // en ese caso se liga a la orden real después de crearla
     const { data: imagenGuardada, error: imagenError } = await supabase
       .from("imagenes_reparacion")
       .insert({
-        orden_id: sesion.orden_id,
+        orden_id: sesion.orden_id || null,
         tipo_imagen: tipoImagen,
         url_imagen: resultado.url,
         path_storage: resultado.path,

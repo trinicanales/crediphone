@@ -5,13 +5,15 @@ import { GeneradorQRFotos } from "./GeneradorQRFotos";
 import { ImagenReparacion } from "@/types";
 
 interface SistemaFotosOrdenProps {
-  ordenId: string;
+  ordenId: string | null;
   imagenes: ImagenReparacion[];
   onChange: (imagenes: ImagenReparacion[]) => void;
-  /** En modo creación el ordenId es temporal — deshabilitar QR hasta que la orden se guarde */
+  /** En modo creación la orden aún no existe — el QR funciona sin orden y las fotos se ligan al guardar */
   modoCreacion?: boolean;
-  /** Callback para que el padre reciba los archivos pendientes de subir (modo creación) */
+  /** Callback para archivos seleccionados localmente (subida directa en creación) */
   onArchivosPendientes?: (files: File[]) => void;
+  /** Callback con el token QR de sesión (para ligar fotos a la orden al guardar en modo creación) */
+  onQrSessionToken?: (token: string) => void;
 }
 
 export function SistemaFotosOrden({
@@ -20,6 +22,7 @@ export function SistemaFotosOrden({
   onChange,
   modoCreacion = false,
   onArchivosPendientes,
+  onQrSessionToken,
 }: SistemaFotosOrdenProps) {
   const [metodo, setMetodo] = useState<"qr" | "directo" | null>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -135,31 +138,20 @@ export function SistemaFotosOrden({
         </h3>
 
         <div className="grid grid-cols-2 gap-3">
-          {modoCreacion ? (
-            <div className="p-6 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-center opacity-60 cursor-not-allowed">
-              <div className="text-4xl mb-2">📱</div>
-              <div className="text-sm font-semibold text-gray-500 mb-1">
-                QR desde Celular
-              </div>
-              <div className="text-xs text-gray-400">
-                Disponible al guardar la orden
-              </div>
+          {/* El QR ahora funciona tanto en modo creación como en modo edición */}
+          <button
+            type="button"
+            onClick={() => setMetodo("qr")}
+            className="p-6 rounded-lg border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all text-center group"
+          >
+            <div className="text-4xl mb-2">📱</div>
+            <div className="text-sm font-semibold text-gray-800 mb-1">
+              QR desde Celular
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setMetodo("qr")}
-              className="p-6 rounded-lg border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all text-center group"
-            >
-              <div className="text-4xl mb-2">📱</div>
-              <div className="text-sm font-semibold text-gray-800 mb-1">
-                QR desde Celular
-              </div>
-              <div className="text-xs text-gray-600">
-                Cliente escanea y sube fotos
-              </div>
-            </button>
-          )}
+            <div className="text-xs text-gray-600">
+              {modoCreacion ? "El cliente toma fotos ahora" : "Cliente escanea y sube fotos"}
+            </div>
+          </button>
 
           <label className="p-6 rounded-lg border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all text-center cursor-pointer group">
             <input
@@ -181,10 +173,10 @@ export function SistemaFotosOrden({
         </div>
 
         {modoCreacion && (
-          <div className="mt-1 p-2 bg-amber-50 border border-amber-200 rounded-lg flex gap-2 text-xs text-amber-700">
-            <span>💡</span>
+          <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-lg flex gap-2 text-xs text-blue-700">
+            <span>📸</span>
             <span>
-              <strong>Subida directa disponible.</strong> Las fotos se subirán al guardar la orden. El QR desde celular estará disponible en la página de detalle.
+              <strong>Fotos antes de guardar:</strong> Usa el QR para que el cliente tome fotos con su celular ahora mismo, o sube directamente desde esta PC. Las fotos quedan registradas al crear la orden.
             </span>
           </div>
         )}
@@ -269,6 +261,7 @@ export function SistemaFotosOrden({
         <GeneradorQRFotos
           ordenId={ordenId}
           onImagenesActualizadas={handleImagenesQR}
+          onSesionCreada={onQrSessionToken}
         />
 
         {imagenes.length > 0 && (
