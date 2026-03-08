@@ -18,6 +18,8 @@ import {
   User,
   Lock,
   CircleDashed,
+  Gift,
+  Bell,
 } from "lucide-react";
 import { TimelineEstados } from "@/components/reparaciones/TimelineEstados";
 import type { EstadoOrdenReparacion, ParteReemplazada } from "@/types";
@@ -400,11 +402,33 @@ export default function TrackingPublicoPage() {
   const [processing, setProcessing] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [mostrarOpciones, setMostrarOpciones] = useState(false);
+  const [promoAcepta, setPromoAcepta] = useState(false);
+  const [promoPrefs, setPromoPrefs] = useState({
+    accesorios: true,
+    combos: true,
+    cargadores: true,
+    equipos: true,
+  });
+  const [savingPromos, setSavingPromos] = useState(false);
+  const [promoSaved, setPromoSaved] = useState(false);
 
   useEffect(() => {
     fetchTracking();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useEffect(() => {
+    if (data?.cliente) {
+      setPromoAcepta(data.cliente.aceptaPromociones ?? false);
+      const prefs = data.cliente.preferenciasPromociones as Record<string, boolean> | undefined;
+      setPromoPrefs({
+        accesorios: prefs?.accesorios ?? true,
+        combos: prefs?.combos ?? true,
+        cargadores: prefs?.cargadores ?? true,
+        equipos: prefs?.celulares ?? true,
+      });
+    }
+  }, [data]);
 
   async function fetchTracking() {
     try {
@@ -453,6 +477,34 @@ export default function TrackingPublicoPage() {
     const numero = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
     const msg = `Hola CREDIPHONE, tengo una consulta sobre mi reparación:\n\nFolio: ${data.orden.folio}\nDispositivo: ${data.orden.marcaDispositivo} ${data.orden.modeloDispositivo}\n\n`;
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, "_blank");
+  }
+
+  async function handleGuardarPromos() {
+    try {
+      setSavingPromos(true);
+      setPromoSaved(false);
+      const response = await fetch(`/api/tracking/${token}/preferencias`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aceptaPromociones: promoAcepta,
+          preferencias: {
+            accesorios: promoPrefs.accesorios,
+            combos: promoPrefs.combos,
+            cargadores: promoPrefs.cargadores,
+            celulares: promoPrefs.equipos,
+          },
+        }),
+      });
+      if (response.ok) {
+        setPromoSaved(true);
+        setTimeout(() => setPromoSaved(false), 5000);
+      }
+    } catch (err) {
+      console.error("Error al guardar preferencias:", err);
+    } finally {
+      setSavingPromos(false);
+    }
   }
 
   /* ── Render states ── */
@@ -675,218 +727,244 @@ export default function TrackingPublicoPage() {
           </SectionCard>
         )}
 
-        {/* ── Presupuesto pendiente de aprobación ──────────── */}
+        {/* ── AUTORIZACIÓN REQUERIDA — diseño formal rojo/negro ── */}
         {orden.estado === "presupuesto" &&
           !orden.aprobadoPorCliente &&
           !actionMessage && (
             <div
               className="rounded-2xl overflow-hidden"
               style={{
-                background: "var(--color-bg-surface)",
-                border: "2px solid var(--color-warning)",
-                boxShadow: "var(--shadow-md)",
+                border: "2.5px solid #B91C1C",
+                boxShadow: "0 8px 40px rgba(185,28,28,0.22), 0 2px 8px rgba(0,0,0,0.18)",
               }}
             >
+              {/* Header negro con alerta roja */}
               <div
-                className="px-5 py-4 flex items-center gap-2"
-                style={{ background: "var(--color-warning-bg)", borderBottom: "1px solid var(--color-warning)" }}
+                className="px-5 pt-6 pb-5 flex flex-col items-center gap-3 text-center"
+                style={{ background: "#080F1A" }}
               >
-                <AlertTriangle
-                  className="w-5 h-5"
-                  style={{ color: "var(--color-warning)" }}
-                />
-                <h3
-                  className="text-sm font-bold uppercase tracking-wide"
-                  style={{ color: "var(--color-warning-text)" }}
-                >
-                  Presupuesto — Tu aprobación es requerida
-                </h3>
-              </div>
-
-              <div className="p-5 space-y-4">
-                {/* Desglose */}
                 <div
-                  className="rounded-xl overflow-hidden divide-y"
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-full"
                   style={{
-                    background: "var(--color-bg-elevated)",
-                    borderColor: "var(--color-border-subtle)",
+                    background: "rgba(185,28,28,0.20)",
+                    border: "1px solid rgba(185,28,28,0.65)",
                   }}
                 >
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" style={{ color: "#EF4444" }} />
+                  <span
+                    className="text-xs font-bold uppercase tracking-widest"
+                    style={{ color: "#EF4444", fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }}
+                  >
+                    Autorización Requerida
+                  </span>
+                </div>
+
+                <div>
+                  <p
+                    className="text-xl font-bold"
+                    style={{ color: "#F1F5F9", fontFamily: "var(--font-ui)" }}
+                  >
+                    Presupuesto de Reparación
+                  </p>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: "#5A8FAA", fontFamily: "var(--font-mono)" }}
+                  >
+                    {orden.folio} · {orden.marcaDispositivo} {orden.modeloDispositivo}
+                  </p>
+                </div>
+
+                <p
+                  className="text-xs max-w-xs leading-relaxed"
+                  style={{ color: "#7AAABB" }}
+                >
+                  El técnico completó el diagnóstico de tu equipo. Revisa el presupuesto y elige cómo deseas proceder.
+                </p>
+              </div>
+
+              {/* Body — blanco con texto negro, muy legible */}
+              <div className="space-y-4" style={{ background: "#FFFFFF", padding: "20px" }}>
+
+                {/* Desglose de costos */}
+                <div
+                  className="rounded-xl overflow-hidden divide-y"
+                  style={{ border: "1px solid #E2E8F0" }}
+                >
                   <div className="flex justify-between items-center px-4 py-3">
-                    <span
-                      className="text-sm"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      Mano de obra
-                    </span>
+                    <span className="text-sm" style={{ color: "#64748B" }}>Mano de obra</span>
                     <span
                       className="text-sm font-semibold tabular-nums"
-                      style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}
+                      style={{ color: "#0F172A", fontFamily: "var(--font-data)" }}
                     >
                       {formatCurrency(orden.costoReparacion)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center px-4 py-3">
-                    <span
-                      className="text-sm"
-                      style={{ color: "var(--color-text-muted)" }}
+                  {orden.costoPartes > 0 && (
+                    <div className="flex justify-between items-center px-4 py-3">
+                      <span className="text-sm" style={{ color: "#64748B" }}>Partes / Refacciones</span>
+                      <span
+                        className="text-sm font-semibold tabular-nums"
+                        style={{ color: "#0F172A", fontFamily: "var(--font-data)" }}
+                      >
+                        {formatCurrency(orden.costoPartes)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Total prominente — fondo negro */}
+                <div
+                  className="rounded-xl px-5 py-4 flex items-center justify-between"
+                  style={{ background: "#0B1929" }}
+                >
+                  <div>
+                    <p
+                      className="text-xs uppercase tracking-wider mb-1"
+                      style={{ color: "#5A8FAA", fontFamily: "var(--font-mono)" }}
                     >
-                      Partes / Refacciones
-                    </span>
-                    <span
-                      className="text-sm font-semibold tabular-nums"
-                      style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}
-                    >
-                      {formatCurrency(orden.costoPartes)}
-                    </span>
-                  </div>
-                  <div
-                    className="flex justify-between items-center px-4 py-3"
-                    style={{ background: "var(--color-bg-sunken)" }}
-                  >
-                    <span
-                      className="text-sm font-bold"
-                      style={{ color: "var(--color-text-primary)" }}
-                    >
-                      Total
-                    </span>
-                    <span
-                      className="text-2xl font-bold tabular-nums"
-                      style={{
-                        color: "var(--color-text-primary)",
-                        fontFamily: "var(--font-data)",
-                      }}
+                      Total a pagar
+                    </p>
+                    <p
+                      className="text-4xl font-bold tabular-nums"
+                      style={{ color: "#FFFFFF", fontFamily: "var(--font-data)", lineHeight: 1 }}
                     >
                       {formatCurrency(orden.costoTotal)}
-                    </span>
+                    </p>
+                  </div>
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center shrink-0"
+                    style={{
+                      background: "rgba(185,28,28,0.15)",
+                      border: "1.5px solid rgba(185,28,28,0.50)",
+                    }}
+                  >
+                    <AlertTriangle className="w-7 h-7" style={{ color: "#EF4444" }} />
                   </div>
                 </div>
 
-                {/* Botones de acción — flujo de 3 opciones */}
+                {/* Nota legal */}
+                <p
+                  className="text-xs text-center leading-relaxed"
+                  style={{ color: "#94A3B8" }}
+                >
+                  Al aprobar, autorizas a CREDIPHONE a realizar la reparación descrita. El costo indicado es el total a pagar al momento de recoger tu equipo.
+                </p>
+
+                {/* Botones — flujo de decisión */}
                 {!mostrarOpciones ? (
-                  <>
-                    <div className="flex gap-3 pt-1">
-                      <button
-                        onClick={() => handleAccion("aprobar")}
-                        disabled={processing}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold"
-                        style={{
-                          background: "var(--color-success)",
-                          color: "#fff",
-                          border: "none",
-                          cursor: processing ? "not-allowed" : "pointer",
-                          opacity: processing ? 0.7 : 1,
-                          fontFamily: "var(--font-ui)",
-                        }}
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        {processing ? "Procesando…" : "Aprobar todo"}
-                      </button>
-                      <button
-                        onClick={() => setMostrarOpciones(true)}
-                        disabled={processing}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold"
-                        style={{
-                          background: "var(--color-danger-bg)",
-                          color: "var(--color-danger-text)",
-                          border: "1px solid var(--color-danger)",
-                          cursor: processing ? "not-allowed" : "pointer",
-                          opacity: processing ? 0.7 : 1,
-                          fontFamily: "var(--font-ui)",
-                        }}
-                      >
-                        <XCircle className="w-4 h-4" />
-                        No acepto todo
-                      </button>
-                    </div>
-                    <p
-                      className="text-xs text-center"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      Al aprobar autorizas la reparación completa de tu dispositivo
-                    </p>
-                  </>
-                ) : (
-                  /* Panel de opciones cuando el cliente no quiere aprobar todo */
-                  <div
-                    className="rounded-xl overflow-hidden"
-                    style={{
-                      border: "2px solid var(--color-warning)",
-                      background: "var(--color-bg-surface)",
-                    }}
-                  >
-                    <div
-                      className="px-4 py-3 text-sm font-semibold"
+                  <div className="space-y-2.5 pt-1">
+                    {/* Aprobar todo — verde oscuro, muy prominente */}
+                    <button
+                      onClick={() => handleAccion("aprobar")}
+                      disabled={processing}
+                      className="w-full flex items-center justify-center gap-2.5 rounded-xl text-base font-bold"
                       style={{
-                        background: "var(--color-warning-bg)",
-                        color: "var(--color-warning-text)",
-                        borderBottom: "1px solid var(--color-warning)",
+                        background: processing ? "#15803D99" : "#166534",
+                        color: "#FFFFFF",
+                        border: "none",
+                        cursor: processing ? "not-allowed" : "pointer",
+                        padding: "16px 24px",
+                        fontFamily: "var(--font-ui)",
+                        letterSpacing: "0.01em",
                       }}
                     >
+                      <CheckCircle2 className="w-5 h-5 shrink-0" />
+                      {processing ? "Procesando…" : "Autorizo la reparación completa"}
+                    </button>
+
+                    {/* Otras opciones — secundario, sin tanto peso */}
+                    <button
+                      onClick={() => setMostrarOpciones(true)}
+                      disabled={processing}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl text-sm font-semibold"
+                      style={{
+                        background: "#F8FAFC",
+                        color: "#334155",
+                        border: "1.5px solid #CBD5E1",
+                        cursor: processing ? "not-allowed" : "pointer",
+                        padding: "12px 24px",
+                        fontFamily: "var(--font-ui)",
+                      }}
+                    >
+                      Ver otras opciones
+                    </button>
+                  </div>
+                ) : (
+                  /* Panel expandido de opciones */
+                  <div className="space-y-3 pt-1">
+                    <p
+                      className="text-sm font-bold text-center"
+                      style={{ color: "#1E293B" }}
+                    >
                       ¿Qué deseas hacer?
-                    </div>
-                    <div className="p-4 space-y-3">
-                      {/* Opción 1: Solo el problema original */}
-                      <button
-                        onClick={() => handleAccion("aprobar_parcial")}
-                        disabled={processing}
-                        className="w-full text-left rounded-xl px-4 py-4 transition-all"
-                        style={{
-                          background: "var(--color-info-bg)",
-                          border: "1px solid var(--color-info)",
-                          cursor: processing ? "not-allowed" : "pointer",
-                          opacity: processing ? 0.7 : 1,
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="text-xl shrink-0">🔧</span>
-                          <div>
-                            <p className="text-sm font-bold" style={{ color: "var(--color-info-text)" }}>
-                              Solo reparar el problema original
-                            </p>
-                            <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-                              Autorizas solo la reparación por la que trajiste el equipo.
-                              No se harán las reparaciones adicionales encontradas en el diagnóstico.
-                            </p>
-                          </div>
-                        </div>
-                      </button>
+                    </p>
 
-                      {/* Opción 2: Cancelar todo */}
-                      <button
-                        onClick={() => handleAccion("rechazar")}
-                        disabled={processing}
-                        className="w-full text-left rounded-xl px-4 py-4 transition-all"
-                        style={{
-                          background: "var(--color-danger-bg)",
-                          border: "1px solid var(--color-danger)",
-                          cursor: processing ? "not-allowed" : "pointer",
-                          opacity: processing ? 0.7 : 1,
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="text-xl shrink-0">❌</span>
-                          <div>
-                            <p className="text-sm font-bold" style={{ color: "var(--color-danger-text)" }}>
-                              Cancelar el servicio completo
-                            </p>
-                            <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-                              No se realizará ninguna reparación. Puedes pasar a recoger tu equipo.
-                            </p>
-                          </div>
+                    {/* Solo problema original */}
+                    <button
+                      onClick={() => handleAccion("aprobar_parcial")}
+                      disabled={processing}
+                      className="w-full text-left rounded-xl"
+                      style={{
+                        background: "#EFF6FF",
+                        border: "1.5px solid #93C5FD",
+                        cursor: processing ? "not-allowed" : "pointer",
+                        opacity: processing ? 0.7 : 1,
+                        padding: "16px",
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-xl shrink-0 mt-0.5">🔧</span>
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: "#1E3A8A" }}>
+                            Solo reparar el problema original
+                          </p>
+                          <p className="text-xs mt-1 leading-relaxed" style={{ color: "#475569" }}>
+                            Apruebas únicamente la reparación por la que trajiste el equipo. No se realizarán trabajos adicionales del diagnóstico.
+                          </p>
                         </div>
-                      </button>
+                      </div>
+                    </button>
 
-                      {/* Volver */}
-                      <button
-                        onClick={() => setMostrarOpciones(false)}
-                        disabled={processing}
-                        className="w-full py-2 text-xs text-center"
-                        style={{ color: "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer" }}
-                      >
-                        ← Volver
-                      </button>
-                    </div>
+                    {/* Cancelar todo */}
+                    <button
+                      onClick={() => handleAccion("rechazar")}
+                      disabled={processing}
+                      className="w-full text-left rounded-xl"
+                      style={{
+                        background: "#FEF2F2",
+                        border: "1.5px solid #FCA5A5",
+                        cursor: processing ? "not-allowed" : "pointer",
+                        opacity: processing ? 0.7 : 1,
+                        padding: "16px",
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <XCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#DC2626" }} />
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: "#7F1D1D" }}>
+                            No acepto — Cancelar el servicio
+                          </p>
+                          <p className="text-xs mt-1 leading-relaxed" style={{ color: "#475569" }}>
+                            No se realizará ninguna reparación. Puedes pasar a recoger tu equipo sin costo por el servicio.
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Volver */}
+                    <button
+                      onClick={() => setMostrarOpciones(false)}
+                      disabled={processing}
+                      className="w-full py-2 text-xs text-center"
+                      style={{
+                        color: "#94A3B8",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      ← Volver
+                    </button>
                   </div>
                 )}
               </div>
@@ -1043,6 +1121,190 @@ export default function TrackingPublicoPage() {
             )}
           </div>
         </SectionCard>
+
+        {/* ── Consentimiento de Promociones ────────────────── */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: "var(--color-bg-surface)",
+            border: "1px solid var(--color-border-subtle)",
+            boxShadow: "var(--shadow-sm)",
+          }}
+        >
+          {/* Header */}
+          <div
+            className="flex items-center gap-3 px-5 py-4"
+            style={{ borderBottom: "1px solid var(--color-border-subtle)" }}
+          >
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: "var(--color-accent-light)" }}
+            >
+              <Gift className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                Ofertas y Promociones
+              </p>
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                ¿Deseas recibir información de nuestros productos y promociones?
+              </p>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Toggle principal */}
+            <div
+              className="flex items-center justify-between rounded-xl px-4 py-3"
+              style={{ background: "var(--color-bg-elevated)" }}
+            >
+              <div className="flex items-center gap-3">
+                <Bell className="w-4 h-4" style={{ color: promoAcepta ? "var(--color-accent)" : "var(--color-text-muted)" }} />
+                <span className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
+                  Recibir notificaciones de ofertas
+                </span>
+              </div>
+              <button
+                onClick={() => setPromoAcepta(!promoAcepta)}
+                className="relative shrink-0"
+                style={{
+                  width: 44,
+                  height: 24,
+                  borderRadius: 12,
+                  background: promoAcepta ? "var(--color-accent)" : "var(--color-border)",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background 200ms ease",
+                  padding: 0,
+                }}
+                aria-label="Toggle promociones"
+              >
+                <span
+                  style={{
+                    display: "block",
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    background: "#fff",
+                    position: "absolute",
+                    top: 3,
+                    left: promoAcepta ? 23 : 3,
+                    transition: "left 200ms ease",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                  }}
+                />
+              </button>
+            </div>
+
+            {/* Opciones de categorías — visibles cuando acepta */}
+            {promoAcepta && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-muted)" }}>
+                  ¿Qué te interesa recibir?
+                </p>
+                {[
+                  {
+                    key: "accesorios" as const,
+                    emoji: "🛡️",
+                    titulo: "Fundas y accesorios",
+                    desc: "Fundas, cristales templados, audífonos y más para tu dispositivo.",
+                  },
+                  {
+                    key: "combos" as const,
+                    emoji: "📦",
+                    titulo: "Combos especiales",
+                    desc: "Paquetes de funda + cristal templado + cargador a precio especial.",
+                  },
+                  {
+                    key: "cargadores" as const,
+                    emoji: "⚡",
+                    titulo: "Cargadores de calidad",
+                    desc: "Cargadores originales y de marca garantizados para tu equipo.",
+                  },
+                  {
+                    key: "equipos" as const,
+                    emoji: "📱",
+                    titulo: "Equipos a crédito o contado",
+                    desc: "Celulares nuevos y seminuevos con opciones de financiamiento.",
+                  },
+                ].map(({ key, emoji, titulo, desc }) => {
+                  const activo = promoPrefs[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setPromoPrefs((p) => ({ ...p, [key]: !p[key] }))}
+                      className="w-full text-left rounded-xl flex items-start gap-3"
+                      style={{
+                        background: activo ? "var(--color-accent-light)" : "var(--color-bg-elevated)",
+                        border: `1.5px solid ${activo ? "var(--color-accent)" : "var(--color-border-subtle)"}`,
+                        padding: "12px 14px",
+                        cursor: "pointer",
+                        transition: "all 150ms ease",
+                      }}
+                    >
+                      <span className="text-xl shrink-0 mt-0.5">{emoji}</span>
+                      <div className="flex-1">
+                        <p
+                          className="text-sm font-semibold leading-tight"
+                          style={{ color: activo ? "var(--color-accent)" : "var(--color-text-primary)" }}
+                        >
+                          {titulo}
+                        </p>
+                        <p className="text-xs mt-0.5 leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
+                          {desc}
+                        </p>
+                      </div>
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                        style={{
+                          background: activo ? "var(--color-accent)" : "transparent",
+                          border: `1.5px solid ${activo ? "var(--color-accent)" : "var(--color-border)"}`,
+                        }}
+                      >
+                        {activo && (
+                          <CheckCircle2 className="w-3 h-3" style={{ color: "#fff" }} />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Nota de privacidad */}
+            <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
+              Solo te enviaremos mensajes por WhatsApp cuando tengamos algo relevante para ti. Puedes cambiar tu preferencia en cualquier momento.
+            </p>
+
+            {/* Botón guardar */}
+            <button
+              onClick={handleGuardarPromos}
+              disabled={savingPromos}
+              className="w-full flex items-center justify-center gap-2 rounded-xl text-sm font-semibold"
+              style={{
+                background: promoSaved ? "var(--color-success)" : "var(--color-primary)",
+                color: "#FFFFFF",
+                border: "none",
+                cursor: savingPromos ? "not-allowed" : "pointer",
+                opacity: savingPromos ? 0.7 : 1,
+                padding: "12px 24px",
+                fontFamily: "var(--font-ui)",
+                transition: "background 300ms ease",
+              }}
+            >
+              {promoSaved ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Preferencias guardadas
+                </>
+              ) : savingPromos ? (
+                "Guardando…"
+              ) : (
+                "Guardar preferencias"
+              )}
+            </button>
+          </div>
+        </div>
 
         {/* ── Técnico asignado ─────────────────────────────── */}
         <div
