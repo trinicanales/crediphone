@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 
 /* ──────────────────────────────────────────────────────────────────────────
    ORDEN DE REPARACIÓN / CONTRATO DE SERVICIO — CREDIPHONE
-   Formato: Carta (216 × 279 mm) · Una sola página
+   Formato: Carta (216 × 279 mm) · Una o dos páginas según contenido
    Sistema visual: tokens de color de CREDIPHONE ERP
    ────────────────────────────────────────────────────────────────────────── */
 
@@ -15,6 +15,19 @@ const PH = 279;
 const ML = 11;
 const MR = 11;
 const CW = PW - ML - MR; // 194 mm
+
+// Zona segura de contenido (footer solo texto = 20 mm)
+const FOOTER_H    = 20;
+const CONTENT_MAX = PH - FOOTER_H; // ≈ 259 mm
+
+/** Si el contenido siguiente no cabe, añade página nueva y reinicia Y */
+function maybeBreak(doc: jsPDF, y: number, needed: number): number {
+  if (y + needed > CONTENT_MAX) {
+    doc.addPage("letter");
+    return 12;
+  }
+  return y;
+}
 
 // ── Paleta de colores (alineada con globals.css tokens) ──────────────────
 const C = {
@@ -255,25 +268,47 @@ export async function POST(
        ║  1. ENCABEZADO                                   ║
        ╚══════════════════════════════════════════════════╝ */
 
-    // QR grande de tracking — arriba derecha, 30 × 30 mm
-    const QR_BIG = 30;
-    const qrBigX = PW - MR - QR_BIG;
+    // ── Dos QRs lado a lado, arriba a la derecha ──────────────────────────
+    const QR_BIG   = 30;                          // tracking  (grande)
+    const QR_SMALL = 20;                          // términos  (pequeño)
+    const QR_GAP   = 3;                           // separación entre los dos
+    const qrBigX   = PW - MR - QR_BIG;           // 175 mm desde el borde
+    const qrSmallX = qrBigX - QR_SMALL - QR_GAP; // 152 mm desde el borde
+    // ancho disponible para el bloque de texto a la izquierda
+    const hdrContentW = qrSmallX - 4 - ML;       // ≈ 137 mm
+
+    // QR grande — Seguimiento en línea
     if (qrTrackData) {
       fc(doc, C.white);
       dc(doc, C.brandMid);
       doc.setLineWidth(0.4);
-      doc.roundedRect(qrBigX - 1.5, y - 1, QR_BIG + 3, QR_BIG + 7.5, 1.5, 1.5, "FD");
+      doc.roundedRect(qrBigX - 1.5, y - 1, QR_BIG + 3, QR_BIG + 8.5, 1.5, 1.5, "FD");
       doc.addImage(qrTrackData, "PNG", qrBigX, y, QR_BIG, QR_BIG);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(5.5);
       tc(doc, C.brandMid);
-      doc.text("ESCANEA PARA", qrBigX + QR_BIG / 2, y + QR_BIG + 2.2, { align: "center" });
-      doc.text("SEGUIMIENTO", qrBigX + QR_BIG / 2, y + QR_BIG + 5.2, { align: "center" });
+      doc.text("SEGUIMIENTO",  qrBigX + QR_BIG / 2, y + QR_BIG + 3,   { align: "center" });
+      doc.text("EN LÍNEA",     qrBigX + QR_BIG / 2, y + QR_BIG + 6.5, { align: "center" });
+    }
+
+    // QR pequeño — Términos y Condiciones (centrado verticalmente respecto al grande)
+    const qrSmallTopOffset = (QR_BIG - QR_SMALL) / 2; // 5 mm
+    if (qrTermsData) {
+      fc(doc, C.white);
+      dc(doc, C.grayLine);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(qrSmallX - 1, y + qrSmallTopOffset - 1, QR_SMALL + 2, QR_SMALL + 8.5, 1, 1, "FD");
+      doc.addImage(qrTermsData, "PNG", qrSmallX, y + qrSmallTopOffset, QR_SMALL, QR_SMALL);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(5.2);
+      tc(doc, C.grayLight);
+      doc.text("TÉRMINOS Y",  qrSmallX + QR_SMALL / 2, y + qrSmallTopOffset + QR_SMALL + 3,   { align: "center" });
+      doc.text("CONDICIONES", qrSmallX + QR_SMALL / 2, y + qrSmallTopOffset + QR_SMALL + 6.5, { align: "center" });
     }
 
     // Franja azul lateral izquierda
     fc(doc, C.brandDark);
-    doc.rect(ML, y, 1.8, 23, "F");
+    doc.rect(ML, y, 1.8, 25, "F");
 
     // Nombre + subtítulo
     doc.setFont("helvetica", "bold");
@@ -284,35 +319,51 @@ export async function POST(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     tc(doc, C.gray);
-    doc.text("ORDEN DE REPARACIÓN / CONTRATO DE SERVICIO", ML + 5, y + 15.5);
+    const subtitleLines = doc.splitTextToSize(
+      "ORDEN DE REPARACIÓN / CONTRATO DE SERVICIO", hdrContentW
+    );
+    doc.text(subtitleLines, ML + 5, y + 16.5);
 
-    // Folio · Fecha · Prioridad
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    tc(doc, C.brandDark);
-    doc.text(`Folio: ${orden.folio}`, ML + 5, y + 22);
-
-    doc.setFont("helvetica", "normal");
-    tc(doc, C.grayLight);
+    // Folio · Fecha · Prioridad en una sola línea con separadores
     const fechaStr = new Date(orden.created_at).toLocaleDateString("es-MX", {
       day: "2-digit", month: "short", year: "numeric",
     });
-    doc.text(`Fecha: ${fechaStr}`, ML + 52, y + 22);
-
+    const prioLabel = (orden.prioridad || "Normal").toUpperCase();
     const prioColor =
       orden.prioridad === "urgente" ? C.red :
       orden.prioridad === "alta"    ? C.amber : C.grayLight;
-    tc(doc, prioColor);
-    doc.text(`Prioridad: ${(orden.prioridad || "Normal").toUpperCase()}`, ML + 105, y + 22);
 
+    let infoX = ML + 5;
+    const infoY = y + 24;
+
+    // Folio (bold, brandDark)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    tc(doc, C.brandDark);
+    doc.text(`Folio: ${orden.folio}`, infoX, infoY);
+    infoX += doc.getTextWidth(`Folio: ${orden.folio}`) + 2;
+
+    // separador + Fecha
+    doc.setFont("helvetica", "normal");
+    tc(doc, C.grayLight);
+    doc.text(` · ${fechaStr}`, infoX, infoY);
+    infoX += doc.getTextWidth(` · ${fechaStr}`) + 2;
+
+    // separador + Prioridad (en color si urgente/alta)
+    tc(doc, prioColor);
+    doc.text(` · ${prioLabel}`, infoX, infoY);
+    infoX += doc.getTextWidth(` · ${prioLabel}`) + 3;
+
+    // Garantía inline si aplica
     if (orden.es_garantia) {
       doc.setFont("helvetica", "bold");
       tc(doc, C.green);
-      doc.text("★ EN GARANTÍA", ML + 152, y + 22);
+      doc.text("★ EN GARANTÍA", infoX, infoY);
     }
 
     tc(doc, C.gray);
-    y += 29;
+    // y avanza lo suficiente para cubrir el QR grande (30mm) + sus etiquetas (8mm) + margen
+    y += 40;
     y = hLine(doc, y, true);
 
     /* ╔══════════════════════════════════════════════════╗
@@ -520,42 +571,54 @@ export async function POST(
        ║  5. TÉRMINOS IMPORTANTES                         ║
        ╚══════════════════════════════════════════════════╝ */
 
+    // Verificar espacio para al menos el encabezado + 1er término
+    y = maybeBreak(doc, y, 30);
+
     // Cabecera de sección con fondo sutil
     fc(doc, C.bgLight);
     dc(doc, C.grayLine);
     doc.setLineWidth(0.18);
-    doc.rect(ML, y, CW, 6, "FD");
+    doc.rect(ML, y, CW, 6.5, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
+    doc.setFontSize(7.5);
     tc(doc, C.brandDark);
     doc.text(
       "TÉRMINOS IMPORTANTES — Al entregar el equipo el cliente acepta las siguientes condiciones:",
-      ML + 2, y + 4
+      ML + 2, y + 4.5
     );
-    y += 8;
+    y += 9;
 
-    // Ítems legales — texto continuo y fluido, sin títulos grandes
-    // Font size ≥ 9.5pt según requisito del usuario
+    // Ítems legales — 9pt para mantener legibilidad, con salto de página automático
     const terms = buildTerms(orden.condiciones_funcionamiento, orden.imei ?? "");
-    doc.setFontSize(9.5);
+    const LINE_H = 4.3; // interlineado por renglón a 9pt
+    doc.setFontSize(9);
+
     terms.forEach((term, i) => {
+      // Estimar altura del término antes de dibujarlo
+      const lines = doc.splitTextToSize(term, CW - 6);
+      const blockH = lines.length * LINE_H + 2.5;
+
+      y = maybeBreak(doc, y, blockH + 2);
+
       doc.setFont("helvetica", "bold");
       tc(doc, C.brandMid);
       doc.text(`${i + 1}.`, ML, y);
 
       doc.setFont("helvetica", "normal");
       tc(doc, C.gray);
-      const lines = doc.splitTextToSize(term, CW - 6);
       doc.text(lines, ML + 6, y);
-      y += lines.length * 4.5 + 2;
+      y += blockH;
     });
 
     tc(doc, C.gray);
+    y = maybeBreak(doc, y, 5);
     y = hLine(doc, y, true);
 
     /* ╔══════════════════════════════════════════════════╗
        ║  6. FIRMAS                                       ║
        ╚══════════════════════════════════════════════════╝ */
+    // La sección de firmas necesita ~34 mm + el footer (26 mm) = ~60 mm
+    y = maybeBreak(doc, y, 60);
     y += 1;
 
     // Etiqueta
@@ -619,45 +682,33 @@ export async function POST(
     y += 28;
 
     /* ╔══════════════════════════════════════════════════╗
-       ║  7. FOOTER                                       ║
+       ║  7. FOOTER — fijo al pie de la hoja (solo texto) ║
        ╚══════════════════════════════════════════════════╝ */
-    y = hLine(doc, y);
+    // Posición fija: independiente de dónde terminó el contenido
+    const footerY = PH - FOOTER_H + 1;  // ≈ 260 mm
 
-    // QR pequeño de términos (derecha del footer)
-    const QR_FOOT = 16;
-    const qrFX = PW - MR - QR_FOOT;
-    if (qrTermsData) {
-      fc(doc, C.white);
-      doc.rect(qrFX - 0.5, y - 0.5, QR_FOOT + 1, QR_FOOT + 1, "F");
-      doc.addImage(qrTermsData, "PNG", qrFX, y, QR_FOOT, QR_FOOT);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(5);
-      tc(doc, C.grayLight);
-      doc.text("Ver términos y",  qrFX + QR_FOOT / 2, y + QR_FOOT + 1.5, { align: "center" });
-      doc.text("condiciones",     qrFX + QR_FOOT / 2, y + QR_FOOT + 4,   { align: "center" });
-      doc.text("completos",       qrFX + QR_FOOT / 2, y + QR_FOOT + 6.5, { align: "center" });
-    }
+    // Línea separadora a ancho completo
+    dc(doc, C.grayLine);
+    doc.setLineWidth(0.18);
+    doc.line(ML, footerY, PW - MR, footerY);
 
-    const footMaxW = CW - QR_FOOT - 5;
+    // Nombre de empresa
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
+    doc.setFontSize(7);
     tc(doc, C.brandDark);
-    doc.text("CREDIPHONE SOLUTIONS S.A. DE C.V.", ML, y + 4);
+    doc.text("CREDIPHONE SOLUTIONS S.A. DE C.V.", ML, footerY + 5);
 
+    // Datos de contacto y legales a ancho completo
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.5);
+    doc.setFontSize(6);
     tc(doc, C.grayLight);
     doc.text(
-      "Prol. Gral. Francisco Villa 218A, Col. 5 de Mayo, Durango, Dgo.  C.P. 34304  ·  Tel: 618 124 5391 / 618 324 0200",
-      ML, y + 7.5, { maxWidth: footMaxW }
+      "Prol. Gral. Francisco Villa 218A, Col. 5 de Mayo, Durango, Dgo.  C.P. 34304  ·  Tel: 618 124 5391 / 618 324 0200  ·  RFC: CAVT870614Q13  ·  RESICO",
+      ML, footerY + 10, { maxWidth: CW }
     );
     doc.text(
-      "RFC: CAVT870614Q13  ·  Régimen: RESICO  ·  Conforme a LFPC Art. 76 bis  ·  NOM-024-SCFI-2013",
-      ML, y + 11, { maxWidth: footMaxW }
-    );
-    doc.text(
-      `Folio: ${orden.folio}   ·   Emisión: ${new Date().toLocaleDateString("es-MX")}${trackingUrl ? `   ·   Seguimiento: ${trackingUrl}` : ""}`,
-      ML, y + 14.5, { maxWidth: footMaxW }
+      `Folio: ${orden.folio}   ·   Emisión: ${new Date().toLocaleDateString("es-MX")}   ·   LFPC Art. 76 bis  ·  NOM-024-SCFI-2013${trackingUrl ? `   ·   ${trackingUrl}` : ""}`,
+      ML, footerY + 14.5, { maxWidth: CW }
     );
 
     /* ── Generar buffer y responder ──────────────────────────── */
