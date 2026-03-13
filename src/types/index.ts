@@ -202,9 +202,17 @@ export interface Producto {
   // FASE 19: Barcode and Location tracking
   codigoBarras?: string;
   sku?: string;
-  ubicacionId?: string; // Deprecated in favor of ubicacionFisica? Or keep for relationship? Keeping for now.
+  ubicacionId?: string;
   ultimaVerificacion?: Date;
   verificadoPor?: string;
+
+  // FASE 27: Campos dedicados para equipos celulares (importación de remisiones)
+  imei?: string;          // IMEI único del equipo (15 dígitos). Solo equipo_nuevo/usado
+  color?: string;         // Color del equipo: "Negro", "Azul", "Verde", etc.
+  ram?: string;           // RAM del equipo: "4GB", "8GB". Null si no aplica
+  almacenamiento?: string;// Almacenamiento: "128GB", "256GB", "512GB"
+  folioRemision?: string; // Folio del ticket de compra: "WINDCEL-19/11/2025"
+
   createdAt: Date;
   updatedAt: Date;
 }

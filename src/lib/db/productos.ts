@@ -78,6 +78,12 @@ export async function createProducto(producto: Omit<Producto, "id" | "createdAt"
       tipo: producto.tipo,
       es_serializado: producto.esSerializado,
       ubicacion_fisica: producto.ubicacionFisica,
+      // FASE 27: Campos dedicados para equipos
+      imei: producto.imei || null,
+      color: producto.color || null,
+      ram: producto.ram || null,
+      almacenamiento: producto.almacenamiento || null,
+      folio_remision: producto.folioRemision || null,
     })
     .select()
     .single();
@@ -109,6 +115,12 @@ export async function updateProducto(id: string, producto: Partial<Producto>, di
   if (producto.tipo !== undefined) updates.tipo = producto.tipo;
   if (producto.esSerializado !== undefined) updates.es_serializado = producto.esSerializado;
   if (producto.ubicacionFisica !== undefined) updates.ubicacion_fisica = producto.ubicacionFisica;
+  // FASE 27 Fields
+  if (producto.imei !== undefined) updates.imei = producto.imei || null;
+  if (producto.color !== undefined) updates.color = producto.color || null;
+  if (producto.ram !== undefined) updates.ram = producto.ram || null;
+  if (producto.almacenamiento !== undefined) updates.almacenamiento = producto.almacenamiento || null;
+  if (producto.folioRemision !== undefined) updates.folio_remision = producto.folioRemision || null;
 
   let query = supabase
     .from("productos")

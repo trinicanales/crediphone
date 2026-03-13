@@ -11,11 +11,14 @@ interface ProductoImport {
   precio: number;
   costo?: number;
   stock: number;
-  codigoBarras?: string;
   esSerializado?: boolean;
   tipo?: string;
   categoriaId?: string;
-  descripcion?: string;
+  // FASE 27: campos dedicados para equipos celulares
+  imei?:          string;
+  color?:         string;
+  ram?:           string;
+  almacenamiento?: string;
 }
 
 export async function POST(request: Request) {
@@ -57,7 +60,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const { productos }: { productos: ProductoImport[] } = await request.json();
+    const body: { productos: ProductoImport[]; folioRemision?: string } = await request.json();
+    const { productos, folioRemision } = body;
 
     if (!Array.isArray(productos) || productos.length === 0) {
       return NextResponse.json(
@@ -73,25 +77,29 @@ export async function POST(request: Request) {
     for (const p of productos) {
       try {
         await createProducto({
-          distribuidorId: distribuidorId as string,
-          nombre: p.nombre,
-          marca: p.marca || "",
-          modelo: p.modelo || "",
-          precio: p.precio,
-          costo: p.costo,
-          stock: p.stock ?? 1,
-          codigoBarras: p.codigoBarras,
-          esSerializado: p.esSerializado ?? false,
-          tipo: (p.tipo || "equipo_nuevo") as "equipo_nuevo" | "equipo_usado" | "accesorio" | "pieza_reparacion" | "servicio",
-          categoriaId: p.categoriaId,
-          descripcion: p.descripcion,
-          // Campos requeridos con defaults
-          imagen: undefined,
-          proveedorId: undefined,
-          stockMinimo: undefined,
-          stockMaximo: undefined,
+          distribuidorId:  distribuidorId as string,
+          nombre:          p.nombre,
+          marca:           p.marca  || "",
+          modelo:          p.modelo || "",
+          precio:          p.precio,
+          costo:           p.costo,
+          stock:           p.stock ?? 1,
+          esSerializado:   p.esSerializado ?? false,
+          tipo:            (p.tipo || "equipo_nuevo") as "equipo_nuevo" | "equipo_usado" | "accesorio" | "pieza_reparacion" | "servicio",
+          categoriaId:     p.categoriaId,
+          // FASE 27: campos separados para equipos celulares
+          imei:            p.imei            || undefined,
+          color:           p.color           || undefined,
+          ram:             p.ram             || undefined,
+          almacenamiento:  p.almacenamiento  || undefined,
+          folioRemision:   folioRemision      || undefined,
+          // Defaults
+          imagen:          undefined,
+          proveedorId:     undefined,
+          stockMinimo:     undefined,
+          stockMaximo:     undefined,
           ubicacionFisica: undefined,
-          activo: true,
+          activo:          true,
         });
         importados++;
       } catch (err: any) {

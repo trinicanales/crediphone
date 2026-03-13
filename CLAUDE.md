@@ -424,6 +424,7 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 | fase21-*.sql | Multi-tenant: columna distribuidor_id en todas las tablas |
 | fase25-*.sql | Caja sesiones: distribuidor_id nullable para super_admin |
 | fase26-fix-users-distribuidor-nullable.sql | users.distribuidor_id nullable para super_admin |
+| fase27-productos-campos-equipo.sql | Columnas imei, color, ram, almacenamiento, folio_remision en productos |
 
 ---
 
@@ -447,6 +448,15 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 - FASE 24: Solicitudes y garantías de piezas
 - FASE 25: Caja con distribuidor nullable
 - FASE 26: Users distribuidor_id nullable + fix crear empleados
+- FASE 27: Campos equipo en productos (imei, color, ram, almacenamiento, folio_remision) + parser WINDCEL + PDF remisión
+
+### Próximas fases (pendientes — NO iniciar hasta indicación):
+- FASE 28: POS + Caja unificados con gestión de turno (aviso caja abierta, cierre desde POS)
+- FASE 29: POS dual mode — Standard (F-keys: F3 búsqueda, F4 cantidad, F10 pagar, F12 pago rápido) + Visual (grid por categoría, touchscreen)
+- FASE 30: Selección de cliente en POS + captura IMEI al vender equipo serializado + Notas por venta/ítem
+- FASE 31: Reporte X (resumen turno sin cerrar) + Reporte Z (cierre formal PDF) + exportar cualquier tabla a Excel
+- FASE 32: Tickets térmicos 58mm en todos los módulos (venta POS, recepción reparación con QR, entrega reparación, pago crédito)
+- FASE 33: Devoluciones parciales por línea + Pedidos flotantes (poner venta en espera, nueva venta)
 
 ### Funcionalidades recientes:
 - QR/barcode scan en POS para agregar productos rápido
@@ -454,6 +464,7 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 - Página admin distribuidores: CRUD completo con toggle activo/inactivo, modal crear/editar
 - Redirect seguridad: empleados page redirige vendedor/cobrador/tecnico a dashboard
 - ProductSearchBar muestra error visible cuando falla la carga de productos
+- Importación WINDCEL: parser completo con marcas-kb, campos separados por columna, PDF remisión reimprimible
 
 ---
 
@@ -516,6 +527,66 @@ PAYJOY_WEBHOOK_SECRET=
 7. **Todas las tablas** deben tener `distribuidor_id` para multi-tenant (excepto `distribuidores` misma)
 8. **La tabla `configuracion`** puede tener múltiples filas (una por distribuidor) — no es un singleton global
 9. **middleware.ts fue renombrado a `src/proxy.ts`** y la función a `proxy` (convención Next.js 16)
+
+---
+
+## Entorno de Desarrollo — Claude Code en VS Code
+
+### Extensiones Instaladas (aprovechar siempre)
+
+| Extensión | Cómo Claude Code debe usarla |
+|---|---|
+| **ESLint** | Antes de terminar cualquier tarea, correr `npm run lint` para validar errores de reglas |
+| **Tailwind CSS IntelliSense** | Detecta clases inválidas — si hay tokens custom (`var(--color-...)`), ir en `style={}` no en className |
+| **Prettier** | Correr `npx prettier --write src/ruta/archivo.tsx` después de editar archivos grandes |
+| **PostCSS Language Support** | Confirma que `globals.css` usa sintaxis Tailwind v4 (`@import "tailwindcss"` + `@theme {}`) |
+
+### Comandos de Verificación Obligatorios
+
+Después de cada cambio de código, Claude Code **DEBE correr estos checks en orden**:
+
+```bash
+# 1. TypeScript — atrapa errores de tipos antes de que lleguen al build
+npx tsc --noEmit
+
+# 2. Lint — reglas ESLint del proyecto
+npm run lint
+
+# 3. (Opcional pero recomendado) Build completo para verificar que Next.js compila
+npm run build
+```
+
+**Regla:** Si `tsc --noEmit` falla → **no dar la tarea por terminada**. Corregir primero.
+
+### Flujo de Trabajo por Fase
+
+```
+1. Leer CLAUDE.md completo al iniciar sesión
+2. git status → revisar qué hay pendiente sin commitear
+3. Implementar cambios de la fase
+4. npx tsc --noEmit → corregir errores
+5. npm run lint → corregir warnings importantes
+6. git diff → revisar exactamente qué cambió antes de commitear
+7. git add [archivos específicos] → NUNCA git add -A sin revisar
+8. git commit -m "FASE XX: descripción concisa"
+```
+
+### Convención de Commits
+
+```
+FASE 27: Campos imei/color/ram/almacenamiento en productos
+FASE 28: POS + Caja unificados con gestión de turno
+fix: corrige crash en importar remisión cuando folio es null
+refactor: migra Sidebar.tsx a tokens CSS
+```
+
+### Archivos que NO se deben tocar sin revisión previa
+
+- `src/proxy.ts` — afecta auth global (era `src/middleware.ts`, ya fue renombrado)
+- `src/app/layout.tsx` — afecta fuentes y tema global
+- `src/app/globals.css` — afecta todo el sistema visual
+- `src/lib/auth/server.ts` — afecta todos los roles/permisos
+- `src/lib/supabase/admin.ts` — cliente con service_role
 
 ---
 

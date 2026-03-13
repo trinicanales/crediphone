@@ -18,7 +18,15 @@ import {
   AlertTriangle,
   Package,
   Loader2,
+  Download,
 } from "lucide-react";
+import {
+  buscarReglaMarca,
+  normalizarModelo,
+  extraerColor,
+  extraerStorage,
+  construirNombre,
+} from "@/lib/utils/marcas-kb";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -27,6 +35,7 @@ interface ProductoParsed {
   marca: string;
   modelo: string;
   color: string;
+  ram: string | null;         // FASE 27: RAM separada de almacenamiento
   almacenamiento: string;
   imei: string;
   costo: number;
@@ -44,13 +53,6 @@ interface ImportRemisionModalProps {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const COLORES = [
-  "AZUL", "GRIS", "PLATA", "NEGRO", "VERDE", "NARANJA", "LAVANDA",
-  "ROSA", "VIOLETA", "BLANCO", "ROJO", "ORO", "DORADO", "SILVER",
-  "BLACK", "BLUE", "MIDNIGHT", "TITANIO", "MORADO", "AMARILLO",
-  "CELESTE", "CAFE", "COBRE", "CHAMPAGNE", "AQUA", "ARENA",
-];
-
 const TIPOS = [
   { value: "equipo_nuevo", label: "Equipo Nuevo" },
   { value: "equipo_usado", label: "Equipo Usado" },
@@ -65,26 +67,23 @@ function parsearTicket(texto: string): ProductoParsed[] {
   const lineas = texto.split("\n");
   const resultados: ProductoParsed[] = [];
 
+  // Encontrar inicio de productos (después del segundo separador ---)
   let inicioProductos = -1;
   let separadoresVistos = 0;
   for (let i = 0; i < lineas.length; i++) {
     if (lineas[i].trim().startsWith("---")) {
       separadoresVistos++;
-      if (separadoresVistos === 2) {
-        inicioProductos = i + 1;
-        break;
-      }
+      if (separadoresVistos === 2) { inicioProductos = i + 1; break; }
     }
   }
-
   if (inicioProductos < 0) return resultados;
 
   let i = inicioProductos;
 
   while (i < lineas.length) {
-    const lineaRaw = lineas[i];
-    const lineaLimpia = lineaRaw.trim();
+    const lineaLimpia = lineas[i].trim();
 
+    // Fin del bloque de productos
     if (
       lineaLimpia.startsWith("CANTIDAD TOTAL") ||
       lineaLimpia.startsWith("!    TOTAL") ||
@@ -92,81 +91,73 @@ function parsearTicket(texto: string): ProductoParsed[] {
       (lineaLimpia.startsWith("---") && i > inicioProductos + 2)
     ) break;
 
+    // Saltar líneas vacías o de control
     if (!lineaLimpia || lineaLimpia.startsWith("-") || lineaLimpia.startsWith("!") || lineaLimpia.startsWith("@")) {
-      i++;
-      continue;
+      i++; continue;
     }
 
+    // Detectar línea de producto: CANT  NOMBRE  P/U  IMPORTE
     const matchProducto = lineaLimpia.match(
       /^(\d+)\s+(.+?)\s{2,}(\d[\d,]*\.\d{2})\s{2,}(\d[\d,]*\.\d{2})\s*$/
     );
-
     if (!matchProducto) { i++; continue; }
 
-    const qty = parseInt(matchProducto[1]);
+    const qty      = parseInt(matchProducto[1]);
     let textoProducto = matchProducto[2].trim();
-    const costoStr = matchProducto[3].replace(/,/g, "");
-    const costo = parseFloat(costoStr);
-
+    const costo    = parseFloat(matchProducto[3].replace(/,/g, ""));
     const imeis: string[] = [];
     i++;
 
+    // Recoger líneas de continuación e IMEIs
     while (i < lineas.length) {
-      const sigLinea = lineas[i].trim();
-      if (!sigLinea) { i++; continue; }
-      if (/^\d{15}$/.test(sigLinea)) { imeis.push(sigLinea); i++; continue; }
-      if (/^\d+\s/.test(sigLinea) && /\d+\.\d{2}\s+\d+\.\d{2}$/.test(sigLinea)) break;
+      const sig = lineas[i].trim();
+      if (!sig) { i++; continue; }
+      // IMEI: exactamente 15 dígitos
+      if (/^\d{15}$/.test(sig)) { imeis.push(sig); i++; continue; }
+      // Nueva línea de producto (siguiente ítem)
+      if (/^\d+\s/.test(sig) && /\d+\.\d{2}\s+\d+\.\d{2}$/.test(sig)) break;
+      // Marcadores de fin de sección
       if (
-        sigLinea.startsWith("CANTIDAD") ||
-        sigLinea.startsWith("!    TOTAL") ||
-        sigLinea.startsWith("---") ||
-        sigLinea.startsWith("GRACIAS") ||
-        sigLinea.startsWith("@")
+        sig.startsWith("CANTIDAD") || sig.startsWith("!    TOTAL") ||
+        sig.startsWith("---") || sig.startsWith("GRACIAS") || sig.startsWith("@")
       ) break;
-      textoProducto += " " + sigLinea;
+      // Línea de continuación: color, almacenamiento, etc.
+      textoProducto += " " + sig;
       i++;
     }
 
-    const esFlete = /^(DHL|FLETE|ENVIO|ENVÍO|PORTE)/i.test(textoProducto.trim());
-    if (esFlete) continue;
+    // Saltar fletes / envíos
+    if (/^(DHL|FLETE|ENVIO|ENVÍO|PORTE)/i.test(textoProducto.trim())) continue;
 
-    let color = "";
-    const textoUpper = textoProducto.toUpperCase();
-    for (const c of COLORES) {
-      if (textoUpper.includes(c)) {
-        color = c.charAt(0) + c.slice(1).toLowerCase();
-        break;
-      }
-    }
+    // ── Normalizar usando marcas-kb ──────────────────────────────────────────
+    const primeraPalabra = textoProducto.split(/\s+/)[0];
+    const regla = buscarReglaMarca(primeraPalabra);
 
-    const storageMatch = textoProducto.match(/(\d+\/\d+\s*G[B]?|\d+\s*G[B]?)/i);
-    const almacenamiento = storageMatch ? storageMatch[1].replace(/\s+/g, "").toUpperCase() : "";
+    // Extraer color → quitar del texto
+    const { color, textoSinColor } = extraerColor(textoProducto);
 
-    let textoLimpio = textoProducto
-      .replace(storageMatch ? storageMatch[0] : "", "")
-      .replace(new RegExp(`\\b${color.toUpperCase()}\\b`, "gi"), "")
-      .replace(/\s+/g, " ")
+    // Extraer RAM y almacenamiento → quitar del texto
+    const { ram, almacenamiento, textoSinStorage } = extraerStorage(textoSinColor);
+
+    // Obtener marca oficial
+    const marcaRaw = primeraPalabra.toUpperCase();
+    const marca = regla
+      ? regla.marcaOficial
+      : marcaRaw.charAt(0) + marcaRaw.slice(1).toLowerCase();
+
+    // Modelo: texto restante sin la primera palabra (marca)
+    const modeloBruto = textoSinStorage
+      .replace(new RegExp(`^${primeraPalabra}\\s*`, "i"), "")
       .trim();
+    const modelo = regla ? normalizarModelo(modeloBruto, regla) : modeloBruto;
 
-    const partes = textoLimpio.split(/\s+/);
-    const marcaRaw = partes[0] || "";
-    const modeloRaw = partes.slice(1).join(" ").trim() || textoLimpio;
-
-    const MARCAS: Record<string, string> = {
-      REDMI: "Xiaomi", MOTO: "Motorola", SAMSUNG: "Samsung", HONOR: "Honor",
-      INFINIX: "Infinix", TECNO: "Tecno", IPHONE: "Apple", HUAWEI: "Huawei",
-      OPPO: "Oppo", VIVO: "Vivo", ITEL: "Itel",
-    };
-    const marca = MARCAS[marcaRaw.toUpperCase()] || marcaRaw;
-
-    const partesMarca = marcaRaw !== marca ? [marca, modeloRaw] : [marcaRaw, modeloRaw];
-    const nombreBase = partesMarca.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-    const nombre = [nombreBase, color, almacenamiento].filter(Boolean).join(" ");
+    // Nombre completo para mostrar
+    const nombre = construirNombre(marca, modelo, color, ram, almacenamiento);
 
     for (let q = 0; q < qty; q++) {
       resultados.push({
-        nombre, marca, modelo: modeloRaw || textoLimpio,
-        color, almacenamiento, imei: imeis[q] || "",
+        nombre, marca, modelo, color, ram, almacenamiento,
+        imei: imeis[q] || "",
         costo, precioVenta: "", tipo: "equipo_nuevo", categoriaId: "", incluir: true,
       });
     }
@@ -187,6 +178,7 @@ export default function ImportRemisionModal({ isOpen, onClose, onImportado }: Im
   const [precioGlobal, setPrecioGlobal] = useState("");
   const [tipoGlobal, setTipoGlobal] = useState("equipo_nuevo");
   const [categoriaGlobal, setCategoriaGlobal] = useState("");
+  const [descargandoPdf, setDescargandoPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -247,20 +239,60 @@ export default function ImportRemisionModal({ isOpen, onClose, onImportado }: Im
   const seleccionados = productos.filter((p) => p.incluir);
   const listos = seleccionados.filter((p) => p.precioVenta && Number(p.precioVenta) > 0);
 
+  async function descargarPdfRemision() {
+    if (!nombreArchivo) return;
+    const folio = `WINDCEL-${nombreArchivo.replace(/\.txt$/i, "")}`;
+    setDescargandoPdf(true);
+    try {
+      const res = await fetch("/api/productos/remision/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folio }),
+      });
+      if (!res.ok) { alert("Error al generar el PDF de la remisión"); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `Remision-${nombreArchivo.replace(/\.txt$/i, "")}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Error de conexión al generar el PDF");
+    } finally {
+      setDescargandoPdf(false);
+    }
+  }
+
   async function handleImportar() {
     if (listos.length === 0) { alert("Agrega el precio de venta a los equipos antes de importar"); return; }
     setImportando(true);
     try {
+      // Folio de la remisión: nombre del archivo sin extensión
+      const folioRemision = nombreArchivo
+        ? `WINDCEL-${nombreArchivo.replace(/\.txt$/i, "")}`
+        : undefined;
+
       const response = await fetch("/api/productos/importar-remision", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          folioRemision,
           productos: listos.map((p) => ({
-            nombre: p.nombre, marca: p.marca, modelo: p.modelo,
-            precio: Number(p.precioVenta), costo: p.costo, stock: 1,
-            codigoBarras: p.imei || undefined, esSerializado: !!p.imei,
-            tipo: p.tipo || "equipo_nuevo", categoriaId: p.categoriaId || undefined,
-            descripcion: [p.color, p.almacenamiento, p.imei ? `IMEI: ${p.imei}` : ""].filter(Boolean).join(" · "),
+            nombre:        p.nombre,
+            marca:         p.marca,
+            modelo:        p.modelo,
+            precio:        Number(p.precioVenta),
+            costo:         p.costo,
+            stock:         1,
+            esSerializado: !!p.imei,
+            tipo:          p.tipo || "equipo_nuevo",
+            categoriaId:   p.categoriaId || undefined,
+            // FASE 27: campos separados en sus propias columnas de BD
+            imei:          p.imei         || undefined,
+            color:         p.color        || undefined,
+            ram:           p.ram          || undefined,
+            almacenamiento: p.almacenamiento || undefined,
           })),
         }),
       });
@@ -376,24 +408,44 @@ export default function ImportRemisionModal({ isOpen, onClose, onImportado }: Im
               {/* Resultado de importación */}
               {resultado && (
                 <div
-                  className="p-4 rounded-lg flex items-center gap-3"
+                  className="p-4 rounded-lg flex items-center justify-between gap-3"
                   style={
                     resultado.error === 0
                       ? { background: "var(--color-success-bg)", border: "1px solid var(--color-success)" }
                       : { background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }
                   }
                 >
-                  <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "var(--color-success)" }} />
-                  <div>
-                    <p className="font-medium" style={{ color: "var(--color-success-text)" }}>
-                      {resultado.ok} equipos importados exitosamente
-                    </p>
-                    {resultado.error > 0 && (
-                      <p className="text-sm mt-1" style={{ color: "var(--color-warning-text)" }}>
-                        {resultado.error} equipos con error (posible IMEI duplicado)
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "var(--color-success)" }} />
+                    <div>
+                      <p className="font-medium" style={{ color: "var(--color-success-text)" }}>
+                        {resultado.ok} equipos importados exitosamente
                       </p>
-                    )}
+                      {resultado.error > 0 && (
+                        <p className="text-sm mt-1" style={{ color: "var(--color-warning-text)" }}>
+                          {resultado.error} equipos con error (posible IMEI duplicado)
+                        </p>
+                      )}
+                    </div>
                   </div>
+                  {/* Botón para descargar/reimprimir el PDF de la remisión */}
+                  <button
+                    onClick={descargarPdfRemision}
+                    disabled={descargandoPdf}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                    style={{
+                      background: "var(--color-bg-surface)",
+                      border: "1px solid var(--color-success)",
+                      color: "var(--color-success-text)",
+                      cursor: descargandoPdf ? "wait" : "pointer",
+                      opacity: descargandoPdf ? 0.7 : 1,
+                    }}
+                  >
+                    {descargandoPdf
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
+                      : <><Download className="w-4 h-4" /> PDF Remisión</>
+                    }
+                  </button>
                 </div>
               )}
 
@@ -503,7 +555,10 @@ export default function ImportRemisionModal({ isOpen, onClose, onImportado }: Im
                               {p.nombre}
                             </div>
                             <div className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                              {p.marca} {p.color && `· ${p.color}`} {p.almacenamiento && `· ${p.almacenamiento}`}
+                              {p.marca}
+                              {p.color        && ` · ${p.color}`}
+                              {p.ram          && ` · ${p.ram}`}
+                              {p.almacenamiento && ` · ${p.almacenamiento}`}
                             </div>
                           </td>
                           <td className="px-3 py-2">
