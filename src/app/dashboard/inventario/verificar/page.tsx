@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useDistribuidor } from "@/components/DistribuidorProvider";
 import { BarcodeScanner } from "@/components/inventario/BarcodeScanner";
 import { LocationSelector } from "@/components/inventario/LocationSelector";
 import {
@@ -44,6 +45,7 @@ type Tab = "scanner" | "contados" | "diferencias";
 
 export default function VerificarInventarioPage() {
   const { user } = useAuth();
+  const { distribuidorActivo } = useDistribuidor();
   const router = useRouter();
 
   // Estado verificación
@@ -130,7 +132,10 @@ export default function VerificarInventarioPage() {
     try {
       const res = await fetch("/api/inventario/verificaciones", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(distribuidorActivo?.id ? { "X-Distribuidor-Id": distribuidorActivo.id } : {}),
+        },
         body: JSON.stringify({ ubicacionId: ubicacionSeleccionada }),
       });
       const data = await res.json();

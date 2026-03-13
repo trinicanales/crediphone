@@ -77,7 +77,8 @@ function mapAlertaFromDB(row: any): AlertaProductoNuevo {
  */
 export async function createVerificacion(
   formData: NuevaVerificacionFormData,
-  usuarioId: string
+  usuarioId: string,
+  distribuidorId: string
 ): Promise<VerificacionInventario> {
   const supabase = createAdminClient();
 
@@ -88,14 +89,16 @@ export async function createVerificacion(
       .from("productos")
       .select("id", { count: "exact", head: true })
       .eq("ubicacion_id", formData.ubicacionId)
+      .eq("distribuidor_id", distribuidorId)
       .eq("activo", true);
 
     totalEsperados = count || 0;
   } else {
-    // All active products
+    // All active products for this distribuidor
     const { count } = await supabase
       .from("productos")
       .select("id", { count: "exact", head: true })
+      .eq("distribuidor_id", distribuidorId)
       .eq("activo", true);
 
     totalEsperados = count || 0;
@@ -109,6 +112,7 @@ export async function createVerificacion(
       notas: formData.notas,
       total_productos_esperados: totalEsperados,
       estado: "en_proceso",
+      distribuidor_id: distribuidorId,
     })
     .select()
     .single();

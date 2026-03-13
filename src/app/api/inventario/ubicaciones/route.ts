@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, role, distribuidorId } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -52,6 +52,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "No tiene permisos para crear ubicaciones" },
         { status: 403 }
+      );
+    }
+
+    // Resolve target distribuidor
+    let targetDistribuidorId: string | null = distribuidorId ?? null;
+    if (isSuperAdmin) {
+      const headerDistId = request.headers.get("X-Distribuidor-Id");
+      if (headerDistId) targetDistribuidorId = headerDistId;
+    }
+    if (!targetDistribuidorId) {
+      return NextResponse.json(
+        { error: "No se pudo determinar el distribuidor activo" },
+        { status: 400 }
       );
     }
 
@@ -72,7 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ubicacion = await createUbicacion(formData, distribuidorId ?? null);
+    const ubicacion = await createUbicacion(formData, targetDistribuidorId);
 
     return NextResponse.json({ success: true, data: ubicacion });
   } catch (error: any) {

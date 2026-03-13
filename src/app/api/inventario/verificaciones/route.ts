@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -61,6 +61,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "No tiene permisos para crear verificaciones" },
         { status: 403 }
+      );
+    }
+
+    // Resolve target distribuidor
+    let targetDistribuidorId: string | null = distribuidorId ?? null;
+    if (isSuperAdmin) {
+      const headerDistId = request.headers.get("X-Distribuidor-Id");
+      if (headerDistId) targetDistribuidorId = headerDistId;
+    }
+    if (!targetDistribuidorId) {
+      return NextResponse.json(
+        { error: "No se pudo determinar el distribuidor activo" },
+        { status: 400 }
       );
     }
 
@@ -110,7 +123,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const verificacion = await createVerificacion(formData, userId);
+    const verificacion = await createVerificacion(formData, userId, targetDistribuidorId);
 
     return NextResponse.json({ success: true, data: verificacion });
   } catch (error: any) {

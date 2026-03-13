@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useDistribuidor } from "@/components/DistribuidorProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -19,6 +20,7 @@ import type { UbicacionInventario, TipoUbicacion } from "@/types";
 
 export default function UbicacionesPage() {
   const { user } = useAuth();
+  const { distribuidorActivo } = useDistribuidor();
   const router = useRouter();
 
   const [ubicaciones, setUbicaciones] = useState<
@@ -119,7 +121,10 @@ export default function UbicacionesPage() {
       } else {
         response = await fetch("/api/inventario/ubicaciones", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(distribuidorActivo?.id ? { "X-Distribuidor-Id": distribuidorActivo.id } : {}),
+          },
           body: JSON.stringify(body),
         });
       }
