@@ -65,6 +65,34 @@ export async function updateConfiguracion(
     updateData.comision_monto_fijo = config.comisionMontoFijo;
   if (config.comisionPorcentajeVenta !== undefined)
     updateData.comision_porcentaje_venta = config.comisionPorcentajeVenta;
+  // FASE 33: Datos del negocio extendidos
+  if (config.emailEmpresa !== undefined)
+    updateData.email_empresa = config.emailEmpresa;
+  if (config.regimenFiscal !== undefined)
+    updateData.regimen_fiscal = config.regimenFiscal;
+  // FASE 33: Créditos por defecto
+  if (config.tasaInteresDefault !== undefined)
+    updateData.tasa_interes_default = config.tasaInteresDefault;
+  if (config.plazoMaximoSemanas !== undefined)
+    updateData.plazo_maximo_semanas = config.plazoMaximoSemanas;
+  if (config.engancheMinimoPct !== undefined)
+    updateData.enganche_minimo_pct = config.engancheMinimoPct;
+  if (config.frecuenciaPagoDefault !== undefined)
+    updateData.frecuencia_pago_default = config.frecuenciaPagoDefault;
+  if (config.montoMaximoCredito !== undefined)
+    updateData.monto_maximo_credito = config.montoMaximoCredito;
+  // FASE 33: POS
+  if (config.permitirVentasSinCliente !== undefined)
+    updateData.permitir_ventas_sin_cliente = config.permitirVentasSinCliente;
+  if (config.descuentoMaximoPct !== undefined)
+    updateData.descuento_maximo_pct = config.descuentoMaximoPct;
+  if (config.diasMaxDevolucion !== undefined)
+    updateData.dias_max_devolucion = config.diasMaxDevolucion;
+  // FASE 33: Notificaciones avanzadas
+  if (config.diasAnticipacionRecordatorio !== undefined)
+    updateData.dias_anticipacion_recordatorio = config.diasAnticipacionRecordatorio;
+  if (config.mensajeRecordatorio !== undefined)
+    updateData.mensaje_recordatorio = config.mensajeRecordatorio;
   // FASE 28: Sonidos
   if (config.sonidosConfig !== undefined) {
     updateData.sonidos_config = config.sonidosConfig
@@ -101,6 +129,8 @@ function mapConfigFromDB(db: any): Configuracion {
     direccionEmpresa: db.direccion_empresa || "",
     telefonoEmpresa: db.telefono_empresa || "",
     whatsappNumero: db.whatsapp_numero || "",
+    emailEmpresa: db.email_empresa || "",
+    regimenFiscal: db.regimen_fiscal || "",
     comisionVendedorDefault: parseFloat(db.comision_vendedor_default) || 5,
     comisionCobradorDefault: parseFloat(db.comision_cobrador_default) || 0,
     tasaMoraDiaria: parseFloat(db.tasa_mora_diaria) || 50,
@@ -120,6 +150,19 @@ function mapConfigFromDB(db: any): Configuracion {
     comisionTipo: db.comision_tipo || "porcentaje",
     comisionMontoFijo: parseFloat(db.comision_monto_fijo) || 100,
     comisionPorcentajeVenta: parseFloat(db.comision_porcentaje_venta) || 1,
+    // FASE 33: Créditos por defecto
+    tasaInteresDefault: parseFloat(db.tasa_interes_default) || 0,
+    plazoMaximoSemanas: db.plazo_maximo_semanas ?? 52,
+    engancheMinimoPct: parseFloat(db.enganche_minimo_pct) || 10,
+    frecuenciaPagoDefault: db.frecuencia_pago_default || "semanal",
+    montoMaximoCredito: parseFloat(db.monto_maximo_credito) || 0,
+    // FASE 33: POS
+    permitirVentasSinCliente: db.permitir_ventas_sin_cliente ?? true,
+    descuentoMaximoPct: parseFloat(db.descuento_maximo_pct) || 100,
+    diasMaxDevolucion: db.dias_max_devolucion ?? 30,
+    // FASE 33: Notificaciones avanzadas
+    diasAnticipacionRecordatorio: db.dias_anticipacion_recordatorio ?? 3,
+    mensajeRecordatorio: db.mensaje_recordatorio || "Hola {nombre}, te recordamos que tienes un pago de {monto} con vencimiento el {fecha}. ¡Evita cargos por mora!",
     updatedAt: new Date(db.updated_at),
     updatedBy: db.updated_by,
     // FASE 28: Sonidos y push

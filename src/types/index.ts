@@ -697,6 +697,8 @@ export interface Configuracion {
   direccionEmpresa: string;
   telefonoEmpresa: string;
   whatsappNumero: string;
+  emailEmpresa?: string;       // FASE 33
+  regimenFiscal?: string;      // FASE 33
   // Comisiones por defecto
   comisionVendedorDefault: number;
   comisionCobradorDefault: number;
@@ -718,6 +720,19 @@ export interface Configuracion {
   comisionTipo?: "fijo" | "porcentaje";
   comisionMontoFijo?: number;
   comisionPorcentajeVenta?: number;
+  // FASE 33: Créditos — parámetros por defecto para nuevos créditos
+  tasaInteresDefault?: number;
+  plazoMaximoSemanas?: number;
+  engancheMinimoPct?: number;
+  frecuenciaPagoDefault?: "semanal" | "quincenal" | "mensual";
+  montoMaximoCredito?: number;
+  // FASE 33: POS — configuración del punto de venta
+  permitirVentasSinCliente?: boolean;
+  descuentoMaximoPct?: number;
+  diasMaxDevolucion?: number;
+  // FASE 33: Notificaciones avanzadas
+  diasAnticipacionRecordatorio?: number;
+  mensajeRecordatorio?: string;
   // Auditoria
   updatedAt: Date;
   updatedBy?: string;
