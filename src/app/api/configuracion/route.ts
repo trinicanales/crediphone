@@ -4,13 +4,22 @@ import { getAuthContext } from "@/lib/auth/server";
 
 /**
  * GET /api/configuracion
- * Obtiene la configuracion del sistema
- * Acceso: Cualquier usuario autenticado (necesario para filtrar sidebar por modulos)
+ * Obtiene la configuracion del sistema.
+ * Acceso: Cualquier usuario autenticado (necesario para filtrar sidebar por modulos).
+ * Si getAuthContext falla (sesión no iniciada aún), responde igualmente con la config por defecto.
  */
 export async function GET() {
   try {
-    const { distribuidorId } = await getAuthContext();
-    const config = await getConfiguracion(distribuidorId ?? null);
+    // Intentar obtener distribuidorId — si falla (ej: sin sesión), continuar sin filtro
+    let distribuidorId: string | null = null;
+    try {
+      const auth = await getAuthContext();
+      distribuidorId = auth.distribuidorId ?? null;
+    } catch {
+      // Sin sesión o error de auth → usar config sin filtro de distribuidor
+    }
+
+    const config = await getConfiguracion(distribuidorId);
     return NextResponse.json({ success: true, data: config });
   } catch (error) {
     console.error("Error en GET /api/configuracion:", error);
@@ -23,8 +32,8 @@ export async function GET() {
 
 /**
  * PUT /api/configuracion
- * Actualiza la configuracion del sistema
- * Acceso: Solo administradores
+ * Actualiza la configuracion del sistema.
+ * Acceso: Solo administradores.
  */
 export async function PUT(request: Request) {
   try {

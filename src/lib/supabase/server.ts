@@ -1,7 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+/**
+ * Cliente de Supabase SSR para el servidor (respeta sesión del usuario).
+ * Usar en API routes que necesiten verificar sesión del usuario actual.
+ * Para operaciones con service_role (bypass RLS), usar createAdminClient de @/lib/supabase/admin.
+ */
 export async function createClient() {
   const cookieStore = await cookies();
 
@@ -24,24 +28,6 @@ export async function createClient() {
             // user sessions.
           }
         },
-      },
-    }
-  );
-}
-
-/**
- * Crea un cliente de Supabase con permisos de administrador
- * Usa la Service Role Key que bypasa las políticas RLS
- * SOLO usar en el servidor para operaciones administrativas
- */
-export function createAdminClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
       },
     }
   );
