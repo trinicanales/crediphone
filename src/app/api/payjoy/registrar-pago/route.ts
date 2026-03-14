@@ -58,13 +58,11 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
 
     /* ── Verificar que el crédito existe y pertenece al distribuidor ─── */
-    let creditoQuery = supabase
+    const { data: credito, error: creditoError } = await supabase
       .from("creditos")
-      .select("id, saldo_pendiente, estado, distribuidor_id, payjoy_finance_order_id")
+      .select("id, monto, estado, distribuidor_id, payjoy_finance_order_id")
       .eq("id", credito_id)
       .single();
-
-    const { data: credito, error: creditoError } = await creditoQuery;
 
     if (creditoError || !credito) {
       return NextResponse.json(
@@ -97,6 +95,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // Calcular saldo pendiente desde pagos
+    const { data: pagosCredito } = await supabase
+      .from("pagos")
+      .select("monto")
+      .eq("credito_id", credito_id);
+
+    const totalPagado = (pagosCredito || []).reduce(
+      (sum: number, p: any) => sum + Number(p.monto),
+      0
+    );
+    const saldoPendiente = Math.max(0, Number(credito.monto) - totalPagado);
+
     const montoNumerico = Number(monto);
 
     /* ── Insertar pago ───────────────────────────── */
@@ -121,14 +131,13 @@ export async function POST(request: Request) {
       throw pagoError;
     }
 
-    /* ── Actualizar saldo del crédito ─────────────── */
-    const nuevoSaldo = Math.max(0, Number(credito.saldo_pendiente) - montoNumerico);
+    /* ── Actualizar estado del crédito si quedó saldado ─────────────── */
+    const nuevoSaldo = Math.max(0, saldoPendiente - montoNumerico);
     const nuevoEstado = nuevoSaldo === 0 ? "pagado" : credito.estado;
 
     await supabase
       .from("creditos")
       .update({
-        saldo_pendiente: nuevoSaldo,
         estado: nuevoEstado,
         updated_at: new Date().toISOString(),
       })
