@@ -17,6 +17,10 @@ import {
   ArrowRight,
   RefreshCw,
   Info,
+  Banknote,
+  Receipt,
+  X,
+  DollarSign,
 } from "lucide-react";
 import { useConfig } from "@/components/ConfigProvider";
 import { Badge } from "@/components/ui/Badge";
@@ -46,6 +50,13 @@ interface CreditoPayjoy {
   producto?: { id: string; nombre: string; marca?: string; modelo?: string } | null;
 }
 
+type MetodoPagoTienda = "efectivo" | "tarjeta" | "transferencia";
+
+interface ModalPagoState {
+  open: boolean;
+  credito: CreditoPayjoy | null;
+}
+
 /* ─── Helpers ──────────────────────────────────────── */
 function formatMoneda(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
@@ -63,6 +74,348 @@ const ESTADO_CONFIG: Record<string, { label: string; variant: "success" | "warni
   cancelado: { label: "Cancelado",variant: "danger"  },
 };
 
+/* ─── Configuración métodos de pago ─────────────────── */
+const METODOS_PAGO: { id: MetodoPagoTienda; label: string; descripcion: string; icon: React.ReactNode }[] = [
+  {
+    id: "efectivo",
+    label: "Efectivo",
+    descripcion: "El cliente paga en billetes/monedas",
+    icon: <Banknote className="w-5 h-5" />,
+  },
+  {
+    id: "transferencia",
+    label: "Transferencia",
+    descripcion: "SPEI / depósito bancario",
+    icon: <DollarSign className="w-5 h-5" />,
+  },
+  {
+    id: "tarjeta",
+    label: "Tarjeta",
+    descripcion: "Terminal punto de venta",
+    icon: <CreditCard className="w-5 h-5" />,
+  },
+];
+
+/* ─── Modal de registro de pago ─────────────────────── */
+function ModalRegistrarPago({
+  credito,
+  onClose,
+  onSuccess,
+}: {
+  credito: CreditoPayjoy;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [monto, setMonto] = useState(
+    credito.saldo_pendiente > 0 ? credito.saldo_pendiente.toFixed(2) : ""
+  );
+  const [metodo, setMetodo] = useState<MetodoPagoTienda>("efectivo");
+  const [referencia, setReferencia] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [exito, setExito] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const montoNum = parseFloat(monto);
+    if (isNaN(montoNum) || montoNum <= 0) {
+      setError("El monto debe ser mayor a $0");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/payjoy/registrar-pago", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          credito_id: credito.id,
+          monto: montoNum,
+          metodo_pago_tienda: metodo,
+          referencia: referencia.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setExito(true);
+        setTimeout(() => {
+          onSuccess();
+          onClose();
+        }, 1500);
+      } else {
+        setError(data.error || "Error al registrar pago");
+      }
+    } catch {
+      setError("Error de red al registrar pago");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    /* Overlay */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(8, 15, 26, 0.7)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border shadow-2xl"
+        style={{
+          background: "var(--color-bg-surface)",
+          borderColor: "var(--color-border-subtle)",
+          boxShadow: "var(--shadow-xl)",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: "var(--color-border-subtle)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ background: "var(--color-accent-light)" }}
+            >
+              <Receipt className="w-4 h-4" style={{ color: "var(--color-accent)" }} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                Registrar Pago Payjoy
+              </h3>
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                {credito.cliente?.nombre ?? "Cliente"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Info crédito */}
+        <div
+          className="mx-6 mt-4 px-4 py-3 rounded-xl flex items-center justify-between"
+          style={{ background: "var(--color-bg-elevated)" }}
+        >
+          <div>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Saldo pendiente
+            </p>
+            <p
+              className="text-xl font-bold tabular-nums"
+              style={{ color: "var(--color-warning)", fontFamily: "var(--font-data)" }}
+            >
+              {formatMoneda(credito.saldo_pendiente)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Total crédito
+            </p>
+            <p
+              className="text-sm font-semibold tabular-nums"
+              style={{ color: "var(--color-text-secondary)", fontFamily: "var(--font-data)" }}
+            >
+              {formatMoneda(credito.monto_total)}
+            </p>
+          </div>
+        </div>
+
+        {/* Aviso Payjoy solo efectivo */}
+        <div
+          className="mx-6 mt-3 px-3 py-2 rounded-lg flex items-start gap-2 text-xs"
+          style={{ background: "var(--color-info-bg)", color: "var(--color-info-text)" }}
+        >
+          <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span>
+            Payjoy reporta los pagos en efectivo. El método que selecciones aquí es
+            <strong> solo para cuadre interno de tu caja</strong>.
+          </span>
+        </div>
+
+        {/* Formulario */}
+        {exito ? (
+          <div className="px-6 py-10 flex flex-col items-center gap-3">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ background: "var(--color-success-bg)" }}
+            >
+              <CheckCircle2 className="w-7 h-7" style={{ color: "var(--color-success)" }} />
+            </div>
+            <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+              Pago registrado correctamente
+            </p>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Se actualizó el saldo del crédito
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="px-6 pb-6 pt-4 space-y-4">
+            {/* Monto */}
+            <div>
+              <label
+                className="block text-xs font-medium mb-1.5"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                Monto a registrar
+              </label>
+              <div className="relative">
+                <span
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  $
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={monto}
+                  onChange={(e) => setMonto(e.target.value)}
+                  className="w-full pl-7 pr-4 py-2.5 text-sm rounded-lg border focus:outline-none"
+                  style={{
+                    background: "var(--color-bg-sunken)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-text-primary)",
+                    fontFamily: "var(--font-data)",
+                  }}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Método de pago */}
+            <div>
+              <label
+                className="block text-xs font-medium mb-2"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                Forma de pago del cliente{" "}
+                <span
+                  className="font-normal"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  (para cuadre de caja)
+                </span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {METODOS_PAGO.map((m) => {
+                  const selected = metodo === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setMetodo(m.id)}
+                      className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border text-center transition-all"
+                      style={{
+                        background: selected ? "var(--color-accent-light)" : "var(--color-bg-sunken)",
+                        borderColor: selected ? "var(--color-accent)" : "var(--color-border)",
+                        color: selected ? "var(--color-accent)" : "var(--color-text-secondary)",
+                        boxShadow: selected ? "0 0 0 2px var(--color-accent)" : "none",
+                      }}
+                      title={m.descripcion}
+                    >
+                      {m.icon}
+                      <span className="text-xs font-medium">{m.label}</span>
+                      {m.id === "efectivo" && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                          style={{
+                            background: "var(--color-accent)",
+                            color: "var(--color-primary-text)",
+                          }}
+                        >
+                          Default
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Referencia (opcional, solo tarjeta/transferencia) */}
+            {(metodo === "tarjeta" || metodo === "transferencia") && (
+              <div>
+                <label
+                  className="block text-xs font-medium mb-1.5"
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  Referencia / Folio{" "}
+                  <span style={{ color: "var(--color-text-muted)" }}>(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={referencia}
+                  onChange={(e) => setReferencia(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none"
+                  style={{
+                    background: "var(--color-bg-sunken)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-text-primary)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                  placeholder={metodo === "tarjeta" ? "Folio terminal" : "Referencia SPEI"}
+                />
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div
+                className="flex items-start gap-2 p-3 rounded-lg text-xs"
+                style={{ background: "var(--color-danger-bg)", color: "var(--color-danger-text)" }}
+              >
+                <XCircle className="w-4 h-4 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            {/* Acciones */}
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors"
+                style={{
+                  background: "var(--color-bg-sunken)",
+                  borderColor: "var(--color-border)",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={loading || !monto}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg flex items-center justify-center gap-2 transition-all"
+                style={{
+                  background: loading ? "var(--color-text-muted)" : "var(--color-accent)",
+                  color: "var(--color-primary-text)",
+                  opacity: loading || !monto ? 0.7 : 1,
+                }}
+              >
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" />Registrando…</>
+                ) : (
+                  <><Receipt className="w-4 h-4" />Registrar Pago</>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Componente principal ──────────────────────────── */
 export default function PayjoyPage() {
   const { config } = useConfig();
@@ -79,6 +432,9 @@ export default function PayjoyPage() {
   const [searchResult, setSearchResult] = useState<PayjoyCustomer | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+
+  // Modal de pago
+  const [modalPago, setModalPago] = useState<ModalPagoState>({ open: false, credito: null });
 
   /* Estado de conexión Payjoy desde config */
   const payjoyEnabled = config?.payjoyEnabled ?? false;
@@ -151,6 +507,15 @@ export default function PayjoyPage() {
       className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto"
       style={{ fontFamily: "var(--font-ui)" }}
     >
+      {/* Modal de registro de pago */}
+      {modalPago.open && modalPago.credito && (
+        <ModalRegistrarPago
+          credito={modalPago.credito}
+          onClose={() => setModalPago({ open: false, credito: null })}
+          onSuccess={fetchCreditos}
+        />
+      )}
+
       {/* ── Header ───────────────────────────────── */}
       <div className="mb-8 flex items-start justify-between">
         <div>
@@ -169,7 +534,7 @@ export default function PayjoyPage() {
             </h1>
           </div>
           <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-            Consulta clientes, créditos vinculados y estado de la integración
+            Consulta clientes, registra pagos y controla el cuadre de caja
           </p>
         </div>
 
@@ -395,7 +760,7 @@ export default function PayjoyPage() {
                   </div>
                 )}
 
-                {/* Acción: crear crédito */}
+                {/* Acción: ver créditos */}
                 <div className="mt-4 pt-3 border-t" style={{ borderColor: "var(--color-accent)" }}>
                   <Link
                     href={`/dashboard/creditos?payjoy_customer=${searchResult.id ?? ""}`}
@@ -455,15 +820,13 @@ export default function PayjoyPage() {
 
         {/* Estados */}
         {loadingCreditos ? (
-          <div className="py-16 flex flex-col items-center gap-3">
-            {/* Skeleton rows */}
+          <div className="py-8 space-y-3 px-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="w-full px-6">
-                <div
-                  className="h-16 rounded-xl animate-pulse"
-                  style={{ background: "var(--color-bg-elevated)" }}
-                />
-              </div>
+              <div
+                key={i}
+                className="h-16 rounded-xl animate-pulse"
+                style={{ background: "var(--color-bg-elevated)" }}
+              />
             ))}
           </div>
         ) : errorCreditos ? (
@@ -502,10 +865,11 @@ export default function PayjoyPage() {
           <div className="divide-y" style={{ borderColor: "var(--color-border-subtle)" }}>
             {creditos.map((credito) => {
               const estadoCfg = ESTADO_CONFIG[credito.estado] ?? { label: credito.estado, variant: "default" as const };
+              const puedeRegistrarPago = credito.estado === "activo" || credito.estado === "vencido";
               return (
                 <div
                   key={credito.id}
-                  className="flex items-center justify-between px-6 py-4 hover:transition-colors"
+                  className="flex items-center justify-between px-6 py-4 transition-colors"
                   style={{ background: "var(--color-bg-surface)" }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.background = "var(--color-bg-elevated)")
@@ -547,8 +911,8 @@ export default function PayjoyPage() {
                     </div>
                   </div>
 
-                  {/* Montos + estado + acción */}
-                  <div className="flex items-center gap-6 flex-shrink-0">
+                  {/* Montos + estado + acciones */}
+                  <div className="flex items-center gap-4 flex-shrink-0">
                     <div className="text-right hidden sm:block">
                       <p
                         className="text-sm font-bold tabular-nums"
@@ -561,7 +925,7 @@ export default function PayjoyPage() {
                           className="text-xs tabular-nums"
                           style={{ color: "var(--color-warning)", fontFamily: "var(--font-data)" }}
                         >
-                          Pendiente: {formatMoneda(credito.saldo_pendiente)}
+                          Pend: {formatMoneda(credito.saldo_pendiente)}
                         </p>
                       )}
                       <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
@@ -570,6 +934,31 @@ export default function PayjoyPage() {
                     </div>
 
                     <Badge variant={estadoCfg.variant}>{estadoCfg.label}</Badge>
+
+                    {/* Botón registrar pago */}
+                    {puedeRegistrarPago && (
+                      <button
+                        onClick={() => setModalPago({ open: true, credito })}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all"
+                        style={{
+                          background: "var(--color-accent-light)",
+                          color: "var(--color-accent)",
+                          border: "1px solid var(--color-accent)",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "var(--color-accent)";
+                          e.currentTarget.style.color = "var(--color-primary-text)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "var(--color-accent-light)";
+                          e.currentTarget.style.color = "var(--color-accent)";
+                        }}
+                        title="Registrar pago presencial"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        Cobrar
+                      </button>
+                    )}
 
                     <Link
                       href={`/dashboard/creditos/${credito.id}`}
@@ -589,11 +978,10 @@ export default function PayjoyPage() {
 
       {/* ── Footer info ───────────────────────────── */}
       <p className="mt-6 text-xs text-center" style={{ color: "var(--color-text-muted)" }}>
-        La API Key de Payjoy es por tienda. Los administradores pueden configurarla en{" "}
+        Los pagos registrados aquí se suman al cuadre de caja del turno activo.{" "}
         <Link href="/dashboard/configuracion" className="underline" style={{ color: "var(--color-accent)" }}>
-          Configuración
+          Configurar Payjoy
         </Link>
-        .
       </p>
     </div>
   );

@@ -147,7 +147,7 @@ export async function cerrarCaja(
     throw new Error("La sesión ya está cerrada");
   }
 
-  // 2. Calcular totales de ventas por método de pago
+  // 2. Calcular totales de ventas POS por método de pago
   const { data: ventasData } = await supabase
     .from("ventas")
     .select("metodo_pago, total, desglose_mixto")
@@ -180,6 +180,37 @@ export async function cerrarCaja(
         break;
     }
   });
+
+  // 2b. FASE 28: Sumar pagos presenciales de créditos Payjoy al turno
+  // metodo_pago_tienda indica cómo pagó físicamente el cliente en tienda
+  // (efectivo → va a la gaveta; tarjeta/transferencia → no en gaveta)
+  try {
+    const { data: pagosPayjoyTurno } = await supabase
+      .from("pagos")
+      .select("monto, metodo_pago_tienda")
+      .eq("metodo_pago", "payjoy")
+      .gte("fecha_pago", sesionData.fecha_apertura.split("T")[0])
+      .lte("fecha_pago", new Date().toISOString().split("T")[0]);
+
+    (pagosPayjoyTurno || []).forEach((p: any) => {
+      const monto = parseFloat(p.monto || 0);
+      const metodo = p.metodo_pago_tienda || "efectivo";
+      switch (metodo) {
+        case "tarjeta":
+          totalVentasTarjeta += monto;
+          break;
+        case "transferencia":
+          totalVentasTransferencia += monto;
+          break;
+        default: // efectivo
+          totalVentasEfectivo += monto;
+          break;
+      }
+    });
+  } catch {
+    // No interrumpir cierre de caja si falla la suma de pagos Payjoy
+    console.warn("[Caja] No se pudieron sumar pagos Payjoy al turno");
+  }
 
   // 3. Calcular totales de movimientos
   const { data: movimientosData } = await supabase

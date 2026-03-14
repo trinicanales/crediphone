@@ -98,6 +98,8 @@ export async function createPago(pago: Omit<Pago, "id" | "createdAt">): Promise<
       referencia: pago.referencia,
       detalle_pago: pago.detallePago,
       cobrador_id: pago.cobradorId,
+      // FASE 28: método real en tienda para cuadre de caja (pagos Payjoy)
+      metodo_pago_tienda: pago.metodoPagoTienda ?? null,
     })
     .select()
     .single();
@@ -117,6 +119,7 @@ export async function updatePago(id: string, pago: Partial<Omit<Pago, "id" | "cr
   if (pago.referencia !== undefined) updateData.referencia = pago.referencia;
   if (pago.detallePago !== undefined) updateData.detalle_pago = pago.detallePago;
   if (pago.cobradorId !== undefined) updateData.cobrador_id = pago.cobradorId;
+  if (pago.metodoPagoTienda !== undefined) updateData.metodo_pago_tienda = pago.metodoPagoTienda;
 
   const { data, error } = await supabase
     .from("pagos")
