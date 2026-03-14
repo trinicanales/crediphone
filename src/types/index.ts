@@ -679,6 +679,7 @@ export interface ModulosHabilitados {
   tecnico: boolean;
   pos: boolean; // FASE 18: Punto de Venta
   inventario_avanzado: boolean; // FASE 19: Barcode & Location Management
+  payjoy: boolean; // Área de ventas Payjoy (visible a todos los roles)
 }
 
 // Modulos esenciales que no se pueden deshabilitar

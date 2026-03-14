@@ -53,6 +53,7 @@ const MODULE_LABELS: Record<keyof ModulosHabilitados, string> = {
   tecnico: "Panel Técnico",
   pos: "Punto de Venta (POS)",
   inventario_avanzado: "Inventario Avanzado (Barcode & Ubicaciones)",
+  payjoy: "Área de Ventas Payjoy",
 };
 
 // ── Toggle reutilizable ──────────────────────────────

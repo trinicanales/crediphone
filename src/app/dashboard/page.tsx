@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/components/AuthProvider";
+import { useConfig } from "@/components/ConfigProvider";
 import { ModalOrden } from "@/components/reparaciones/ModalOrden";
 import type { DashboardStats as RepDashboardStats } from "@/lib/db/reparaciones-dashboard";
 
@@ -88,6 +89,7 @@ function CardSkeleton({ rows = 3 }: { rows?: number }) {
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isModuleEnabled } = useConfig();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [repStats, setRepStats] = useState<RepDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -567,6 +569,16 @@ export default function DashboardPage() {
             {/* Empleados */}
             {canSeeEmpleados && (
               <ActionLink href="/dashboard/empleados" icon="people" label="Empleados" />
+            )}
+
+            {/* Payjoy — todos los roles */}
+            {isModuleEnabled("payjoy") && (
+              <ActionLink
+                href="/dashboard/payjoy"
+                icon="zap"
+                label="Payjoy"
+                iconColor="var(--color-accent)"
+              />
             )}
 
             {/* Reportes */}
@@ -1107,6 +1119,11 @@ export default function DashboardPage() {
 ══════════════════════════════════════════════ */
 
 const ICONS: Record<string, ReactNode> = {
+  zap: (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  ),
   cart: (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />

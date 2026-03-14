@@ -36,6 +36,7 @@ import {
   ChevronDown,
   Eye,
   Store,
+  Zap,
 } from "lucide-react";
 
 interface NavItem {
@@ -69,6 +70,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/reportes/comisiones", label: "Comisiones", icon: DollarSign, roles: ["admin", "super_admin"], moduleKey: "reportes" },
   { href: "/dashboard/reportes/equipos", label: "Equipos", icon: Smartphone, roles: ["admin", "super_admin"], moduleKey: "reportes" },
   { href: "/dashboard/recordatorios", label: "Recordatorios", icon: BellRing, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "recordatorios" },
+  { href: "/dashboard/payjoy", label: "Payjoy", icon: Zap, moduleKey: "payjoy" },
   { href: "/dashboard/tecnico", label: "Técnico", icon: Settings, roles: ["tecnico", "super_admin"], moduleKey: "tecnico" },
   { href: "/dashboard/configuracion", label: "Configuración", icon: SlidersHorizontal, roles: ["admin", "super_admin"] },
 ];
