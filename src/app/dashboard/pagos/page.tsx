@@ -7,10 +7,14 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import type { Pago, Credito, Cliente, DetallePagoMixto } from "@/types";
+import { Printer } from "lucide-react";
+import { generarTicketPagoCredito, abrirReporte } from "@/lib/utils/reportes";
 
 interface PagoConDetalles extends Pago {
   clienteNombre?: string;
+  clienteApellido?: string;
   creditoMonto?: number;
+  creditoFolio?: string;
 }
 
 export default function PagosPage() {
@@ -62,7 +66,9 @@ export default function PagosPage() {
           return {
             ...pago,
             clienteNombre: cliente ? `${cliente.nombre} ${cliente.apellido}` : "Desconocido",
+            clienteApellido: cliente?.apellido,
             creditoMonto: credito ? Number(credito.monto) : 0,
+            creditoFolio: credito?.folio,
           };
         });
         setPagos(pagosConDetalles);
@@ -299,6 +305,30 @@ function PagoRow({
         )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        {/* FASE 32: Ticket 58mm */}
+        <button
+          onClick={() => {
+            const html = generarTicketPagoCredito({
+              pagoId: pago.id,
+              fechaPago: pago.fechaPago,
+              monto: Number(pago.monto),
+              metodoPago: pago.metodoPago,
+              referencia: pago.referencia,
+              creditoFolio: pago.creditoFolio,
+              saldoPendiente: 0,
+              clienteNombre: pago.clienteNombre || "Cliente",
+              clienteApellido: pago.clienteApellido,
+            });
+            abrirReporte(html, `Pago ${pago.id.slice(0, 8).toUpperCase()}`);
+          }}
+          className="mr-4"
+          style={{ color: "var(--color-text-muted)" }}
+          title="Imprimir ticket de pago"
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-accent)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}
+        >
+          <Printer className="w-4 h-4" />
+        </button>
         <button
           onClick={onEdit}
           className="mr-4"

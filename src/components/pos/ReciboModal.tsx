@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { X, Download, CheckCircle, ShoppingBag } from "lucide-react";
+import { X, Download, CheckCircle, ShoppingBag, Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { VentaDetallada } from "@/types";
+import { generarTicketVentaPOS, abrirReporte } from "@/lib/utils/reportes";
 
 interface ReciboModalProps {
   venta: VentaDetallada;
@@ -19,6 +20,32 @@ export function ReciboModal({
   onNuevaVenta,
 }: ReciboModalProps) {
   const [downloading, setDownloading] = useState(false);
+
+  // FASE 32: Ticket 58mm
+  const handleImprimirTicket = () => {
+    const html = generarTicketVentaPOS({
+      folio: venta.folio,
+      fechaVenta: venta.fechaVenta,
+      vendedorNombre: venta.vendedorNombre,
+      clienteNombre: venta.clienteNombre,
+      clienteApellido: venta.clienteApellido,
+      items: (venta.items || []).map(item => ({
+        productoNombre: item.productoNombre || "Producto",
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        subtotal: item.subtotal,
+        imei: (item as any).imei,
+      })),
+      subtotal: venta.subtotal,
+      descuento: venta.descuento,
+      total: venta.total,
+      metodoPago: venta.metodoPago,
+      desgloseMixto: venta.desgloseMixto as any,
+      montoRecibido: venta.montoRecibido,
+      cambio: venta.cambio,
+    });
+    abrirReporte(html, `Ticket ${venta.folio}`);
+  };
 
   if (!isOpen) return null;
 
@@ -190,15 +217,23 @@ export function ReciboModal({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 p-6 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex flex-wrap gap-3 p-6 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+            {/* FASE 32: Ticket 58mm */}
+            <Button
+              onClick={handleImprimirTicket}
+              variant="secondary"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Ticket 58mm
+            </Button>
+
             <Button
               onClick={handleDownloadRecibo}
               disabled={downloading}
-              className="flex-1"
               variant="secondary"
             >
               <Download className="w-4 h-4 mr-2" />
-              {downloading ? "Descargando..." : "Descargar Recibo"}
+              {downloading ? "..." : "Recibo PDF"}
             </Button>
 
             <Button onClick={handleNuevaVenta} className="flex-1">

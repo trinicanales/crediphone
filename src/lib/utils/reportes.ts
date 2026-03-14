@@ -460,3 +460,425 @@ export function abrirReporte(html: string, titulo: string): void {
   ventana.document.close();
   ventana.document.title = titulo;
 }
+
+// =====================================================
+// FASE 32: TICKETS TÉRMICOS 58mm
+// =====================================================
+
+/**
+ * CSS base para tickets térmicos 58mm
+ * Ancho real: 58mm ≈ 220px. 48mm de área imprimible.
+ */
+const CSS_TICKET = `
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    color: #000;
+    background: #fff;
+    width: 280px;
+    margin: 0 auto;
+    padding: 8px 4px;
+  }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: bold; }
+  .lg { font-size: 14px; }
+  .xl { font-size: 17px; }
+  .sm { font-size: 9px; }
+  .sep { border-top: 1px dashed #000; margin: 5px 0; }
+  .sep-solid { border-top: 1px solid #000; margin: 5px 0; }
+  .row { display: flex; justify-content: space-between; margin: 2px 0; }
+  .row .lbl { color: #333; }
+  .row .val { font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  th { text-align: left; font-weight: bold; padding: 2px 2px; border-bottom: 1px solid #000; font-size: 10px; }
+  th.r { text-align: right; }
+  td { padding: 2px 2px; vertical-align: top; }
+  td.r { text-align: right; }
+  td.center { text-align: center; }
+  .qr { display: block; margin: 8px auto; width: 110px; height: 110px; }
+  .footer { text-align: center; margin-top: 8px; font-size: 9px; color: #555; }
+  .estado-badge {
+    display: inline-block;
+    border: 1px solid #000;
+    padding: 1px 4px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  .print-btn {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+    padding: 8px;
+    background: #09244a;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .print-btn:hover { background: #0e3570; }
+  @media print {
+    .print-btn { display: none !important; }
+    body { width: 58mm; padding: 2mm; }
+  }
+`;
+
+function fmtTicket(num: number | undefined | null): string {
+  const n = typeof num === "number" ? num : 0;
+  return `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtFechaCorta(date: Date | string): string {
+  return new Date(date).toLocaleString("es-MX", {
+    day: "2-digit", month: "2-digit", year: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function metodoPagoTicket(metodo: string): string {
+  const map: Record<string, string> = {
+    efectivo: "Efectivo",
+    transferencia: "Transferencia",
+    tarjeta: "Tarjeta",
+    mixto: "Mixto",
+    deposito: "Depósito",
+    payjoy: "Payjoy",
+  };
+  return map[metodo] || metodo;
+}
+
+// ── 1. TICKET VENTA POS ──────────────────────────────
+
+export interface TicketVentaData {
+  folio: string;
+  fechaVenta: Date | string;
+  vendedorNombre?: string;
+  clienteNombre?: string;
+  clienteApellido?: string;
+  items: Array<{
+    productoNombre: string;
+    cantidad: number;
+    precioUnitario: number;
+    subtotal: number;
+    imei?: string;
+  }>;
+  subtotal: number;
+  descuento: number;
+  total: number;
+  metodoPago: string;
+  desgloseMixto?: { efectivo?: number; transferencia?: number; tarjeta?: number };
+  montoRecibido?: number;
+  cambio?: number;
+  distribuidorNombre?: string;
+}
+
+export function generarTicketVentaPOS(data: TicketVentaData): string {
+  const itemsRows = data.items.map(item => `
+    <tr>
+      <td>${item.productoNombre}${item.imei ? `<br/><span class="sm">IMEI: ${item.imei}</span>` : ""}</td>
+      <td class="r">${item.cantidad}</td>
+      <td class="r">${fmtTicket(item.precioUnitario)}</td>
+      <td class="r">${fmtTicket(item.subtotal)}</td>
+    </tr>
+  `).join("");
+
+  const desglose = data.metodoPago === "mixto" && data.desgloseMixto
+    ? Object.entries(data.desgloseMixto)
+        .filter(([, v]) => v && v > 0)
+        .map(([k, v]) => `<div class="row"><span>${metodoPagoTicket(k)}:</span><span>${fmtTicket(v)}</span></div>`)
+        .join("")
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Ticket ${data.folio}</title>
+  <style>${CSS_TICKET}</style>
+</head>
+<body>
+  <div class="center bold lg">CREDIPHONE</div>
+  ${data.distribuidorNombre ? `<div class="center sm">${data.distribuidorNombre}</div>` : ""}
+  <div class="center sm">Ticket de Venta</div>
+
+  <button class="print-btn" onclick="window.print()">🖨 Imprimir Ticket</button>
+
+  <div class="sep"></div>
+  <div class="row"><span class="lbl">Folio:</span><span class="val bold">${data.folio}</span></div>
+  <div class="row"><span class="lbl">Fecha:</span><span>${fmtFechaCorta(data.fechaVenta)}</span></div>
+  ${data.clienteNombre ? `<div class="row"><span class="lbl">Cliente:</span><span>${data.clienteNombre} ${data.clienteApellido || ""}</span></div>` : ""}
+  ${data.vendedorNombre ? `<div class="row"><span class="lbl">Atendió:</span><span>${data.vendedorNombre}</span></div>` : ""}
+
+  <div class="sep"></div>
+  <table>
+    <thead>
+      <tr><th>Artículo</th><th class="r">Cant</th><th class="r">P.U.</th><th class="r">Importe</th></tr>
+    </thead>
+    <tbody>${itemsRows}</tbody>
+  </table>
+
+  <div class="sep-solid"></div>
+  ${data.descuento > 0 ? `
+  <div class="row"><span>Subtotal:</span><span>${fmtTicket(data.subtotal)}</span></div>
+  <div class="row"><span>Descuento:</span><span>-${fmtTicket(data.descuento)}</span></div>
+  ` : ""}
+  <div class="row bold xl"><span>TOTAL:</span><span>${fmtTicket(data.total)}</span></div>
+
+  <div class="sep"></div>
+  <div class="row"><span class="lbl">Método:</span><span>${metodoPagoTicket(data.metodoPago)}</span></div>
+  ${desglose}
+  ${data.montoRecibido !== undefined ? `<div class="row"><span>Efectivo recibido:</span><span>${fmtTicket(data.montoRecibido)}</span></div>` : ""}
+  ${data.cambio !== undefined && data.cambio > 0 ? `<div class="row bold"><span>Cambio:</span><span>${fmtTicket(data.cambio)}</span></div>` : ""}
+
+  <div class="sep"></div>
+  <div class="footer">
+    <p>¡Gracias por su compra!</p>
+    <p>Conserve este ticket</p>
+  </div>
+</body>
+</html>`;
+}
+
+// ── 2. TICKET RECEPCIÓN REPARACIÓN ───────────────────
+
+export interface TicketRecepcionData {
+  folio: string;
+  fechaRecepcion: Date | string;
+  fechaEstimadaEntrega?: Date | string;
+  clienteNombre: string;
+  clienteApellido?: string;
+  clienteTelefono: string;
+  marcaDispositivo: string;
+  modeloDispositivo: string;
+  imei?: string;
+  numeroSerie?: string;
+  problemaReportado: string;
+  accesoriosEntregados?: string;
+  condicionDispositivo?: string;
+  tecnicoNombre?: string;
+  distribuidorNombre?: string;
+  qrDataUrl?: string; // data URL del QR generado con qrcode npm
+  qrTrackingUrl?: string; // URL de seguimiento (sin QR pre-generado → se muestra textual)
+}
+
+export function generarTicketRecepcionReparacion(data: TicketRecepcionData): string {
+  const qrSection = data.qrDataUrl
+    ? `<div class="sep"></div>
+       <div class="center sm bold">Escanea para ver el estado</div>
+       <img src="${data.qrDataUrl}" class="qr" alt="QR seguimiento"/>`
+    : data.qrTrackingUrl
+    ? `<div class="sep"></div>
+       <div class="center sm bold">Seguimiento en línea:</div>
+       <div class="center sm" style="word-break:break-all">${data.qrTrackingUrl}</div>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Recepción ${data.folio}</title>
+  <style>${CSS_TICKET}</style>
+</head>
+<body>
+  <div class="center bold lg">CREDIPHONE</div>
+  ${data.distribuidorNombre ? `<div class="center sm">${data.distribuidorNombre}</div>` : ""}
+  <div class="center sm">Recepción de Equipo</div>
+
+  <button class="print-btn" onclick="window.print()">🖨 Imprimir Ticket</button>
+
+  <div class="sep"></div>
+  <div class="center bold xl">${data.folio}</div>
+  <div class="row"><span class="lbl">Recibido:</span><span>${fmtFechaCorta(data.fechaRecepcion)}</span></div>
+  ${data.fechaEstimadaEntrega ? `<div class="row"><span class="lbl">Entrega est.:</span><span>${fmtFechaCorta(data.fechaEstimadaEntrega)}</span></div>` : ""}
+  ${data.tecnicoNombre ? `<div class="row"><span class="lbl">Técnico:</span><span>${data.tecnicoNombre}</span></div>` : ""}
+
+  <div class="sep"></div>
+  <div class="bold sm">CLIENTE</div>
+  <div>${data.clienteNombre} ${data.clienteApellido || ""}</div>
+  <div>Tel: ${data.clienteTelefono}</div>
+
+  <div class="sep"></div>
+  <div class="bold sm">EQUIPO</div>
+  <div>${data.marcaDispositivo} ${data.modeloDispositivo}</div>
+  ${data.imei ? `<div class="sm">IMEI: ${data.imei}</div>` : ""}
+  ${data.numeroSerie ? `<div class="sm">N/S: ${data.numeroSerie}</div>` : ""}
+  ${data.condicionDispositivo ? `<div class="sm">Condición: ${data.condicionDispositivo}</div>` : ""}
+  ${data.accesoriosEntregados ? `<div class="sm">Accesorios: ${data.accesoriosEntregados}</div>` : ""}
+
+  <div class="sep"></div>
+  <div class="bold sm">PROBLEMA REPORTADO</div>
+  <div style="white-space:pre-wrap">${data.problemaReportado}</div>
+
+  ${qrSection}
+
+  <div class="sep-solid"></div>
+  <div class="center sm">Al recoger su equipo presente este ticket.</div>
+  <div class="center sm">Garantía sujeta a revisión técnica.</div>
+  <div class="footer"><p>CREDIPHONE — Reparaciones</p></div>
+</body>
+</html>`;
+}
+
+// ── 3. TICKET ENTREGA REPARACIÓN ─────────────────────
+
+export interface TicketEntregaData {
+  folio: string;
+  fechaEntrega: Date | string;
+  clienteNombre: string;
+  clienteApellido?: string;
+  clienteTelefono: string;
+  marcaDispositivo: string;
+  modeloDispositivo: string;
+  imei?: string;
+  diagnostico?: string;
+  notasTecnico?: string;
+  costoReparacion: number;
+  costoPartes: number;
+  costoTotal: number;
+  metodoPago?: string;
+  tecnicoNombre?: string;
+  distribuidorNombre?: string;
+  diasGarantia?: number;
+}
+
+export function generarTicketEntregaReparacion(data: TicketEntregaData): string {
+  const fechaGarantia = data.diasGarantia
+    ? new Date(new Date(data.fechaEntrega).getTime() + data.diasGarantia * 24 * 60 * 60 * 1000)
+    : null;
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Entrega ${data.folio}</title>
+  <style>${CSS_TICKET}</style>
+</head>
+<body>
+  <div class="center bold lg">CREDIPHONE</div>
+  ${data.distribuidorNombre ? `<div class="center sm">${data.distribuidorNombre}</div>` : ""}
+  <div class="center sm">Entrega de Equipo</div>
+
+  <button class="print-btn" onclick="window.print()">🖨 Imprimir Ticket</button>
+
+  <div class="sep"></div>
+  <div class="center bold xl">${data.folio}</div>
+  <div class="row"><span class="lbl">Entrega:</span><span>${fmtFechaCorta(data.fechaEntrega)}</span></div>
+  ${data.tecnicoNombre ? `<div class="row"><span class="lbl">Técnico:</span><span>${data.tecnicoNombre}</span></div>` : ""}
+
+  <div class="sep"></div>
+  <div class="bold sm">CLIENTE</div>
+  <div>${data.clienteNombre} ${data.clienteApellido || ""}</div>
+  <div>Tel: ${data.clienteTelefono}</div>
+
+  <div class="sep"></div>
+  <div class="bold sm">EQUIPO</div>
+  <div>${data.marcaDispositivo} ${data.modeloDispositivo}</div>
+  ${data.imei ? `<div class="sm">IMEI: ${data.imei}</div>` : ""}
+
+  ${data.diagnostico ? `
+  <div class="sep"></div>
+  <div class="bold sm">DIAGNÓSTICO</div>
+  <div style="white-space:pre-wrap;font-size:10px">${data.diagnostico}</div>
+  ` : ""}
+
+  ${data.notasTecnico ? `
+  <div class="sep"></div>
+  <div class="bold sm">TRABAJO REALIZADO</div>
+  <div style="white-space:pre-wrap;font-size:10px">${data.notasTecnico}</div>
+  ` : ""}
+
+  <div class="sep-solid"></div>
+  ${data.costoPartes > 0 ? `<div class="row"><span>Refacciones:</span><span>${fmtTicket(data.costoPartes)}</span></div>` : ""}
+  ${data.costoReparacion > 0 ? `<div class="row"><span>Mano de obra:</span><span>${fmtTicket(data.costoReparacion)}</span></div>` : ""}
+  <div class="row bold xl"><span>TOTAL:</span><span>${fmtTicket(data.costoTotal)}</span></div>
+  ${data.metodoPago ? `<div class="row"><span class="lbl">Pago:</span><span>${metodoPagoTicket(data.metodoPago)}</span></div>` : ""}
+
+  ${fechaGarantia ? `
+  <div class="sep"></div>
+  <div class="center bold sm">★ GARANTÍA ${data.diasGarantia} DÍAS ★</div>
+  <div class="center sm">Válida hasta: ${new Date(fechaGarantia).toLocaleDateString("es-MX")}</div>
+  <div class="center sm" style="font-size:9px">Aplica solo para el mismo fallo reparado.</div>
+  ` : ""}
+
+  <div class="sep-solid"></div>
+  <div class="footer">
+    <p>Firma de conformidad:</p>
+    <p style="margin-top:20px">____________________________</p>
+    <p>CREDIPHONE — Reparaciones</p>
+  </div>
+</body>
+</html>`;
+}
+
+// ── 4. TICKET PAGO CRÉDITO ───────────────────────────
+
+export interface TicketPagoData {
+  // Pago
+  pagoId: string;
+  fechaPago: Date | string;
+  monto: number;
+  metodoPago: string;
+  referencia?: string;
+  // Crédito
+  creditoFolio?: string;
+  saldoAnterior?: number;
+  saldoPendiente: number;
+  proximoVencimiento?: Date | string;
+  // Cliente
+  clienteNombre: string;
+  clienteApellido?: string;
+  // Cobrador
+  cobradorNombre?: string;
+  distribuidorNombre?: string;
+}
+
+export function generarTicketPagoCredito(data: TicketPagoData): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Pago ${data.pagoId.slice(0, 8).toUpperCase()}</title>
+  <style>${CSS_TICKET}</style>
+</head>
+<body>
+  <div class="center bold lg">CREDIPHONE</div>
+  ${data.distribuidorNombre ? `<div class="center sm">${data.distribuidorNombre}</div>` : ""}
+  <div class="center sm">Comprobante de Pago</div>
+
+  <button class="print-btn" onclick="window.print()">🖨 Imprimir Comprobante</button>
+
+  <div class="sep"></div>
+  <div class="row"><span class="lbl">Fecha:</span><span>${fmtFechaCorta(data.fechaPago)}</span></div>
+  <div class="row"><span class="lbl">Ref:</span><span class="sm">${data.pagoId.slice(0, 12).toUpperCase()}</span></div>
+  ${data.creditoFolio ? `<div class="row"><span class="lbl">Crédito:</span><span class="bold">${data.creditoFolio}</span></div>` : ""}
+
+  <div class="sep"></div>
+  <div class="bold sm">CLIENTE</div>
+  <div class="bold">${data.clienteNombre} ${data.clienteApellido || ""}</div>
+
+  <div class="sep-solid"></div>
+  <div class="center bold xl">PAGO RECIBIDO</div>
+  <div class="center xl bold">${fmtTicket(data.monto)}</div>
+  <div class="row"><span class="lbl">Método:</span><span>${metodoPagoTicket(data.metodoPago)}</span></div>
+  ${data.referencia ? `<div class="row"><span class="lbl">Referencia:</span><span class="sm">${data.referencia}</span></div>` : ""}
+  ${data.cobradorNombre ? `<div class="row"><span class="lbl">Atendió:</span><span>${data.cobradorNombre}</span></div>` : ""}
+
+  <div class="sep"></div>
+  ${data.saldoAnterior !== undefined ? `<div class="row"><span>Saldo anterior:</span><span>${fmtTicket(data.saldoAnterior)}</span></div>` : ""}
+  <div class="row"><span>Pago aplicado:</span><span>-${fmtTicket(data.monto)}</span></div>
+  <div class="sep-solid"></div>
+  <div class="row bold lg"><span>Saldo restante:</span><span>${fmtTicket(data.saldoPendiente)}</span></div>
+  ${data.proximoVencimiento ? `<div class="row sm"><span>Próximo vence:</span><span>${new Date(data.proximoVencimiento).toLocaleDateString("es-MX")}</span></div>` : ""}
+
+  <div class="sep"></div>
+  <div class="footer">
+    <p>Conserve este comprobante</p>
+    <p>CREDIPHONE — Créditos</p>
+  </div>
+</body>
+</html>`;
+}

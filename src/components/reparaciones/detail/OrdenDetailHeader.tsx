@@ -3,9 +3,14 @@
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { Button } from "@/components/ui/Button";
 import type { OrdenReparacionDetallada } from "@/types";
-import { ArrowLeft, Download, Share2, Edit } from "lucide-react";
+import { ArrowLeft, Download, Share2, Edit, Printer } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  generarTicketRecepcionReparacion,
+  generarTicketEntregaReparacion,
+  abrirReporte,
+} from "@/lib/utils/reportes";
 
 interface OrdenDetailHeaderProps {
   orden: OrdenReparacionDetallada;
@@ -15,6 +20,72 @@ interface OrdenDetailHeaderProps {
 export function OrdenDetailHeader({ orden, onEdit }: OrdenDetailHeaderProps) {
   const router = useRouter();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [printingTicket, setPrintingTicket] = useState(false);
+
+  const handleTicketRecepcion = async () => {
+    setPrintingTicket(true);
+    try {
+      // Intentar generar QR de seguimiento si hay token
+      let qrDataUrl: string | undefined;
+      let qrTrackingUrl: string | undefined;
+      try {
+        const qrRes = await fetch(`/api/reparaciones/qr/generar?id=${orden.id}`, { method: "POST" });
+        if (qrRes.ok) {
+          const qrData = await qrRes.json();
+          if (qrData.url) {
+            qrTrackingUrl = qrData.url;
+            const QRCode = (await import("qrcode")).default;
+            qrDataUrl = await QRCode.toDataURL(qrData.url, { width: 110, margin: 1 });
+          }
+        }
+      } catch {
+        // QR es opcional — si falla, se omite
+      }
+      const html = generarTicketRecepcionReparacion({
+        folio: orden.folio,
+        fechaRecepcion: orden.fechaRecepcion,
+        fechaEstimadaEntrega: orden.fechaEstimadaEntrega,
+        clienteNombre: orden.clienteNombre || "Sin cliente",
+        clienteApellido: orden.clienteApellido,
+        clienteTelefono: orden.clienteTelefono || "",
+        marcaDispositivo: orden.marcaDispositivo,
+        modeloDispositivo: orden.modeloDispositivo,
+        imei: orden.imei,
+        problemaReportado: orden.problemaReportado,
+        accesoriosEntregados: orden.accesoriosEntregados,
+        condicionDispositivo: orden.condicionDispositivo,
+        tecnicoNombre: orden.tecnicoNombre,
+        qrDataUrl,
+        qrTrackingUrl,
+      });
+      abrirReporte(html, `Recepción ${orden.folio}`);
+    } catch (err) {
+      console.error("Error generando ticket recepción:", err);
+    } finally {
+      setPrintingTicket(false);
+    }
+  };
+
+  const handleTicketEntrega = () => {
+    const html = generarTicketEntregaReparacion({
+      folio: orden.folio,
+      fechaEntrega: orden.fechaEntregado || new Date(),
+      clienteNombre: orden.clienteNombre || "Sin cliente",
+      clienteApellido: orden.clienteApellido,
+      clienteTelefono: orden.clienteTelefono || "",
+      marcaDispositivo: orden.marcaDispositivo,
+      modeloDispositivo: orden.modeloDispositivo,
+      imei: orden.imei,
+      diagnostico: orden.diagnosticoTecnico,
+      notasTecnico: orden.notasTecnico,
+      costoReparacion: orden.costoReparacion || 0,
+      costoPartes: orden.costoPartes || 0,
+      costoTotal: orden.costoTotal || 0,
+      tecnicoNombre: orden.tecnicoNombre,
+      diasGarantia: 30,
+    });
+    abrirReporte(html, `Entrega ${orden.folio}`);
+  };
 
   const handleDownloadPdf = async () => {
     try {
@@ -127,6 +198,27 @@ export function OrdenDetailHeader({ orden, onEdit }: OrdenDetailHeaderProps) {
             <Download className={`w-4 h-4 mr-2 ${downloadingPdf ? "animate-pulse" : ""}`} />
             {downloadingPdf ? "Generando..." : "Descargar PDF"}
           </Button>
+          {/* FASE 32: Ticket Recepción 58mm */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleTicketRecepcion}
+            disabled={printingTicket}
+          >
+            <Printer className={`w-4 h-4 mr-2 ${printingTicket ? "animate-pulse" : ""}`} />
+            {printingTicket ? "..." : "Ticket Recepción"}
+          </Button>
+          {/* FASE 32: Ticket Entrega — solo si el equipo fue entregado */}
+          {(orden.estado === "completado" || orden.estado === "listo_entrega") && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleTicketEntrega}
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Ticket Entrega
+            </Button>
+          )}
           <Button variant="secondary" size="sm">
             <Share2 className="w-4 h-4 mr-2" />
             Compartir
