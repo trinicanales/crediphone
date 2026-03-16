@@ -48,6 +48,11 @@ const estadoConfig: Record<
     color: "var(--color-warning)",
     label: "En Diagnóstico",
   },
+  esperando_piezas: {
+    icon: Package,
+    color: "var(--color-warning)",
+    label: "Esperando Piezas",
+  },
   presupuesto: {
     icon: DollarSign,
     color: "var(--color-warning)",

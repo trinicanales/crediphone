@@ -296,6 +296,7 @@ export interface DatosINE {
 export type EstadoOrdenReparacion =
   | "recibido"
   | "diagnostico"
+  | "esperando_piezas"
   | "presupuesto"
   | "aprobado"
   | "en_reparacion"

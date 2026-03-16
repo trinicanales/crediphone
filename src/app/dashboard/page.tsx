@@ -121,7 +121,7 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.success) {
         // Solo estados que requieren acción inmediata
-        const REQUIEREN_ACCION = ["recibido", "diagnostico", "presupuesto", "listo_entrega"];
+        const REQUIEREN_ACCION = ["recibido", "diagnostico", "esperando_piezas", "presupuesto", "aprobado", "listo_entrega"];
         const pendientes = (data.data as OrdenReparacionDetallada[])
           .filter((o) => REQUIEREN_ACCION.includes(o.estado))
           .slice(0, 6); // máximo 6 en el widget

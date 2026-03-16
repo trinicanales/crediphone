@@ -7,29 +7,31 @@ import type { OrdenReparacionDetallada, EstadoOrdenReparacion } from "@/types";
 
 // ─── Mapa de transiciones válidas (espejo de ModalCambiarEstado) ──────────────
 const transicionesValidas: Record<EstadoOrdenReparacion, EstadoOrdenReparacion[]> = {
-  recibido: ["diagnostico"],
-  diagnostico: ["presupuesto", "aprobado"],
-  presupuesto: ["aprobado", "cancelado"],
-  aprobado: ["en_reparacion"],
-  en_reparacion: ["completado", "no_reparable"],
-  completado: ["listo_entrega"],
-  listo_entrega: ["entregado"],
-  entregado: [],
-  no_reparable: [],
-  cancelado: [],
+  recibido:          ["diagnostico", "cancelado"],
+  diagnostico:       ["esperando_piezas", "presupuesto", "aprobado", "no_reparable", "cancelado"],
+  esperando_piezas:  ["en_reparacion", "aprobado", "cancelado"],
+  presupuesto:       ["aprobado", "cancelado"],
+  aprobado:          ["en_reparacion", "cancelado"],
+  en_reparacion:     ["completado", "esperando_piezas", "no_reparable", "cancelado"],
+  completado:        ["listo_entrega", "cancelado"],
+  listo_entrega:     ["entregado", "cancelado"],
+  entregado:         [],
+  no_reparable:      [],
+  cancelado:         [],
 };
 
 const estadoLabels: Record<EstadoOrdenReparacion, string> = {
-  recibido: "Recibido",
-  diagnostico: "En Diagnóstico",
-  presupuesto: "Pres. Pendiente",
-  aprobado: "Aprobado",
-  en_reparacion: "En Reparación",
-  completado: "Completado",
-  listo_entrega: "Listo Entrega",
-  entregado: "Entregado",
-  no_reparable: "No Reparable",
-  cancelado: "Cancelado",
+  recibido:         "Recibido",
+  diagnostico:      "En Diagnóstico",
+  esperando_piezas: "Esp. Piezas",
+  presupuesto:      "Pres. Pendiente",
+  aprobado:         "Aprobado",
+  en_reparacion:    "En Reparación",
+  completado:       "Completado",
+  listo_entrega:    "Listo Entrega",
+  entregado:        "Entregado",
+  no_reparable:     "No Reparable",
+  cancelado:        "Cancelado",
 };
 
 // ─── AccionPrincipal según estado ────────────────────────────────────────────
@@ -43,6 +45,8 @@ function getAccionPrincipal(estado: EstadoOrdenReparacion): { label: string; ico
       return { label: "Enviar Presupuesto", icon: "📤", variant: "warning" };
     case "aprobado":
       return { label: "Iniciar Reparación", icon: "▶️", variant: "primary" };
+    case "esperando_piezas":
+      return { label: "Piezas Llegaron", icon: "📦", variant: "warning" };
     case "en_reparacion":
       return { label: "Marcar Completada", icon: "✅", variant: "success" };
     case "completado":

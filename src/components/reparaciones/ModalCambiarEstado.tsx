@@ -18,30 +18,33 @@ interface ModalCambiarEstadoProps {
 }
 
 // Transiciones válidas según el estado actual
+// cancelado siempre disponible desde estados activos (con confirmación)
 const transicionesValidas: Record<EstadoOrdenReparacion, EstadoOrdenReparacion[]> = {
-  recibido: ["diagnostico"],
-  diagnostico: ["presupuesto", "aprobado"],
-  presupuesto: ["aprobado", "cancelado"],
-  aprobado: ["en_reparacion"],
-  en_reparacion: ["completado", "no_reparable"],
-  completado: ["listo_entrega"],
-  listo_entrega: ["entregado"],
-  entregado: [],
-  no_reparable: [],
-  cancelado: [],
+  recibido:          ["diagnostico", "cancelado"],
+  diagnostico:       ["esperando_piezas", "presupuesto", "aprobado", "no_reparable", "cancelado"],
+  esperando_piezas:  ["en_reparacion", "aprobado", "cancelado"],
+  presupuesto:       ["aprobado", "cancelado"],
+  aprobado:          ["en_reparacion", "cancelado"],
+  en_reparacion:     ["completado", "esperando_piezas", "no_reparable", "cancelado"],
+  completado:        ["listo_entrega", "cancelado"],
+  listo_entrega:     ["entregado", "cancelado"],
+  entregado:         [],
+  no_reparable:      [],
+  cancelado:         [],
 };
 
 const estadosLabels: Record<EstadoOrdenReparacion, string> = {
-  recibido: "Recibido",
-  diagnostico: "En Diagnóstico",
-  presupuesto: "Presupuesto Pendiente",
-  aprobado: "Aprobado",
-  en_reparacion: "En Reparación",
-  completado: "Completado",
-  listo_entrega: "Listo para Entrega",
-  entregado: "Entregado",
-  no_reparable: "No Reparable",
-  cancelado: "Cancelado",
+  recibido:         "Recibido",
+  diagnostico:      "En Diagnóstico",
+  esperando_piezas: "Esperando Piezas",
+  presupuesto:      "Presupuesto Pendiente",
+  aprobado:         "Aprobado",
+  en_reparacion:    "En Reparación",
+  completado:       "Completado",
+  listo_entrega:    "Listo para Entrega",
+  entregado:        "Entregado",
+  no_reparable:     "No Reparable",
+  cancelado:        "Cancelado",
 };
 
 // Estados que requieren confirmación

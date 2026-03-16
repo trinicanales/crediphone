@@ -18,6 +18,10 @@ const estadoConfig: Record<
     variant: "warning",
     label: "En Diagnóstico",
   },
+  esperando_piezas: {
+    variant: "warning",
+    label: "Esperando Piezas",
+  },
   presupuesto: {
     variant: "warning",
     label: "Presupuesto Pendiente",
@@ -47,7 +51,7 @@ const estadoConfig: Record<
     label: "No Reparable",
   },
   cancelado: {
-    variant: "default",
+    variant: "danger",
     label: "Cancelado",
   },
 };

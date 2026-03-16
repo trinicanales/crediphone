@@ -1045,6 +1045,7 @@ export async function getEstadisticasReparaciones(distribuidorId?: string): Prom
   const porEstado: Record<EstadoOrdenReparacion, number> = {
     recibido: 0,
     diagnostico: 0,
+    esperando_piezas: 0,
     presupuesto: 0,
     aprobado: 0,
     en_reparacion: 0,
