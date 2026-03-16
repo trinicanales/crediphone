@@ -14,33 +14,37 @@ import {
  */
 export async function GET(request: Request) {
   try {
+    const { userId, role, distribuidorId } = await getAuthContext();
+
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+    if (!["admin", "super_admin"].includes(role ?? "")) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q");
     const activos = searchParams.get("activos");
     const stats = searchParams.get("stats");
 
+    // Filtro multi-tenant: super_admin ve todos, admin solo su tienda
+    const filterDistribuidorId =
+      role === "super_admin" ? undefined : (distribuidorId ?? undefined);
+
     // Si se solicitan estadísticas
     if (stats === "true") {
-      const estadisticas = await getEstadisticasEmpleados();
-      return NextResponse.json({
-        success: true,
-        data: estadisticas,
-      });
+      const estadisticas = await getEstadisticasEmpleados(filterDistribuidorId);
+      return NextResponse.json({ success: true, data: estadisticas });
     }
 
     let empleados;
-
-    // Búsqueda por query
     if (query) {
-      empleados = await searchEmpleados(query);
-    }
-    // Solo activos
-    else if (activos === "true") {
-      empleados = await getEmpleadosActivos();
-    }
-    // Todos
-    else {
-      empleados = await getEmpleados();
+      empleados = await searchEmpleados(query, filterDistribuidorId);
+    } else if (activos === "true") {
+      empleados = await getEmpleadosActivos(filterDistribuidorId);
+    } else {
+      empleados = await getEmpleados(filterDistribuidorId);
     }
 
     return NextResponse.json({
