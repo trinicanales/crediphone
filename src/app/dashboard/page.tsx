@@ -8,7 +8,9 @@ import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/components/AuthProvider";
 import { useConfig } from "@/components/ConfigProvider";
 import { ModalOrden } from "@/components/reparaciones/ModalOrden";
+import { OrdenDrawer } from "@/components/reparaciones/drawer/OrdenDrawer";
 import type { DashboardStats as RepDashboardStats } from "@/lib/db/reparaciones-dashboard";
+import type { OrdenReparacionDetallada } from "@/types";
 
 interface DashboardStats {
   totalClientes: number;
@@ -98,13 +100,39 @@ export default function DashboardPage() {
   const [modalOrdenOpen, setModalOrdenOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
 
+  // Drawer de reparaciones en el dashboard principal
+  const [drawerOrdenId, setDrawerOrdenId] = useState<string | null>(null);
+  const [ordenesPendientes, setOrdenesPendientes] = useState<OrdenReparacionDetallada[]>([]);
+  const [loadingPendientes, setLoadingPendientes] = useState(false);
+
   useEffect(() => {
     fetchStats();
     fetchRepStats();
+    fetchOrdenesPendientes();
     if (user && ["admin", "vendedor", "super_admin"].includes(user.role)) {
       fetchCajaStatus();
     }
   }, [user]);
+
+  const fetchOrdenesPendientes = async () => {
+    try {
+      setLoadingPendientes(true);
+      const res = await fetch("/api/reparaciones?detalladas=true");
+      const data = await res.json();
+      if (data.success) {
+        // Solo estados que requieren acción inmediata
+        const REQUIEREN_ACCION = ["recibido", "diagnostico", "presupuesto", "listo_entrega"];
+        const pendientes = (data.data as OrdenReparacionDetallada[])
+          .filter((o) => REQUIEREN_ACCION.includes(o.estado))
+          .slice(0, 6); // máximo 6 en el widget
+        setOrdenesPendientes(pendientes);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingPendientes(false);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -718,6 +746,69 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* ═══ Órdenes que requieren acción ═══ */}
+      {(loadingPendientes || ordenesPendientes.length > 0) && (
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: "var(--color-bg-surface)", boxShadow: "var(--shadow-sm)", border: "1px solid var(--color-border-subtle)" }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                🔧 Órdenes que requieren acción
+              </h3>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                Recibidas, en diagnóstico, presupuesto pendiente o listas para entregar
+              </p>
+            </div>
+            <Link href="/dashboard/reparaciones">
+              <span className="text-xs font-medium" style={{ color: "var(--color-accent)" }}>Ver todas →</span>
+            </Link>
+          </div>
+
+          {loadingPendientes ? (
+            <div className="text-center py-4 text-sm" style={{ color: "var(--color-text-muted)" }}>Cargando...</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {ordenesPendientes.map((orden) => {
+                const estadoColors: Record<string, { bg: string; color: string; label: string }> = {
+                  recibido:      { bg: "var(--color-info-bg)",    color: "var(--color-info)",    label: "Recibido" },
+                  diagnostico:   { bg: "var(--color-warning-bg)", color: "var(--color-warning)", label: "Diagnóstico" },
+                  presupuesto:   { bg: "var(--color-warning-bg)", color: "var(--color-warning)", label: "Presupuesto" },
+                  listo_entrega: { bg: "var(--color-success-bg)", color: "var(--color-success)", label: "Listo Entrega" },
+                };
+                const ec = estadoColors[orden.estado] ?? { bg: "var(--color-bg-elevated)", color: "var(--color-text-muted)", label: orden.estado };
+                return (
+                  <button
+                    key={orden.id}
+                    className="text-left p-3 rounded-xl transition-all"
+                    style={{ background: ec.bg, border: `1px solid ${ec.color}33` }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-md)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+                    onClick={() => setDrawerOrdenId(orden.id)}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}>
+                        {orden.folio}
+                      </span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: ec.color + "22", color: ec.color }}>
+                        {ec.label}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--color-text-primary)" }}>
+                      {orden.marcaDispositivo} {orden.modeloDispositivo}
+                    </p>
+                    <p className="text-xs truncate mt-0.5" style={{ color: "var(--color-text-secondary)" }}>
+                      {orden.clienteNombre} {orden.clienteApellido || ""}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ═══ Fila inferior: Reparaciones + Inventario ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -1107,8 +1198,16 @@ export default function DashboardPage() {
         onClose={() => setModalOrdenOpen(false)}
         onSuccess={() => {
           setModalOrdenOpen(false);
-          router.push("/dashboard/reparaciones");
+          fetchOrdenesPendientes();
+          fetchRepStats();
         }}
+      />
+
+      {/* Drawer de reparaciones — acceso rápido desde el dashboard */}
+      <OrdenDrawer
+        ordenId={drawerOrdenId}
+        onClose={() => setDrawerOrdenId(null)}
+        onRefresh={fetchOrdenesPendientes}
       />
     </div>
   );

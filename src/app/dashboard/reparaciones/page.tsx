@@ -1,20 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { ModalOrden } from "@/components/reparaciones/ModalOrden";
 import { ModalDiagnostico } from "@/components/reparaciones/ModalDiagnostico";
 import { ModalCambiarEstado } from "@/components/reparaciones/ModalCambiarEstado";
+import { OrdenCard } from "@/components/reparaciones/cards/OrdenCard";
+import { OrdenDrawer } from "@/components/reparaciones/drawer/OrdenDrawer";
 import { useAuth } from "@/components/AuthProvider";
 import type {
   OrdenReparacionDetallada,
   EstadoOrdenReparacion,
 } from "@/types";
 
+// Estados que requieren confirmación (abren ModalCambiarEstado)
+const ESTADOS_CRITICOS: EstadoOrdenReparacion[] = ["cancelado", "no_reparable"];
+
 export default function ReparacionesPage() {
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [ordenes, setOrdenes] = useState<OrdenReparacionDetallada[]>([]);
   const [filteredOrdenes, setFilteredOrdenes] = useState<OrdenReparacionDetallada[]>([]);
@@ -41,6 +43,10 @@ export default function ReparacionesPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmFolio, setDeleteConfirmFolio] = useState<string>("");
   const [deleting, setDeleting] = useState(false);
+
+  // Drawer lateral
+  const [drawerOrdenId, setDrawerOrdenId] = useState<string | null>(null);
+  const [drawerDefaultTab, setDrawerDefaultTab] = useState("resumen");
 
   // Todos los roles autenticados pueden ver reparaciones
   useEffect(() => {
@@ -149,6 +155,40 @@ export default function ReparacionesPage() {
     setModalCambiarEstadoOpen(true);
   }
 
+  // Desde la tarjeta: cambio inline de estado
+  async function handleCambiarEstadoInline(
+    orden: OrdenReparacionDetallada,
+    nuevoEstado: EstadoOrdenReparacion
+  ) {
+    // Estados críticos → abrir modal con confirmación
+    if (ESTADOS_CRITICOS.includes(nuevoEstado)) {
+      setSelectedOrdenForEstado(orden);
+      setModalCambiarEstadoOpen(true);
+      return;
+    }
+    // Transición directa via API
+    try {
+      const res = await fetch(`/api/reparaciones/${orden.id}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchOrdenes();
+      } else {
+        alert(data.error || "Error al cambiar estado");
+      }
+    } catch {
+      alert("Error al cambiar estado");
+    }
+  }
+
+  function handleOpenDrawer(orden: OrdenReparacionDetallada, tab = "resumen") {
+    setDrawerOrdenId(orden.id);
+    setDrawerDefaultTab(tab);
+  }
+
   async function handleEliminarOrden() {
     if (!deleteConfirmId) return;
     setDeleting(true);
@@ -171,347 +211,130 @@ export default function ReparacionesPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight" style={{ color: "var(--color-text-primary)" }}>
-          Gestión de Reparaciones
-        </h1>
-        <p className="mt-1" style={{ color: "var(--color-text-secondary)" }}>
-          Sistema de órdenes de servicio de reparación de celulares
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
-        <div
-          className="p-4 rounded-lg"
-          style={{
-            background: "var(--color-bg-surface)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Total Órdenes</p>
-          <p className="text-2xl font-bold" style={{ color: "var(--color-text-primary)" }}>{stats.total}</p>
-        </div>
-        <div
-          className="p-4 rounded-lg"
-          style={{
-            background: "var(--color-info-bg)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <p className="text-sm" style={{ color: "var(--color-info-text)" }}>Activas</p>
-          <p className="text-2xl font-bold" style={{ color: "var(--color-info-text)" }}>{stats.activas}</p>
-        </div>
-        <div
-          className="p-4 rounded-lg"
-          style={{
-            background: "var(--color-warning-bg)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <p className="text-sm" style={{ color: "var(--color-warning-text)" }}>En Diagnóstico</p>
-          <p className="text-2xl font-bold" style={{ color: "var(--color-warning-text)" }}>{stats.diagnostico}</p>
-        </div>
-        <div
-          className="p-4 rounded-lg"
-          style={{
-            background: "var(--color-accent-light)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <p className="text-sm" style={{ color: "var(--color-accent)" }}>En Reparación</p>
-          <p className="text-2xl font-bold" style={{ color: "var(--color-accent)" }}>{stats.enReparacion}</p>
-        </div>
-        <div
-          className="p-4 rounded-lg"
-          style={{
-            background: "var(--color-success-bg)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <p className="text-sm" style={{ color: "var(--color-success-text)" }}>Listas Entrega</p>
-          <p className="text-2xl font-bold" style={{ color: "var(--color-success-text)" }}>{stats.listasEntrega}</p>
-        </div>
-        <div
-          className="p-4 rounded-lg"
-          style={{
-            background: "var(--color-warning-bg)",
-            border: "2px solid var(--color-border)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <p className="text-sm flex items-center gap-1" style={{ color: "var(--color-warning-text)" }}>
-            Garantías
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight" style={{ color: "var(--color-text-primary)" }}>
+            Gestión de Reparaciones
+          </h1>
+          <p className="mt-1" style={{ color: "var(--color-text-secondary)" }}>
+            Sistema de órdenes de servicio
           </p>
-          <p className="text-2xl font-bold" style={{ color: "var(--color-warning-text)" }}>{stats.garantiasActivas}</p>
         </div>
-      </div>
-
-      {/* Toolbar: Filtros y Búsqueda */}
-      <div
-        className="p-4 rounded-lg mb-6"
-        style={{
-          background: "var(--color-bg-surface)",
-          boxShadow: "var(--shadow-sm)",
-        }}
-      >
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Búsqueda */}
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Buscar por folio, cliente, dispositivo, IMEI..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg"
-              style={{
-                background: "var(--color-bg-sunken)",
-                border: "1px solid var(--color-border)",
-                color: "var(--color-text-primary)",
-              }}
-            />
-          </div>
-
-          {/* Filtro por estado */}
-          <div className="w-full md:w-48">
-            <select
-              value={filterEstado}
-              onChange={(e) => setFilterEstado(e.target.value as any)}
-              className="w-full px-4 py-2 rounded-lg"
-              style={{
-                background: "var(--color-bg-sunken)",
-                border: "1px solid var(--color-border)",
-                color: "var(--color-text-primary)",
-              }}
-            >
-              <option value="todas">Todas las órdenes</option>
-              <option value="garantias">Solo Garantías</option>
-              <option value="recibido">Recibido</option>
-              <option value="diagnostico">En Diagnóstico</option>
-              <option value="presupuesto">Presupuesto</option>
-              <option value="aprobado">Aprobado</option>
-              <option value="en_reparacion">En Reparación</option>
-              <option value="completado">Completado</option>
-              <option value="listo_entrega">Listo para Entrega</option>
-              <option value="entregado">Entregado</option>
-            </select>
-          </div>
-
-          {/* Botón Nueva Orden — cualquier empleado autenticado */}
-          {user && (
-            <Button
-              variant="primary"
-              className="whitespace-nowrap"
-              onClick={() => setModalOrdenOpen(true)}
-            >
-              + Nueva Orden
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Tabla de Órdenes */}
-      <div
-        className="rounded-lg overflow-hidden"
-        style={{
-          background: "var(--color-bg-surface)",
-          boxShadow: "var(--shadow-sm)",
-        }}
-      >
-        {loading ? (
-          <div className="p-8 text-center" style={{ color: "var(--color-text-muted)" }}>
-            Cargando órdenes de reparación...
-          </div>
-        ) : filteredOrdenes.length === 0 ? (
-          <div className="p-8 text-center" style={{ color: "var(--color-text-muted)" }}>
-            {searchQuery || filterEstado !== "todas"
-              ? "No se encontraron órdenes con los filtros aplicados"
-              : "No hay órdenes de reparación registradas"}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead style={{ background: "var(--color-bg-elevated)" }}>
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                    Acciones
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                    Folio
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                    Cliente
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                    Dispositivo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                    Técnico
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                    Fecha Recepción
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                    Costo
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrdenes.map((orden) => (
-                  <tr
-                    key={orden.id}
-                    style={{
-                      background: orden.esGarantia ? "var(--color-warning-bg)" : "transparent",
-                      borderBottom: "1px solid var(--color-border-subtle)",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = orden.esGarantia
-                        ? "var(--color-warning-bg)"
-                        : "transparent";
-                    }}
-                  >
-                    {/* ACCIONES — columna izquierda */}
-                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        {/* Botón Diagnóstico */}
-                        {(orden.estado === "recibido" || orden.estado === "diagnostico") && (
-                          <button
-                            onClick={() => {
-                              setSelectedOrden(orden);
-                              setModalDiagnosticoOpen(true);
-                            }}
-                            className="px-2 py-1 rounded text-xs font-medium"
-                            style={{
-                              color: "var(--color-accent)",
-                              border: "1px solid var(--color-accent)",
-                            }}
-                          >
-                            Diagnóstico
-                          </button>
-                        )}
-
-                        {/* Botón Ver detalles */}
-                        <button
-                          onClick={() => router.push(`/dashboard/reparaciones/${orden.id}`)}
-                          className="px-2 py-1 rounded text-xs font-medium"
-                          style={{
-                            color: "var(--color-text-secondary)",
-                            border: "1px solid var(--color-border)",
-                          }}
-                        >
-                          Ver
-                        </button>
-
-                        {/* Botón Cambiar Estado */}
-                        {orden.estado !== "entregado" &&
-                          orden.estado !== "cancelado" &&
-                          user && ["admin", "tecnico", "super_admin", "vendedor", "cobrador"].includes(user.role) && (
-                            <button
-                              onClick={() => handleCambiarEstado(orden)}
-                              className="px-2 py-1 rounded text-xs font-medium"
-                              style={{
-                                color: user.role === "vendedor" || user.role === "cobrador" ? "var(--color-warning)" : "var(--color-primary-mid)",
-                                border: `1px solid ${user.role === "vendedor" || user.role === "cobrador" ? "var(--color-warning)" : "var(--color-primary-mid)"}`,
-                              }}
-                              title={user.role === "vendedor" || user.role === "cobrador" ? "Cambiar estado (solo si el técnico no está disponible)" : "Cambiar estado"}
-                            >
-                              Estado
-                            </button>
-                          )}
-
-                        {/* Botón Eliminar — solo super_admin */}
-                        {user?.role === "super_admin" && (
-                          <button
-                            onClick={() => {
-                              setDeleteConfirmId(orden.id);
-                              setDeleteConfirmFolio(orden.folio);
-                            }}
-                            className="px-2 py-1 rounded text-xs font-medium"
-                            style={{
-                              color: "var(--color-danger)",
-                              border: "1px solid var(--color-danger)",
-                            }}
-                            title="Eliminar orden permanentemente"
-                          >
-                            Eliminar
-                          </button>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="text-sm font-medium"
-                          style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}
-                        >
-                          {orden.folio}
-                        </span>
-                        {orden.esGarantia && <span title="Orden en Garantía">🛡️</span>}
-                        {orden.prioridad === "alta" && <span title="Prioridad Alta">⚠️</span>}
-                        {orden.prioridad === "urgente" && <span title="Urgente">🔴</span>}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm" style={{ color: "var(--color-text-primary)" }}>
-                        {orden.clienteNombre} {orden.clienteApellido || ""}
-                      </div>
-                      <div className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                        {orden.clienteTelefono}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm" style={{ color: "var(--color-text-primary)" }}>
-                        {orden.marcaDispositivo} {orden.modeloDispositivo}
-                      </div>
-                      {orden.imei && (
-                        <div
-                          className="text-xs"
-                          style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}
-                        >
-                          IMEI: {orden.imei}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <EstadoBadge estado={orden.estado} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: "var(--color-text-primary)" }}>
-                      {orden.tecnicoNombre}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: "var(--color-text-muted)" }}>
-                      {formatFecha(orden.fechaRecepcion)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div
-                        className="text-sm font-medium"
-                        style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}
-                      >
-                        {formatCurrency(orden.costoTotal)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {user && (
+          <Button variant="primary" onClick={() => setModalOrdenOpen(true)}>
+            + Nueva Orden
+          </Button>
         )}
       </div>
 
-      {/* Resumen de resultados */}
-      {!loading && filteredOrdenes.length > 0 && (
-        <div className="mt-4 text-sm text-center" style={{ color: "var(--color-text-secondary)" }}>
-          Mostrando {filteredOrdenes.length} de {ordenes.length} órdenes
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        {[
+          { label: "Total", value: stats.total, bg: "var(--color-bg-surface)", color: "var(--color-text-primary)" },
+          { label: "Activas", value: stats.activas, bg: "var(--color-info-bg)", color: "var(--color-info-text)" },
+          { label: "Diagnóstico", value: stats.diagnostico, bg: "var(--color-warning-bg)", color: "var(--color-warning-text)" },
+          { label: "En Reparación", value: stats.enReparacion, bg: "var(--color-accent-light)", color: "var(--color-accent)" },
+          { label: "Listas Entrega", value: stats.listasEntrega, bg: "var(--color-success-bg)", color: "var(--color-success-text)" },
+          { label: "Garantías", value: stats.garantiasActivas, bg: "var(--color-warning-bg)", color: "var(--color-warning-text)" },
+        ].map(({ label, value, bg, color }) => (
+          <div key={label} className="p-4 rounded-xl" style={{ background: bg, boxShadow: "var(--shadow-sm)" }}>
+            <p className="text-xs font-medium" style={{ color }}>{label}</p>
+            <p className="text-2xl font-bold mt-0.5" style={{ color, fontFamily: "var(--font-data)" }}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row gap-3 mb-6">
+        <input
+          type="text"
+          placeholder="Buscar por folio, cliente, dispositivo, IMEI..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1 px-4 py-2 rounded-xl text-sm"
+          style={{
+            background: "var(--color-bg-surface)",
+            border: "1px solid var(--color-border)",
+            color: "var(--color-text-primary)",
+            boxShadow: "var(--shadow-sm)",
+          }}
+        />
+        <select
+          value={filterEstado}
+          onChange={(e) => setFilterEstado(e.target.value as EstadoOrdenReparacion | "todas" | "garantias")}
+          className="w-full md:w-52 px-4 py-2 rounded-xl text-sm"
+          style={{
+            background: "var(--color-bg-surface)",
+            border: "1px solid var(--color-border)",
+            color: "var(--color-text-primary)",
+            boxShadow: "var(--shadow-sm)",
+          }}
+        >
+          <option value="todas">Todas las órdenes</option>
+          <option value="garantias">Solo Garantías</option>
+          <option value="recibido">Recibido</option>
+          <option value="diagnostico">En Diagnóstico</option>
+          <option value="presupuesto">Presupuesto Pendiente</option>
+          <option value="aprobado">Aprobado</option>
+          <option value="en_reparacion">En Reparación</option>
+          <option value="completado">Completado</option>
+          <option value="listo_entrega">Listo para Entrega</option>
+          <option value="entregado">Entregado</option>
+        </select>
+      </div>
+
+      {/* Grid de Tarjetas */}
+      {loading ? (
+        <div className="text-center py-16" style={{ color: "var(--color-text-muted)" }}>
+          Cargando órdenes de reparación...
         </div>
+      ) : filteredOrdenes.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-4xl mb-3">🔧</p>
+          <p className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>
+            {searchQuery || filterEstado !== "todas" ? "Sin resultados para este filtro" : "No hay órdenes de reparación"}
+          </p>
+          <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
+            {!searchQuery && filterEstado === "todas" && "Crea la primera orden con el botón + Nueva Orden"}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredOrdenes.map((orden) => (
+              <OrdenCard
+                key={orden.id}
+                orden={orden}
+                userRole={user?.role || ""}
+                onOpenDrawer={(o) => handleOpenDrawer(o)}
+                onDiagnostico={(o) => {
+                  setSelectedOrden(o);
+                  setModalDiagnosticoOpen(true);
+                }}
+                onCambiarEstado={handleCambiarEstadoInline}
+                onEliminar={(o) => {
+                  setDeleteConfirmId(o.id);
+                  setDeleteConfirmFolio(o.folio);
+                }}
+                onRefresh={fetchOrdenes}
+              />
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-center" style={{ color: "var(--color-text-muted)" }}>
+            {filteredOrdenes.length} de {ordenes.length} órdenes
+          </p>
+        </>
       )}
 
-      {/* Modales */}
+      {/* ── Drawer lateral ── */}
+      <OrdenDrawer
+        ordenId={drawerOrdenId}
+        onClose={() => setDrawerOrdenId(null)}
+        onRefresh={fetchOrdenes}
+        defaultTab={drawerDefaultTab}
+      />
+
+      {/* ── Modales existentes ── */}
       <ModalOrden
         isOpen={modalOrdenOpen}
         onClose={() => setModalOrdenOpen(false)}
@@ -521,10 +344,7 @@ export default function ReparacionesPage() {
       {selectedOrden && (
         <ModalDiagnostico
           isOpen={modalDiagnosticoOpen}
-          onClose={() => {
-            setModalDiagnosticoOpen(false);
-            setSelectedOrden(null);
-          }}
+          onClose={() => { setModalDiagnosticoOpen(false); setSelectedOrden(null); }}
           onSuccess={fetchOrdenes}
           ordenId={selectedOrden.id}
           ordenFolio={selectedOrden.folio}
@@ -535,10 +355,7 @@ export default function ReparacionesPage() {
       {selectedOrdenForEstado && (
         <ModalCambiarEstado
           isOpen={modalCambiarEstadoOpen}
-          onClose={() => {
-            setModalCambiarEstadoOpen(false);
-            setSelectedOrdenForEstado(null);
-          }}
+          onClose={() => { setModalCambiarEstadoOpen(false); setSelectedOrdenForEstado(null); }}
           onSuccess={fetchOrdenes}
           ordenId={selectedOrdenForEstado.id}
           folio={selectedOrdenForEstado.folio}
@@ -546,48 +363,23 @@ export default function ReparacionesPage() {
         />
       )}
 
-      {/* Confirmación de eliminación — solo super_admin */}
+      {/* Confirmación eliminar — solo super_admin */}
       {deleteConfirmId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.6)" }}
-        >
-          <div
-            className="rounded-xl p-8 max-w-sm w-full mx-4"
-            style={{
-              background: "var(--color-bg-surface)",
-              boxShadow: "var(--shadow-xl)",
-              border: "1px solid var(--color-border)",
-            }}
-          >
+        <div className="fixed inset-0 z-[500] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="rounded-xl p-8 max-w-sm w-full mx-4" style={{ background: "var(--color-bg-surface)", boxShadow: "var(--shadow-xl)", border: "1px solid var(--color-border)" }}>
             <div className="text-center mb-6">
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mx-auto mb-4"
-                style={{ background: "var(--color-danger-bg)" }}
-              >
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mx-auto mb-4" style={{ background: "var(--color-danger-bg)" }}>
                 🗑️
               </div>
-              <h3
-                className="text-lg font-bold mb-2"
-                style={{ color: "var(--color-text-primary)" }}
-              >
+              <h3 className="text-lg font-bold mb-2" style={{ color: "var(--color-text-primary)" }}>
                 Eliminar orden de servicio
               </h3>
-              <p
-                className="text-sm"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                ¿Estás seguro que deseas eliminar la orden{" "}
-                <span
-                  className="font-semibold"
-                  style={{ fontFamily: "var(--font-mono)", color: "var(--color-text-primary)" }}
-                >
+              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                ¿Eliminar la orden{" "}
+                <span className="font-semibold" style={{ fontFamily: "var(--font-mono)", color: "var(--color-text-primary)" }}>
                   {deleteConfirmFolio}
                 </span>
-                ?
-              </p>
-              <p className="text-xs mt-2" style={{ color: "var(--color-danger)" }}>
-                Esta acción es permanente y no se puede deshacer.
+                ? Esta acción es permanente.
               </p>
             </div>
             <div className="flex gap-3">
@@ -595,11 +387,7 @@ export default function ReparacionesPage() {
                 onClick={() => setDeleteConfirmId(null)}
                 disabled={deleting}
                 className="flex-1 py-2 rounded-lg text-sm font-medium"
-                style={{
-                  background: "var(--color-bg-elevated)",
-                  color: "var(--color-text-secondary)",
-                  border: "1px solid var(--color-border)",
-                }}
+                style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-secondary)", border: "1px solid var(--color-border)" }}
               >
                 Cancelar
               </button>
@@ -607,11 +395,7 @@ export default function ReparacionesPage() {
                 onClick={handleEliminarOrden}
                 disabled={deleting}
                 className="flex-1 py-2 rounded-lg text-sm font-bold"
-                style={{
-                  background: "var(--color-danger)",
-                  color: "#fff",
-                  opacity: deleting ? 0.7 : 1,
-                }}
+                style={{ background: "var(--color-danger)", color: "#fff", opacity: deleting ? 0.7 : 1 }}
               >
                 {deleting ? "Eliminando..." : "Sí, eliminar"}
               </button>
