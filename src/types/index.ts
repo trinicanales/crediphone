@@ -3,6 +3,27 @@
 // Roles de usuario/empleado
 export type UserRole = "super_admin" | "admin" | "vendedor" | "cobrador" | "tecnico";
 
+// Módulo Franquicia — configuración independiente por distribuidor
+export type ModoOperacion = "red" | "franquicia";
+export type TipoAcceso = "incluido" | "renta";
+
+export interface PagosHabilitados {
+  efectivo: boolean;
+  tarjeta: boolean;
+  transferencia: boolean;
+  deposito: boolean;
+  payjoy: boolean;
+}
+
+export interface FranquiciaConfig {
+  modoOperacion: ModoOperacion;
+  grupoInventario?: string;
+  accesoHabilitado: boolean;
+  tipoAcceso: TipoAcceso;
+  pagosHabilitados: PagosHabilitados;
+  notasFranquicia?: string;
+}
+
 export interface Distribuidor {
   id: string;
   nombre: string;
@@ -10,6 +31,8 @@ export interface Distribuidor {
   logoUrl?: string;
   activo: boolean;
   configuracion?: Record<string, any>;
+  // Módulo Franquicia
+  franquicia?: FranquiciaConfig;
   createdAt: Date;
   updatedAt: Date;
 }

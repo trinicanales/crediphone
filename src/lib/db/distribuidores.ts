@@ -1,5 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { type Distribuidor } from "@/types";
+import { type Distribuidor, type FranquiciaConfig, type PagosHabilitados } from "@/types";
+
+const PAGOS_DEFAULT: PagosHabilitados = {
+  efectivo: true,
+  tarjeta: true,
+  transferencia: true,
+  deposito: true,
+  payjoy: false,
+};
 
 /**
  * Obtiene todos los distribuidores (solo admin)
@@ -165,7 +173,48 @@ function mapDistribuidorFromDB(db: any): Distribuidor {
         logoUrl: db.logo_url,
         activo: db.activo,
         configuracion: db.configuracion,
+        franquicia: {
+            modoOperacion: db.modo_operacion ?? "red",
+            grupoInventario: db.grupo_inventario ?? undefined,
+            accesoHabilitado: db.acceso_habilitado ?? true,
+            tipoAcceso: db.tipo_acceso ?? "incluido",
+            pagosHabilitados: db.pagos_habilitados ?? PAGOS_DEFAULT,
+            notasFranquicia: db.notas_franquicia ?? undefined,
+        },
         createdAt: new Date(db.created_at),
         updatedAt: new Date(db.updated_at),
     };
+}
+
+/**
+ * Actualiza la configuración de franquicia de un distribuidor.
+ * Separado del updateDistribuidor para mantenerlo como módulo independiente.
+ */
+export async function updateFranquiciaConfig(
+    id: string,
+    config: Partial<FranquiciaConfig>
+): Promise<Distribuidor> {
+    const supabase = createAdminClient();
+
+    const updateData: any = {};
+    if (config.modoOperacion !== undefined) updateData.modo_operacion = config.modoOperacion;
+    if (config.grupoInventario !== undefined) updateData.grupo_inventario = config.grupoInventario || null;
+    if (config.accesoHabilitado !== undefined) updateData.acceso_habilitado = config.accesoHabilitado;
+    if (config.tipoAcceso !== undefined) updateData.tipo_acceso = config.tipoAcceso;
+    if (config.pagosHabilitados !== undefined) updateData.pagos_habilitados = config.pagosHabilitados;
+    if (config.notasFranquicia !== undefined) updateData.notas_franquicia = config.notasFranquicia || null;
+
+    const { data: updated, error } = await supabase
+        .from("distribuidores")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error("Error updating franquicia config:", error);
+        throw new Error(error.message);
+    }
+
+    return mapDistribuidorFromDB(updated);
 }

@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Building2, Plus, Pencil, ToggleLeft, ToggleRight, RefreshCw, Users, Eye } from "lucide-react";
+import {
+  Building2, Plus, Pencil, ToggleLeft, ToggleRight, RefreshCw, Users, Eye,
+  Store, Network, Unlink, BanknoteIcon, CreditCard, ArrowLeftRight, Banknote,
+  Lock, Unlock, Info, Save,
+} from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import type { Distribuidor } from "@/types";
+import type { Distribuidor, FranquiciaConfig, ModoOperacion, TipoAcceso, PagosHabilitados } from "@/types";
 
 interface FormState {
   nombre: string;
@@ -67,17 +71,342 @@ const ROL_CARDS = [
   },
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULO FRANQUICIA — Modal de configuración independiente
+// ═══════════════════════════════════════════════════════════════════════════
+
+const PAGOS_DEFAULT: PagosHabilitados = {
+  efectivo: true, tarjeta: true, transferencia: true, deposito: true, payjoy: false,
+};
+
+function ToggleSwitch({
+  checked, onChange, label, description,
+}: { checked: boolean; onChange: (v: boolean) => void; label: string; description?: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex-1">
+        <p className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>{label}</p>
+        {description && (
+          <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{description}</p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className="relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200"
+        style={{ background: checked ? "var(--color-success)" : "var(--color-border)" }}
+      >
+        <span
+          className="inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200"
+          style={{ margin: "2px", transform: checked ? "translateX(20px)" : "translateX(0)" }}
+        />
+      </button>
+    </div>
+  );
+}
+
+interface ModalFranquiciaProps {
+  isOpen: boolean;
+  onClose: () => void;
+  distribuidor: Distribuidor;
+  onSaved: (updated: Distribuidor) => void;
+}
+
+function ModalFranquicia({ isOpen, onClose, distribuidor, onSaved }: ModalFranquiciaProps) {
+  const fc = distribuidor.franquicia;
+
+  const [modoOperacion, setModoOperacion] = useState<ModoOperacion>(fc?.modoOperacion ?? "red");
+  const [grupoInventario, setGrupoInventario] = useState(fc?.grupoInventario ?? "");
+  const [accesoHabilitado, setAccesoHabilitado] = useState(fc?.accesoHabilitado ?? true);
+  const [tipoAcceso, setTipoAcceso] = useState<TipoAcceso>(fc?.tipoAcceso ?? "incluido");
+  const [pagos, setPagos] = useState<PagosHabilitados>(fc?.pagosHabilitados ?? PAGOS_DEFAULT);
+  const [notas, setNotas] = useState(fc?.notasFranquicia ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // Resetear cuando cambia el distribuidor
+  const resetear = () => {
+    const f = distribuidor.franquicia;
+    setModoOperacion(f?.modoOperacion ?? "red");
+    setGrupoInventario(f?.grupoInventario ?? "");
+    setAccesoHabilitado(f?.accesoHabilitado ?? true);
+    setTipoAcceso(f?.tipoAcceso ?? "incluido");
+    setPagos(f?.pagosHabilitados ?? PAGOS_DEFAULT);
+    setNotas(f?.notasFranquicia ?? "");
+    setError("");
+  };
+
+  // Resetear al abrir
+  const prevOpen = useState(false);
+  if (isOpen && !prevOpen[0]) { prevOpen[1](true); resetear(); }
+  if (!isOpen && prevOpen[0]) { prevOpen[1](false); }
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/distribuidores/${distribuidor.id}/franquicia`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          modoOperacion,
+          grupoInventario: grupoInventario.trim() || null,
+          accesoHabilitado,
+          tipoAcceso,
+          pagosHabilitados: pagos,
+          notasFranquicia: notas.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? "Error al guardar");
+      onSaved(data.data as Distribuidor);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setPago = (key: keyof PagosHabilitados, val: boolean) =>
+    setPagos((p) => ({ ...p, [key]: val }));
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Franquicia — ${distribuidor.nombre}`}
+      size="lg"
+    >
+      <div className="space-y-6">
+
+        {/* Banner de contexto */}
+        <div
+          className="rounded-xl p-3 flex items-start gap-2.5"
+          style={{ background: "var(--color-info-bg)", border: "1px solid var(--color-info)" }}
+        >
+          <Info className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--color-info)" }} />
+          <p className="text-xs" style={{ color: "var(--color-info-text)" }}>
+            Esta configuración es <strong>independiente</strong> del flujo de operación diario. Define el modelo de negocio de esta tienda dentro de la red.
+          </p>
+        </div>
+
+        {/* ── Sección 1: Modo de operación ─────────────────────────── */}
+        <div>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>
+            Modo de operación
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Red */}
+            <button
+              type="button"
+              onClick={() => setModoOperacion("red")}
+              className="rounded-xl p-4 text-left transition-all"
+              style={{
+                border: `2px solid ${modoOperacion === "red" ? "var(--color-accent)" : "var(--color-border)"}`,
+                background: modoOperacion === "red" ? "var(--color-accent-light)" : "var(--color-bg-surface)",
+              }}
+            >
+              <Network className="w-5 h-5 mb-2" style={{ color: modoOperacion === "red" ? "var(--color-accent)" : "var(--color-text-muted)" }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>Red</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                Conectada al negocio principal. Puede compartir inventario con otras tiendas del grupo.
+              </p>
+            </button>
+            {/* Franquicia */}
+            <button
+              type="button"
+              onClick={() => setModoOperacion("franquicia")}
+              className="rounded-xl p-4 text-left transition-all"
+              style={{
+                border: `2px solid ${modoOperacion === "franquicia" ? "var(--color-warning)" : "var(--color-border)"}`,
+                background: modoOperacion === "franquicia" ? "var(--color-warning-bg)" : "var(--color-bg-surface)",
+              }}
+            >
+              <Unlink className="w-5 h-5 mb-2" style={{ color: modoOperacion === "franquicia" ? "var(--color-warning)" : "var(--color-text-muted)" }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>Franquicia independiente</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                Totalmente separada. Su inventario, clientes y caja no se mezclan con la red.
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Sección 2: Grupo de inventario (solo si es red) ───────── */}
+        {modoOperacion === "red" && (
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--color-text-secondary)" }}>
+              Grupo de inventario compartido
+              <span className="ml-1 font-normal text-xs" style={{ color: "var(--color-text-muted)" }}>(opcional)</span>
+            </label>
+            <Input
+              type="text"
+              value={grupoInventario}
+              onChange={(e) => setGrupoInventario(e.target.value)}
+              placeholder="Ej: Grupo Norte, Matriz, Sucursal Centro..."
+            />
+            <p className="text-xs mt-1.5" style={{ color: "var(--color-text-muted)" }}>
+              Las tiendas con el mismo nombre de grupo podrán ver el inventario entre sí en futuras versiones. Déjalo vacío si no comparte inventario.
+            </p>
+          </div>
+        )}
+
+        {/* ── Sección 3: Tipo de acceso ─────────────────────────────── */}
+        <div>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>
+            Tipo de acceso a la plataforma
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setTipoAcceso("incluido")}
+              className="rounded-xl p-3 text-left transition-all"
+              style={{
+                border: `2px solid ${tipoAcceso === "incluido" ? "var(--color-success)" : "var(--color-border)"}`,
+                background: tipoAcceso === "incluido" ? "var(--color-success-bg)" : "var(--color-bg-surface)",
+              }}
+            >
+              <Store className="w-4 h-4 mb-1.5" style={{ color: tipoAcceso === "incluido" ? "var(--color-success)" : "var(--color-text-muted)" }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>Incluido en la red</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>Tu tienda propia, sin cargo adicional.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipoAcceso("renta")}
+              className="rounded-xl p-3 text-left transition-all"
+              style={{
+                border: `2px solid ${tipoAcceso === "renta" ? "var(--color-primary-mid)" : "var(--color-border)"}`,
+                background: tipoAcceso === "renta" ? "var(--color-primary-light)" : "var(--color-bg-surface)",
+              }}
+            >
+              <BanknoteIcon className="w-4 h-4 mb-1.5" style={{ color: tipoAcceso === "renta" ? "var(--color-primary-mid)" : "var(--color-text-muted)" }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>Arrendataria (renta)</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>Paga mensualidad por usar la plataforma.</p>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Sección 4: Acceso a la plataforma ────────────────────── */}
+        <div
+          className="rounded-xl p-4 space-y-1"
+          style={{
+            border: `1px solid ${!accesoHabilitado ? "var(--color-danger)" : "var(--color-border-subtle)"}`,
+            background: !accesoHabilitado ? "var(--color-danger-bg)" : "var(--color-bg-elevated)",
+          }}
+        >
+          <ToggleSwitch
+            checked={accesoHabilitado}
+            onChange={setAccesoHabilitado}
+            label={accesoHabilitado ? "Acceso habilitado" : "Acceso suspendido"}
+            description={
+              accesoHabilitado
+                ? "La tienda puede entrar al sistema normalmente."
+                : "Los empleados de esta tienda NO pueden iniciar sesión. Sus datos se conservan."
+            }
+          />
+          {!accesoHabilitado && (
+            <div className="flex items-center gap-1.5 pt-1">
+              <Lock className="w-3.5 h-3.5" style={{ color: "var(--color-danger)" }} />
+              <p className="text-xs font-semibold" style={{ color: "var(--color-danger)" }}>
+                Suspensión activa — útil para impago de renta o cierre temporal
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* ── Sección 5: Métodos de pago habilitados ───────────────── */}
+        <div>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>
+            Métodos de pago permitidos
+          </h3>
+          <div
+            className="rounded-xl p-4 space-y-3"
+            style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}
+          >
+            {(
+              [
+                { key: "efectivo", label: "Efectivo", icon: Banknote, desc: "Pagos en billetes y monedas" },
+                { key: "tarjeta", label: "Tarjeta", icon: CreditCard, desc: "Terminal punto de venta física" },
+                { key: "transferencia", label: "Transferencia SPEI", icon: ArrowLeftRight, desc: "Requiere confirmación del admin" },
+                { key: "deposito", label: "Depósito bancario", icon: BanknoteIcon, desc: "Requiere confirmación del admin" },
+                { key: "payjoy", label: "Payjoy (financiamiento)", icon: Store, desc: "Requiere configuración de API Payjoy" },
+              ] as { key: keyof PagosHabilitados; label: string; icon: React.ElementType; desc: string }[]
+            ).map(({ key, label, icon: Icon, desc }) => (
+              <div key={key} className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5">
+                  <Icon className="w-4 h-4" style={{ color: pagos[key] ? "var(--color-accent)" : "var(--color-text-muted)" }} />
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>{label}</p>
+                    <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{desc}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPago(key, !pagos[key])}
+                  className="relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors"
+                  style={{ background: pagos[key] ? "var(--color-success)" : "var(--color-border)" }}
+                >
+                  <span
+                    className="inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform"
+                    style={{ margin: "2px", transform: pagos[key] ? "translateX(16px)" : "translateX(0)" }}
+                  />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Sección 6: Notas internas ─────────────────────────────── */}
+        <div>
+          <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--color-text-secondary)" }}>
+            Notas internas
+            <span className="ml-1 font-normal text-xs" style={{ color: "var(--color-text-muted)" }}>(solo visible para super_admin)</span>
+          </label>
+          <textarea
+            rows={2}
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            placeholder="Ej: Contrato firmado en enero 2026, renta $2,500/mes, contacto: Juan 555-1234..."
+            className="w-full px-3 py-2.5 rounded-xl text-sm resize-none focus:outline-none"
+            style={{
+              background: "var(--color-bg-sunken)",
+              border: "1px solid var(--color-border)",
+              color: "var(--color-text-primary)",
+            }}
+          />
+        </div>
+
+        {/* Error */}
+        {error && (
+          <p className="text-sm" style={{ color: "var(--color-danger)" }}>{error}</p>
+        )}
+
+        {/* Botones */}
+        <div className="flex justify-end gap-3 pt-1">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="primary" onClick={handleSave} disabled={saving}>
+            <Save className="w-4 h-4 mr-1.5" />
+            {saving ? "Guardando..." : "Guardar configuración"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ── DistRow ────────────────────────────────────────────────────
 function DistRow({
   dist,
   togglingIds,
   onToggle,
   onEdit,
+  onFranquicia,
 }: {
   dist: Distribuidor;
   togglingIds: Set<string>;
   onToggle: (d: Distribuidor) => void;
   onEdit: (d: Distribuidor) => void;
+  onFranquicia: (d: Distribuidor) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -165,6 +494,16 @@ function DistRow({
             <Pencil className="w-3.5 h-3.5 mr-1" />
             Editar
           </Button>
+          {/* MÓDULO FRANQUICIA — botón independiente */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onFranquicia(dist)}
+            title="Configuración de franquicia: modo operación, inventario compartido, acceso y métodos de pago"
+          >
+            <Store className="w-3.5 h-3.5 mr-1" />
+            Franquicia
+          </Button>
         </div>
       </td>
     </tr>
@@ -182,6 +521,9 @@ export default function DistribuidoresPage() {
 
   const [editTarget, setEditTarget] = useState<Distribuidor | null>(null);
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
+
+  // MÓDULO FRANQUICIA
+  const [franquiciaTarget, setFranquiciaTarget] = useState<Distribuidor | null>(null);
 
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
@@ -386,6 +728,7 @@ export default function DistribuidoresPage() {
                     togglingIds={togglingIds}
                     onToggle={handleToggleActivo}
                     onEdit={openEdit}
+                    onFranquicia={setFranquiciaTarget}
                   />
                 ))}
               </tbody>
@@ -560,6 +903,21 @@ export default function DistribuidoresPage() {
           </div>
         </form>
       </Modal>
+
+      {/* MÓDULO FRANQUICIA — Modal independiente */}
+      {franquiciaTarget && (
+        <ModalFranquicia
+          isOpen={!!franquiciaTarget}
+          onClose={() => setFranquiciaTarget(null)}
+          distribuidor={franquiciaTarget}
+          onSaved={(updated) => {
+            setDistribuidores((prev) =>
+              prev.map((d) => (d.id === updated.id ? updated : d))
+            );
+            setFranquiciaTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }
