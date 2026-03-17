@@ -1,23 +1,36 @@
 "use client";
 
-import { Minus, Plus, Trash2, ShoppingCart as CartIcon } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingCart as CartIcon, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { Producto } from "@/types";
 
 export interface CartItem {
-  producto: Producto;
+  // ── Producto (cuando esServicio = false/undefined) ─────────────────────────
+  producto?: Producto;
+
+  // ── Servicio (cuando esServicio = true) ────────────────────────────────────
+  esServicio?: boolean;
+  servicioId?: string;      // ID real del servicio en DB
+  servicioNombre?: string;  // snapshot del nombre
+
+  // ── Común ──────────────────────────────────────────────────────────────────
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
-  imei?: string;  // FASE 30: IMEI capturado al agregar equipo serializado
-  notas?: string; // FASE 30: Nota por línea de venta
+  imei?: string;  // FASE 30
+  notas?: string; // FASE 30
+}
+
+/** Devuelve el identificador único del slot en el carrito */
+function getItemKey(item: CartItem): string {
+  return item.esServicio ? `svc_${item.servicioId}` : (item.producto?.id ?? "");
 }
 
 interface ShoppingCartProps {
   items: CartItem[];
   descuento: number;
-  onUpdateQuantity: (productoId: string, cantidad: number) => void;
-  onRemoveItem: (productoId: string) => void;
+  onUpdateQuantity: (itemKey: string, cantidad: number) => void;
+  onRemoveItem: (itemKey: string) => void;
   onClear?: () => void;
 }
 
@@ -46,7 +59,7 @@ export function ShoppingCart({
             Carrito vacío
           </p>
           <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Busca productos para agregar
+            Busca productos o servicios para agregar
           </p>
         </div>
       </div>
@@ -69,7 +82,7 @@ export function ShoppingCart({
         <div className="flex items-center gap-2">
           <CartIcon className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
           <h3 className="font-semibold" style={{ color: "var(--color-text-primary)" }}>
-            Carrito ({items.length} {items.length === 1 ? "producto" : "productos"})
+            Carrito ({items.length} {items.length === 1 ? "ítem" : "ítems"})
           </h3>
         </div>
         {onClear && (
@@ -86,93 +99,116 @@ export function ShoppingCart({
 
       {/* Items */}
       <div className="max-h-96 overflow-y-auto">
-        {items.map((item) => (
-          <div
-            key={item.producto.id}
-            className="p-4 transition-colors"
-            style={{ borderBottom: "1px solid var(--color-border-subtle)" }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "transparent";
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate" style={{ color: "var(--color-text-primary)" }}>
-                  {item.producto.nombre}
-                </p>
-                <p className="text-sm truncate" style={{ color: "var(--color-text-secondary)" }}>
-                  {item.producto.marca} {item.producto.modelo}
-                </p>
-                <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-data)" }}>
-                  ${item.precioUnitario.toFixed(2)} c/u
-                </p>
-              </div>
+        {items.map((item) => {
+          const key = getItemKey(item);
+          const maxCantidad = item.esServicio ? Infinity : (item.producto?.stock ?? 0);
+          const displayNombre = item.esServicio
+            ? (item.servicioNombre ?? "Servicio")
+            : (item.producto?.nombre ?? "");
+          const displaySub = item.esServicio
+            ? null
+            : `${item.producto?.marca ?? ""} ${item.producto?.modelo ?? ""}`.trim();
 
-              <div className="flex flex-col items-end gap-2 shrink-0">
-                <p
-                  className="text-lg font-semibold"
-                  style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}
-                >
-                  ${item.subtotal.toFixed(2)}
-                </p>
+          return (
+            <div
+              key={key}
+              className="p-4 transition-colors"
+              style={{ borderBottom: "1px solid var(--color-border-subtle)" }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "transparent";
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    {item.esServicio && (
+                      <Wrench className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--color-accent)" }} />
+                    )}
+                    <p className="font-medium truncate" style={{ color: "var(--color-text-primary)" }}>
+                      {displayNombre}
+                    </p>
+                  </div>
+                  {displaySub && (
+                    <p className="text-sm truncate" style={{ color: "var(--color-text-secondary)" }}>
+                      {displaySub}
+                    </p>
+                  )}
+                  {item.esServicio && (
+                    <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                      Servicio sin inventario
+                    </p>
+                  )}
+                  <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-data)" }}>
+                    ${item.precioUnitario.toFixed(2)} c/u
+                  </p>
+                </div>
 
-                {/* Quantity controls */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => onUpdateQuantity(item.producto.id, item.cantidad - 1)}
-                    disabled={item.cantidad <= 1}
-                    className="p-1 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }}
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <p
+                    className="text-lg font-semibold"
+                    style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}
                   >
-                    <Minus className="w-4 h-4" style={{ color: "var(--color-text-secondary)" }} />
-                  </button>
+                    ${item.subtotal.toFixed(2)}
+                  </p>
 
-                  <span
-                    className="w-12 text-center font-medium"
-                    style={{ color: "var(--color-text-primary)" }}
-                  >
-                    {item.cantidad}
-                  </span>
+                  {/* Quantity controls */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onUpdateQuantity(key, item.cantidad - 1)}
+                      disabled={item.cantidad <= 1}
+                      className="p-1 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }}
+                    >
+                      <Minus className="w-4 h-4" style={{ color: "var(--color-text-secondary)" }} />
+                    </button>
 
-                  <button
-                    onClick={() => onUpdateQuantity(item.producto.id, item.cantidad + 1)}
-                    disabled={item.cantidad >= item.producto.stock}
-                    className="p-1 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }}
-                  >
-                    <Plus className="w-4 h-4" style={{ color: "var(--color-text-secondary)" }} />
-                  </button>
+                    <span
+                      className="w-12 text-center font-medium"
+                      style={{ color: "var(--color-text-primary)" }}
+                    >
+                      {item.cantidad}
+                    </span>
 
-                  <button
-                    onClick={() => onRemoveItem(item.producto.id)}
-                    className="p-1 rounded ml-2 transition-colors"
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "var(--color-danger-bg)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" style={{ color: "var(--color-danger)" }} />
-                  </button>
+                    <button
+                      onClick={() => onUpdateQuantity(key, item.cantidad + 1)}
+                      disabled={item.cantidad >= maxCantidad}
+                      className="p-1 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }}
+                    >
+                      <Plus className="w-4 h-4" style={{ color: "var(--color-text-secondary)" }} />
+                    </button>
+
+                    <button
+                      onClick={() => onRemoveItem(key)}
+                      className="p-1 rounded ml-2 transition-colors"
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = "var(--color-danger-bg)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" style={{ color: "var(--color-danger)" }} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Totals */}

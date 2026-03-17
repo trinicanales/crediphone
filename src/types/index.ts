@@ -218,6 +218,29 @@ export interface Producto {
 }
 
 // =====================================================
+// FASE 36: Servicios sin inventario
+// =====================================================
+
+export type CategoriaServicio = "telefonia" | "papeleria" | "diagnostico" | "reparacion" | "otro";
+
+export interface Servicio {
+  id: string;
+  distribuidorId?: string;
+  nombre: string;
+  descripcion?: string;
+  precioBase: number;
+  precioFijo: boolean;   // true = no se puede modificar en POS; false = rango libre
+  precioMin?: number;    // límite inferior cuando precioFijo = false
+  precioMax?: number;    // límite superior cuando precioFijo = false
+  categoria: CategoriaServicio;
+  activo: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type ServicioFormData = Omit<Servicio, "id" | "createdAt" | "updatedAt">;
+
+// =====================================================
 // FASE 4: Tipos para INE y Referencias
 // =====================================================
 
@@ -808,16 +831,21 @@ export interface Venta {
 export interface VentaItem {
   id: string;
   ventaId: string;
-  productoId: string;
+  productoId?: string;    // nullable para ítems de servicio (FASE 36)
+
+  // FASE 36: Servicios sin inventario
+  servicioId?: string;
+  esServicio?: boolean;
 
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
 
-  // Snapshot del producto (para historial)
+  // Snapshot del producto/servicio (para historial)
   productoNombre?: string;
   productoMarca?: string;
   productoModelo?: string;
+  servicioNombre?: string;
 
   createdAt: Date;
 }
@@ -899,18 +927,21 @@ export interface VentaItemDetallado extends VentaItem {
 export interface NuevaVentaFormData {
   clienteId?: string;
   items: {
-    productoId: string;
+    productoId?: string;      // undefined para servicios (FASE 36)
+    servicioId?: string;      // FASE 36: ID del servicio sin inventario
+    servicioNombre?: string;  // FASE 36: snapshot del nombre del servicio
+    esServicio?: boolean;     // FASE 36: flag que indica ítem de servicio
     cantidad: number;
     precioUnitario: number;
-    imei?: string;   // FASE 30: IMEI del equipo vendido (solo equipos serializados)
-    notas?: string;  // FASE 30: Nota por línea de venta
+    imei?: string;            // FASE 30: IMEI del equipo vendido (solo equipos serializados)
+    notas?: string;           // FASE 30: Nota por línea de venta
   }[];
   descuento: number;
   metodoPago: MetodoPagoVenta;
   desgloseMixto?: DesglosePagoMixtoVenta;
   referenciaPago?: string;
-  montoRecibido?: number; // Para efectivo
-  notas?: string;         // FASE 30: Nota global de la venta
+  montoRecibido?: number;  // Para efectivo
+  notas?: string;          // FASE 30: Nota global de la venta
 }
 
 // Estadísticas del POS

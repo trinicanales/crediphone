@@ -56,13 +56,17 @@ function mapVentaItemFromDB(row: any): VentaItem {
   return {
     id: row.id,
     ventaId: row.venta_id,
-    productoId: row.producto_id,
+    productoId: row.producto_id ?? undefined,
+    // FASE 36: Servicios sin inventario
+    servicioId: row.servicio_id ?? undefined,
+    esServicio: row.es_servicio ?? false,
     cantidad: row.cantidad,
     precioUnitario: parseFloat(row.precio_unitario),
     subtotal: parseFloat(row.subtotal),
     productoNombre: row.producto_nombre,
     productoMarca: row.producto_marca,
     productoModelo: row.producto_modelo,
+    servicioNombre: row.servicio_nombre ?? undefined,
     createdAt: new Date(row.created_at),
   };
 }
@@ -279,40 +283,65 @@ export async function createVenta(
     throw new Error(`Error al crear venta: ${ventaError?.message || "Unknown error"}`);
   }
 
-  // 2. Insertar items (el trigger decrementará el stock automáticamente)
-  const itemsToInsert = formData.items.map((item) => ({
-    venta_id: ventaData.id,
-    producto_id: item.productoId,
-    cantidad: item.cantidad,
-    precio_unitario: item.precioUnitario,
-    subtotal: item.cantidad * item.precioUnitario,
-    imei: item.imei || null,   // FASE 30: IMEI del equipo vendido
-    notas: item.notas || null, // FASE 30: Nota por línea
-  }));
+  // 2. Insertar items (el trigger decrementará el stock solo para productos)
+  // FASE 36: Separar ítems de producto vs ítems de servicio
+  const productItems = formData.items.filter((i) => !i.esServicio && i.productoId);
+  const serviceItems = formData.items.filter((i) => i.esServicio && i.servicioId);
 
-  // Obtener nombres de productos para snapshot
-  const { data: productosData } = await supabase
-    .from("productos")
-    .select("id, nombre, marca, modelo")
-    .in("id", formData.items.map((i) => i.productoId));
+  // Obtener snapshot de nombres de productos
+  let productosMap = new Map<string, { nombre: string; marca: string; modelo: string }>();
+  if (productItems.length > 0) {
+    const { data: productosData } = await supabase
+      .from("productos")
+      .select("id, nombre, marca, modelo")
+      .in("id", productItems.map((i) => i.productoId!));
+    productosMap = new Map(
+      (productosData || []).map((p) => [p.id, p])
+    );
+  }
 
-  const productosMap = new Map(
-    (productosData || []).map((p) => [p.id, p])
-  );
-
-  const itemsWithSnapshot = itemsToInsert.map((item) => {
-    const producto = productosMap.get(item.producto_id);
+  // Construir registros de productos
+  const productItemsToInsert = productItems.map((item) => {
+    const producto = productosMap.get(item.productoId!);
     return {
-      ...item,
+      venta_id: ventaData.id,
+      producto_id: item.productoId,
+      servicio_id: null,
+      servicio_nombre: null,
+      es_servicio: false,
+      cantidad: item.cantidad,
+      precio_unitario: item.precioUnitario,
+      subtotal: item.cantidad * item.precioUnitario,
+      imei: item.imei || null,
+      notas: item.notas || null,
       producto_nombre: producto?.nombre || "",
       producto_marca: producto?.marca || "",
       producto_modelo: producto?.modelo || "",
     };
   });
 
+  // FASE 36: Construir registros de servicios (sin snapshot de stock)
+  const serviceItemsToInsert = serviceItems.map((item) => ({
+    venta_id: ventaData.id,
+    producto_id: null,
+    servicio_id: item.servicioId,
+    servicio_nombre: item.servicioNombre || null,
+    es_servicio: true,
+    cantidad: item.cantidad,
+    precio_unitario: item.precioUnitario,
+    subtotal: item.cantidad * item.precioUnitario,
+    imei: null,
+    notas: item.notas || null,
+    producto_nombre: item.servicioNombre || "",
+    producto_marca: "",
+    producto_modelo: "",
+  }));
+
+  const allItemsToInsert = [...productItemsToInsert, ...serviceItemsToInsert];
+
   const { error: itemsError } = await supabase
     .from("ventas_items")
-    .insert(itemsWithSnapshot);
+    .insert(allItemsToInsert);
 
   if (itemsError) {
     console.error("Error creating venta items:", itemsError);

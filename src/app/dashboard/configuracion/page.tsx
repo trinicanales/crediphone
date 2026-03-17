@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import PayjoyConfigSection from "@/components/payjoy/PayjoyConfigSection";
 import { SonidosNotificacionConfig } from "@/components/configuracion/SonidosNotificacionConfig";
+import { ServiciosManager } from "@/components/configuracion/ServiciosManager";
 
 // ── Estilos compartidos ──────────────────────────────
 const labelSt: React.CSSProperties = {
@@ -787,6 +788,19 @@ export default function ConfiguracionPage() {
           onSave={handleSave}
           saving={saving}
         />
+      ),
+    },
+
+    // ══════════════════════════════════════════════════════
+    // TAB 9: SERVICIOS (FASE 36)
+    // ══════════════════════════════════════════════════════
+    {
+      id: "servicios",
+      label: "Servicios",
+      content: (
+        <Card className="p-6">
+          <ServiciosManager />
+        </Card>
       ),
     },
   ];

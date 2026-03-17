@@ -6,12 +6,13 @@ import { useAuth } from "@/components/AuthProvider";
 import { ProductSearchBar } from "@/components/pos/ProductSearchBar";
 import { ProductCategoryGrid } from "@/components/pos/ProductCategoryGrid";
 import { ShoppingCart, CartItem } from "@/components/pos/ShoppingCart";
+import { ServiciosPOSPanel, ServicioPOSItem } from "@/components/pos/ServiciosPOSPanel";
 import { PaymentMethodSelector } from "@/components/pos/PaymentMethodSelector";
 import { ReciboModal } from "@/components/pos/ReciboModal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
-import { ShoppingCart as CartIcon, DollarSign, Receipt, LogOut as CloseIcon, X, LayoutGrid, Search as SearchIcon, User, ScanLine, FileText } from "lucide-react";
+import { ShoppingCart as CartIcon, DollarSign, Receipt, LogOut as CloseIcon, X, LayoutGrid, Search as SearchIcon, User, ScanLine, FileText, Wrench } from "lucide-react";
 import { generarReporteX, abrirReporte } from "@/lib/utils/reportes";
 import type {
   Producto,
@@ -76,6 +77,9 @@ export default function POSPage() {
 
   // Estadísticas
   const [stats, setStats] = useState<EstadisticasPOS | null>(null);
+
+  // FASE 36: Sección activa del panel izquierdo (Productos vs Servicios)
+  const [posSection, setPosSection] = useState<"productos" | "servicios">("productos");
 
   // FASE 29: modo dual Standard / Visual
   const [posMode, setPosMode] = useState<"standard" | "visual">(() => {
@@ -203,7 +207,7 @@ export default function POSPage() {
 
     // Buscar si ya está en el carrito
     const existingIndex = cartItems.findIndex(
-      (item) => item.producto.id === producto.id
+      (item) => !item.esServicio && item.producto?.id === producto.id
     );
 
     if (existingIndex >= 0) {
@@ -218,9 +222,10 @@ export default function POSPage() {
         alert("No hay más stock disponible de este producto");
       }
     } else {
-      // Agregar nuevo item
+      // Agregar nuevo item de producto
       const newItem: CartItem = {
         producto,
+        esServicio: false,
         cantidad: 1,
         precioUnitario: producto.precio,
         subtotal: producto.precio,
@@ -229,16 +234,20 @@ export default function POSPage() {
     }
   };
 
-  const handleUpdateQuantity = (productoId: string, cantidad: number) => {
+  // Obtiene la clave única del slot del carrito (compatible con productos y servicios)
+  const getCartItemKey = (item: CartItem): string =>
+    item.esServicio ? `svc_${item.servicioId}` : (item.producto?.id ?? "");
+
+  const handleUpdateQuantity = (itemKey: string, cantidad: number) => {
     if (cantidad <= 0) {
-      handleRemoveItem(productoId);
+      handleRemoveItem(itemKey);
       return;
     }
 
     const newItems = cartItems.map((item) => {
-      if (item.producto.id === productoId) {
-        // Validar stock
-        if (cantidad > item.producto.stock) {
+      if (getCartItemKey(item) === itemKey) {
+        // Solo validar stock para productos físicos
+        if (!item.esServicio && cantidad > (item.producto?.stock ?? 0)) {
           alert("Cantidad excede el stock disponible");
           return item;
         }
@@ -254,8 +263,45 @@ export default function POSPage() {
     setCartItems(newItems);
   };
 
-  const handleRemoveItem = (productoId: string) => {
-    setCartItems(cartItems.filter((item) => item.producto.id !== productoId));
+  const handleRemoveItem = (itemKey: string) => {
+    setCartItems(cartItems.filter((item) => getCartItemKey(item) !== itemKey));
+  };
+
+  // FASE 36: Agregar un servicio al carrito
+  const handleAgregarServicio = (svcItem: ServicioPOSItem) => {
+    if (!svcItem.servicioId) return;
+
+    if (!svcItem.esVarible) {
+      // Precio fijo: incrementar cantidad si ya está en el carrito
+      // servicioId en CartItem almacena el UUID real (sin prefijo svc_)
+      const existingIndex = cartItems.findIndex(
+        (i) => i.esServicio && i.servicioId === svcItem.servicioId
+      );
+      if (existingIndex >= 0) {
+        const newItems = [...cartItems];
+        newItems[existingIndex].cantidad += 1;
+        newItems[existingIndex].subtotal =
+          newItems[existingIndex].cantidad * newItems[existingIndex].precioUnitario;
+        setCartItems(newItems);
+        return;
+      }
+    }
+
+    // Servicio de precio variable o primer item fijo: añadir nuevo slot
+    // Para variables usamos sufijo timestamp como key única en el carrito
+    const uniqueCartKey = svcItem.esVarible
+      ? `${svcItem.servicioId}_${Date.now()}`
+      : svcItem.servicioId;
+
+    const newItem: CartItem = {
+      esServicio: true,
+      servicioId: uniqueCartKey,  // UUID (o UUID_timestamp para variables)
+      servicioNombre: svcItem.nombre,
+      cantidad: svcItem.cantidad,
+      precioUnitario: svcItem.precioUnitario,
+      subtotal: svcItem.subtotal,
+    };
+    setCartItems([...cartItems, newItem]);
   };
 
   const handleClearCart = () => {
@@ -300,7 +346,12 @@ export default function POSPage() {
       const ventaFormData: NuevaVentaFormData = {
         clienteId: clienteSeleccionado?.id,
         items: cartItems.map((item) => ({
-          productoId: item.producto.id,
+          productoId: item.esServicio ? undefined : item.producto?.id,
+          servicioId: item.esServicio
+            ? item.servicioId?.replace(/^svc_/, "").replace(/_\d+$/, "") // strip cart prefix/suffix
+            : undefined,
+          servicioNombre: item.esServicio ? item.servicioNombre : undefined,
+          esServicio: item.esServicio,
           cantidad: item.cantidad,
           precioUnitario: item.precioUnitario,
           imei: item.imei,
@@ -352,7 +403,12 @@ export default function POSPage() {
       const ventaFormData: NuevaVentaFormData = {
         clienteId: clienteSeleccionado?.id,
         items: cartItems.map((item) => ({
-          productoId: item.producto.id,
+          productoId: item.esServicio ? undefined : item.producto?.id,
+          servicioId: item.esServicio
+            ? item.servicioId?.replace(/^svc_/, "").replace(/_\d+$/, "")
+            : undefined,
+          servicioNombre: item.esServicio ? item.servicioNombre : undefined,
+          esServicio: item.esServicio,
           cantidad: item.cantidad,
           precioUnitario: item.precioUnitario,
           imei: item.imei,
@@ -399,7 +455,12 @@ export default function POSPage() {
       const ventaFormData: NuevaVentaFormData = {
         clienteId: clienteSeleccionado?.id,
         items: cartItems.map((item) => ({
-          productoId: item.producto.id,
+          productoId: item.esServicio ? undefined : item.producto?.id,
+          servicioId: item.esServicio
+            ? item.servicioId?.replace(/^svc_/, "").replace(/_\d+$/, "")
+            : undefined,
+          servicioNombre: item.esServicio ? item.servicioNombre : undefined,
+          esServicio: item.esServicio,
           cantidad: item.cantidad,
           precioUnitario: item.precioUnitario,
           imei: item.imei,
@@ -538,7 +599,7 @@ export default function POSPage() {
     const producto = imeiProductoPendiente;
     const imei = imeiInput.trim();
 
-    const existingIndex = cartItems.findIndex(i => i.producto.id === producto.id);
+    const existingIndex = cartItems.findIndex(i => !i.esServicio && i.producto?.id === producto.id);
     if (existingIndex >= 0) {
       const newItems = [...cartItems];
       if (newItems[existingIndex].cantidad < producto.stock) {
@@ -550,6 +611,7 @@ export default function POSPage() {
     } else {
       setCartItems([...cartItems, {
         producto,
+        esServicio: false,
         cantidad: 1,
         precioUnitario: producto.precio,
         subtotal: producto.precio,
@@ -1020,26 +1082,62 @@ export default function POSPage() {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column — Standard: búsqueda | Visual: grid categorías */}
+        {/* Left Column — Productos / Servicios */}
         <div className="space-y-4">
-          {posMode === "standard" ? (
+
+          {/* FASE 36: Pestañas Productos | Servicios */}
+          <div
+            className="flex rounded-xl p-1 gap-1"
+            style={{
+              background: "var(--color-bg-elevated)",
+              border: "1px solid var(--color-border-subtle)",
+            }}
+          >
+            {[
+              { id: "productos" as const, icon: <LayoutGrid className="w-3.5 h-3.5" />, label: "Productos" },
+              { id: "servicios" as const, icon: <Wrench className="w-3.5 h-3.5" />, label: "Servicios" },
+            ].map(({ id, icon, label }) => (
+              <button
+                key={id}
+                onClick={() => setPosSection(id)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  background: posSection === id ? "var(--color-bg-surface)" : "transparent",
+                  color: posSection === id ? "var(--color-accent)" : "var(--color-text-muted)",
+                  boxShadow: posSection === id ? "var(--shadow-xs)" : "none",
+                }}
+              >
+                {icon}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {posSection === "productos" ? (
             <>
-              <h2 className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
-                Buscar Producto
-              </h2>
-              <ProductSearchBar
-                onSelectProduct={handleSelectProductoConImei}
-                focusTrigger={searchFocusTrigger}
-                topProductIds={stats?.productosMasVendidos?.slice(0, 6).map((p) => p.productoId)}
-              />
+              {posMode === "standard" ? (
+                <>
+                  <h2 className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                    Buscar Producto
+                  </h2>
+                  <ProductSearchBar
+                    onSelectProduct={handleSelectProductoConImei}
+                    focusTrigger={searchFocusTrigger}
+                    topProductIds={stats?.productosMasVendidos?.slice(0, 6).map((p) => p.productoId)}
+                  />
+                </>
+              ) : (
+                <>
+                  <h2 className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                    Productos por Categoría
+                  </h2>
+                  <ProductCategoryGrid onSelectProduct={handleSelectProductoConImei} />
+                </>
+              )}
             </>
           ) : (
-            <>
-              <h2 className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
-                Productos por Categoría
-              </h2>
-              <ProductCategoryGrid onSelectProduct={handleSelectProductoConImei} />
-            </>
+            /* FASE 36: Panel de Servicios */
+            <ServiciosPOSPanel onAgregarServicio={handleAgregarServicio} />
           )}
 
           <div>
