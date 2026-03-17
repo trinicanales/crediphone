@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/reparaciones";
 import { getSesionActiva } from "@/lib/db/caja";
 import { createTraspasoAnticipo } from "@/lib/db/traspasos";
+import { createConfirmacionDeposito } from "@/lib/db/confirmaciones";
 import type { TipoPago, DesglosePagoMixto } from "@/types";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -81,9 +82,15 @@ export async function POST(
     // FASE 37: Técnico + efectivo → traspaso pendiente (no va a caja directamente)
     const esTecnicoConEfectivo = role === "tecnico" && body.tipoPago === "efectivo";
 
-    // Sesión de caja (solo se usa cuando NO es traspaso)
+    // FASE 38: Transferencia o depósito → requiere confirmación del admin antes de entrar a caja
+    const esDepositoTransferencia =
+      body.tipoPago === "transferencia" || body.tipoPago === "deposito";
+
+    const requiereConfirmacion = esDepositoTransferencia;
+
+    // Sesión de caja (solo se usa cuando NO es traspaso ni requiere confirmación)
     let sesionCajaId: string | undefined;
-    if (!esTecnicoConEfectivo) {
+    if (!esTecnicoConEfectivo && !requiereConfirmacion) {
       try {
         const sesion = await getSesionActiva(userId);
         sesionCajaId = sesion?.id;
@@ -92,8 +99,14 @@ export async function POST(
       }
     }
 
+    // Nombre del cliente (para notificaciones)
+    const clienteData = orden?.cliente as { nombre?: string; apellido?: string } | null;
+    const clienteNombre = clienteData
+      ? [clienteData.nombre, clienteData.apellido].filter(Boolean).join(" ")
+      : "Cliente";
+
     // Crear el anticipo en anticipos_reparacion
-    // Si es traspaso: NO pasa sesionCajaId (para que NO asiente en caja)
+    // - Si es traspaso O transferencia/depósito: sin caja (se asienta al confirmar)
     const anticipo = await addAnticipoReparacion(
       id,
       {
@@ -104,17 +117,12 @@ export async function POST(
         notas: body.notas,
       },
       userId,
-      esTecnicoConEfectivo ? undefined : sesionCajaId, // Sin caja si es traspaso
+      (esTecnicoConEfectivo || requiereConfirmacion) ? undefined : sesionCajaId,
       orden?.folio
     );
 
-    // FASE 37: Crear el traspaso pendiente
+    // FASE 37: Crear el traspaso pendiente (técnico + efectivo)
     if (esTecnicoConEfectivo) {
-      const clienteData = orden?.cliente as { nombre?: string; apellido?: string } | null;
-      const clienteNombre = clienteData
-        ? [clienteData.nombre, clienteData.apellido].filter(Boolean).join(" ")
-        : "Cliente";
-
       await createTraspasoAnticipo({
         distribuidorId: distribuidorId ?? undefined,
         reparacionId: id,
@@ -130,7 +138,46 @@ export async function POST(
         data: anticipo,
         message: "Anticipo registrado. El vendedor debe confirmar la recepción del efectivo.",
         requiereTraspaso: true,
+        requiereConfirmacion: false,
         registradoEnCaja: false,
+      });
+    }
+
+    // FASE 38: Crear confirmación pendiente (transferencia / depósito)
+    if (requiereConfirmacion) {
+      // Obtener nombre del registrador
+      const supabase = createAdminClient();
+      const { data: registrador } = await supabase
+        .from("users")
+        .select("nombre, apellido")
+        .eq("id", userId)
+        .single();
+      const registradorNombre = registrador
+        ? [registrador.nombre, registrador.apellido].filter(Boolean).join(" ")
+        : "Empleado";
+
+      const confirmacion = await createConfirmacionDeposito({
+        distribuidorId: distribuidorId ?? undefined,
+        reparacionId: id,
+        anticipoId: anticipo.id,
+        monto: Number(body.monto),
+        tipoPago: body.tipoPago as "transferencia" | "deposito",
+        referenciaBancaria: body.referenciaPago,
+        registradoPor: userId,
+        folioOrden: orden?.folio || "Sin folio",
+        clienteNombre,
+        registradorNombre,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: anticipo,
+        confirmacion,
+        message: `Anticipo por ${body.tipoPago} registrado. Pendiente de confirmación del administrador.`,
+        requiereTraspaso: false,
+        requiereConfirmacion: true,
+        registradoEnCaja: false,
+        linkToken: confirmacion.linkToken,
       });
     }
 
@@ -139,6 +186,7 @@ export async function POST(
       data: anticipo,
       message: "Anticipo registrado" + (sesionCajaId ? " y asentado en caja" : " (sin sesión de caja activa)"),
       requiereTraspaso: false,
+      requiereConfirmacion: false,
       registradoEnCaja: !!sesionCajaId,
     });
   } catch (error) {

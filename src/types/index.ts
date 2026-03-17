@@ -656,7 +656,7 @@ export type TipoFirma = "manuscrita" | "digital";
 // =====================================================
 
 // Tipo de pago
-export type TipoPago = "efectivo" | "transferencia" | "tarjeta" | "mixto";
+export type TipoPago = "efectivo" | "transferencia" | "deposito" | "tarjeta" | "mixto";
 
 // Desglose de pago mixto
 export interface DesglosePagoMixto {
@@ -703,6 +703,41 @@ export interface TraspasoAnticipo {
   // Joins opcionales (para mostrar en UI)
   tecnicoNombre?: string;
   vendedorNombre?: string;
+}
+
+// =====================================================
+// FASE 38: Confirmación de depósitos/transferencias
+// =====================================================
+
+export type EstadoConfirmacionDeposito =
+  | "pendiente_confirmacion"
+  | "confirmado"
+  | "rechazado";
+
+export interface ConfirmacionDeposito {
+  id: string;
+  distribuidorId?: string;
+  reparacionId: string;
+  anticipoId?: string;          // se llena después de crear el anticipo
+  monto: number;
+  tipoPago: "transferencia" | "deposito";
+  referenciaBancaria?: string;
+  fotoComprobanteUrl?: string;
+  registradoPor: string;        // userId
+  estado: EstadoConfirmacionDeposito;
+  confirmadoPor?: string;       // userId del admin
+  confirmadoAt?: Date;
+  razonRechazo?: string;
+  linkToken: string;            // token único para WhatsApp
+  whatsappEnviadoAt?: Date;
+  // Campos desnormalizados para UI/notificaciones
+  folioOrden?: string;
+  clienteNombre?: string;
+  registradorNombre?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  // Joins opcionales
+  confirmadorNombre?: string;
 }
 
 // Presupuesto de reparación

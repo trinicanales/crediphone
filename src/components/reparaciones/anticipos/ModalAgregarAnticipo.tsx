@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { TipoPago, DesglosePagoMixto } from "@/types";
-import { DollarSign, AlertCircle, ArrowRightLeft } from "lucide-react";
+import { DollarSign, AlertCircle, ArrowRightLeft, BanknoteIcon } from "lucide-react";
 
 interface ModalAgregarAnticipoProps {
   isOpen: boolean;
@@ -179,10 +179,28 @@ export function ModalAgregarAnticipo({
           >
             <option value="efectivo">Efectivo</option>
             <option value="transferencia">Transferencia</option>
+            <option value="deposito">Depósito bancario</option>
             <option value="tarjeta">Tarjeta</option>
             <option value="mixto">Pago Mixto</option>
           </select>
         </div>
+
+        {/* FASE 38: Aviso de confirmación para transferencia / depósito */}
+        {(tipoPago === "transferencia" || tipoPago === "deposito") && (
+          <div className="rounded-xl p-4" style={{ background: "var(--color-info-bg)", border: "1px solid var(--color-info)" }}>
+            <div className="flex items-start gap-3">
+              <BanknoteIcon className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "var(--color-info)" }} />
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--color-info-text)" }}>
+                  Requiere confirmación del administrador
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--color-info-text)" }}>
+                  El anticipo se registrará como <strong>pendiente de verificación</strong>. El admin recibirá un aviso y deberá confirmar que el {tipoPago === "transferencia" ? "la transferencia" : "el depósito"} aparece en el estado de cuenta bancario antes de que entre a caja.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* FASE 37: Aviso de traspaso para técnico con efectivo */}
         {esTecnico && tipoPago === "efectivo" && (
