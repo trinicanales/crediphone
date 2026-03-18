@@ -19,9 +19,11 @@ import {
   ChevronDown,
   ChevronUp,
   Coins,
+  Wrench,
+  ShieldAlert,
 } from "lucide-react";
 import { generarReporteX, generarReporteZ, abrirReporte } from "@/lib/utils/reportes";
-import type { CajaSesion, CajaMovimiento, ConteoDenominaciones } from "@/types";
+import type { CajaSesion, CajaMovimiento, ConteoDenominaciones, AnticipoEnSesion } from "@/types";
 
 // ─── Denominaciones MXN ───────────────────────────────────────────
 const DENOMINACIONES: { key: keyof Omit<ConteoDenominaciones, "monedas">; label: string; valor: number }[] = [
@@ -80,6 +82,11 @@ export default function CajaPage() {
 
   // Config
   const [fondoCaja, setFondoCaja] = useState<number>(500);
+
+  // FASE 41: Bolsa virtual
+  const [anticiposSesion, setAnticiposSesion] = useState<AnticipoEnSesion[]>([]);
+  const [anticiposSinSesion, setAnticiposSinSesion] = useState<AnticipoEnSesion[]>([]);
+  const [loadingAnticipossesion, setLoadingAnticiposSesion] = useState(false);
 
   // Modal Abrir
   const [showAbrirModal, setShowAbrirModal] = useState(false);
@@ -153,6 +160,31 @@ export default function CajaPage() {
     }
   }, []);
 
+  // FASE 41: anticipos de la sesión activa
+  const fetchAnticiposSesion = useCallback(async (sesionId: string) => {
+    try {
+      setLoadingAnticiposSesion(true);
+      const response = await fetch(`/api/pos/caja/${sesionId}?action=anticipos`);
+      const data = await response.json();
+      if (data.success) setAnticiposSesion(data.data);
+    } catch (error) {
+      console.error("Error fetching anticipos sesion:", error);
+    } finally {
+      setLoadingAnticiposSesion(false);
+    }
+  }, []);
+
+  // FASE 41: anticipos sin sesión (admin/super_admin)
+  const fetchAnticiposSinSesion = useCallback(async () => {
+    try {
+      const response = await fetch("/api/pos/caja?action=anticipos-sin-sesion");
+      const data = await response.json();
+      if (data.success) setAnticiposSinSesion(data.data);
+    } catch (error) {
+      console.error("Error fetching anticipos sin sesion:", error);
+    }
+  }, []);
+
   // FASE 40: cargar fondo de caja configurable
   const fetchConfig = useCallback(async () => {
     try {
@@ -171,12 +203,16 @@ export default function CajaPage() {
       fetchSesionActiva();
       fetchHistorialSesiones();
       fetchConfig();
+      if (["admin", "super_admin"].includes(user.role)) fetchAnticiposSinSesion();
     }
-  }, [user, fetchSesionActiva, fetchHistorialSesiones, fetchConfig]);
+  }, [user, fetchSesionActiva, fetchHistorialSesiones, fetchConfig, fetchAnticiposSinSesion]);
 
   useEffect(() => {
-    if (sesionActiva) fetchMovimientos(sesionActiva.id);
-  }, [sesionActiva, fetchMovimientos]);
+    if (sesionActiva) {
+      fetchMovimientos(sesionActiva.id);
+      fetchAnticiposSesion(sesionActiva.id);
+    }
+  }, [sesionActiva, fetchMovimientos, fetchAnticiposSesion]);
 
   // ── Reporte X / Z ───────────────────────────────────────────────
   const handleGenerarReporte = async (sesionId: string, tipo: "X" | "Z") => {
@@ -252,7 +288,9 @@ export default function CajaPage() {
         setShowCerrarModal(false);
         setConteoDenom(CONTEO_INICIAL);
         setNotasCierre("");
+        setAnticiposSesion([]);
         fetchHistorialSesiones();
+        if (["admin", "super_admin"].includes(user?.role ?? "")) fetchAnticiposSinSesion();
         alert("Caja cerrada exitosamente");
       } else {
         alert(data.error || "Error al cerrar caja");
@@ -488,7 +526,68 @@ export default function CajaPage() {
                 </div>
               </div>
             )}
+          {/* FASE 41: Bolsa de Reparaciones */}
+          {(anticiposSesion.length > 0 || loadingAnticipossesion) && (
+            <div className="mt-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Wrench className="w-4 h-4" style={{ color: "var(--color-accent)" }} />
+                <h3 className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                  Bolsa de Reparaciones
+                </h3>
+                <span
+                  className="px-2 py-0.5 text-xs rounded-full font-medium"
+                  style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+                >
+                  ${anticiposSesion.reduce((s, a) => s + a.monto, 0).toFixed(2)}
+                </span>
+              </div>
+              {loadingAnticipossesion ? (
+                <div className="h-16 rounded-lg animate-pulse" style={{ background: "var(--color-bg-elevated)" }} />
+              ) : (
+                <div className="space-y-2">
+                  {anticiposSesion.map((ant) => (
+                    <div
+                      key={ant.id}
+                      className="flex items-center justify-between p-3 rounded-lg"
+                      style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Wrench className="w-4 h-4 shrink-0" style={{ color: "var(--color-accent)" }} />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}>
+                              {ant.folioOrden}
+                            </p>
+                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                              {ant.clienteNombre}
+                            </span>
+                          </div>
+                          {ant.empleadoNombre && (
+                            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                              Recibió: {ant.empleadoNombre} · {new Date(ant.fechaAnticipo).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold" style={{ color: "var(--color-success)", fontFamily: "var(--font-data)" }}>
+                          +${ant.monto.toFixed(2)}
+                        </p>
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded"
+                          style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}
+                        >
+                          {ant.tipoPago}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           </div>
+
         ) : (
           <div className="text-center py-12" style={{ color: "var(--color-text-muted)" }}>
             <Clock className="w-16 h-16 mx-auto mb-4 opacity-50" />
@@ -596,6 +695,57 @@ export default function CajaPage() {
           ))}
         </div>
       </Card>
+
+      {/* FASE 41: Anticipos sin sesión de caja — solo admin / super_admin */}
+      {["admin", "super_admin"].includes(user.role) && anticiposSinSesion.length > 0 && (
+        <Card className="p-6 mt-6">
+          <div className="flex items-start gap-3 mb-4">
+            <ShieldAlert className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "var(--color-danger)" }} />
+            <div>
+              <h2 className="text-lg font-semibold" style={{ color: "var(--color-danger)" }}>
+                Anticipos sin sesión de caja ({anticiposSinSesion.length})
+              </h2>
+              <p className="text-sm mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                Efectivo recibido en reparaciones sin una sesión de caja activa. Revisar con el empleado correspondiente.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {anticiposSinSesion.map((ant) => (
+              <div
+                key={ant.id}
+                className="flex items-center justify-between p-3 rounded-lg"
+                style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}
+              >
+                <div className="flex items-center gap-3">
+                  <Wrench className="w-4 h-4 shrink-0" style={{ color: "var(--color-danger)" }} />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold" style={{ color: "var(--color-danger-text)", fontFamily: "var(--font-mono)" }}>
+                        {ant.folioOrden}
+                      </p>
+                      <span className="text-sm" style={{ color: "var(--color-danger-text)" }}>
+                        {ant.clienteNombre}
+                      </span>
+                    </div>
+                    <p className="text-xs" style={{ color: "var(--color-danger)" }}>
+                      {ant.empleadoNombre ? `Registrado por: ${ant.empleadoNombre}` : "Empleado desconocido"}
+                      {" · "}
+                      {new Date(ant.fechaAnticipo).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold" style={{ color: "var(--color-danger)", fontFamily: "var(--font-data)" }}>
+                    ${ant.monto.toFixed(2)}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--color-danger-text)" }}>Sin sesión</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* ─── Modal Abrir Caja ───────────────────────────────────── */}
       {showAbrirModal && (

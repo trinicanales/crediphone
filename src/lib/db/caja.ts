@@ -4,7 +4,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { CajaSesion, CajaMovimiento, ConteoDenominaciones } from "@/types";
+import type { CajaSesion, CajaMovimiento, ConteoDenominaciones, AnticipoEnSesion, TipoPago } from "@/types";
 
 // =====================================================
 // MAPPERS
@@ -439,4 +439,129 @@ export async function getMovimientosSesion(sesionId: string): Promise<CajaMovimi
   }
 
   return (data || []).map(mapMovimientoFromDB);
+}
+
+// =====================================================
+// FASE 41: Bolsa virtual de reparaciones en caja
+// =====================================================
+
+/**
+ * Obtiene los anticipos de reparación registrados en una sesión de caja.
+ * Enriquece cada anticipo con datos de la orden y el cliente.
+ */
+export async function getAnticiposBySesion(sesionId: string): Promise<AnticipoEnSesion[]> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from("anticipos_reparacion")
+    .select(`
+      id,
+      monto,
+      tipo_pago,
+      fecha_anticipo,
+      estado,
+      orden:ordenes_reparacion (
+        id,
+        folio,
+        descripcion_problema,
+        cliente:clientes ( nombre, apellido )
+      ),
+      empleado:users!recibido_por ( name )
+    `)
+    .eq("sesion_caja_id", sesionId)
+    .neq("estado", "devuelto")
+    .order("fecha_anticipo", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching anticipos by sesion:", error);
+    throw new Error(`Error al obtener anticipos de sesión: ${error.message}`);
+  }
+
+  return (data || []).map((row: any) => {
+    const orden = row.orden;
+    const cliente = orden?.cliente;
+    const empleado = row.empleado;
+    return {
+      id: row.id,
+      monto: parseFloat(row.monto),
+      tipoPago: row.tipo_pago as TipoPago,
+      fechaAnticipo: new Date(row.fecha_anticipo),
+      estado: row.estado,
+      folioOrden: orden?.folio || "Sin folio",
+      descripcionProblema: orden?.descripcion_problema || undefined,
+      ordenId: orden?.id || "",
+      clienteNombre: cliente
+        ? [cliente.nombre, cliente.apellido].filter(Boolean).join(" ")
+        : "Cliente",
+      empleadoNombre: empleado?.name || undefined,
+      registradoEnCaja: true,
+    } satisfies AnticipoEnSesion;
+  });
+}
+
+/**
+ * Obtiene anticipos de reparación en efectivo que NO tienen sesión de caja asignada.
+ * Estos son potenciales registros de fraude — dinero recibido sin pasar por caja.
+ * Filtra por distribuidor_id del distribuidor de la orden.
+ */
+export async function getAnticiposSinSesion(distribuidorId?: string): Promise<AnticipoEnSesion[]> {
+  const supabase = createAdminClient();
+
+  let query = supabase
+    .from("anticipos_reparacion")
+    .select(`
+      id,
+      monto,
+      tipo_pago,
+      fecha_anticipo,
+      estado,
+      orden:ordenes_reparacion (
+        id,
+        folio,
+        descripcion_problema,
+        distribuidor_id,
+        cliente:clientes ( nombre, apellido )
+      ),
+      empleado:users!recibido_por ( name )
+    `)
+    .is("sesion_caja_id", null)
+    .eq("tipo_pago", "efectivo")
+    .neq("estado", "devuelto")
+    .order("fecha_anticipo", { ascending: false })
+    .limit(100);
+
+  // Filtrar por distribuidor si se proporciona
+  // (el distribuidor_id está en la orden, no en el anticipo)
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching anticipos sin sesion:", error);
+    throw new Error(`Error al obtener anticipos sin sesión: ${error.message}`);
+  }
+
+  return (data || [])
+    .filter((row: any) => {
+      if (!distribuidorId) return true;
+      return row.orden?.distribuidor_id === distribuidorId;
+    })
+    .map((row: any) => {
+      const orden = row.orden;
+      const cliente = orden?.cliente;
+      const empleado = row.empleado;
+      return {
+        id: row.id,
+        monto: parseFloat(row.monto),
+        tipoPago: row.tipo_pago as TipoPago,
+        fechaAnticipo: new Date(row.fecha_anticipo),
+        estado: row.estado,
+        folioOrden: orden?.folio || "Sin folio",
+        descripcionProblema: orden?.descripcion_problema || undefined,
+        ordenId: orden?.id || "",
+        clienteNombre: cliente
+          ? [cliente.nombre, cliente.apellido].filter(Boolean).join(" ")
+          : "Cliente",
+        empleadoNombre: empleado?.name || undefined,
+        registradoEnCaja: false,
+      } satisfies AnticipoEnSesion;
+    });
 }

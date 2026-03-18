@@ -706,6 +706,25 @@ export interface AnticipoReparacion {
   createdAt: Date;
 }
 
+// FASE 41: Vista enriquecida de un anticipo dentro de una sesión de caja (bolsa virtual)
+export interface AnticipoEnSesion {
+  id: string;
+  monto: number;
+  tipoPago: TipoPago;
+  fechaAnticipo: Date;
+  estado: "pendiente" | "aplicado" | "devuelto";
+  // Datos de la orden de reparación
+  folioOrden: string;
+  descripcionProblema?: string;
+  ordenId: string;
+  // Datos del cliente
+  clienteNombre: string;
+  // Empleado que recibió el pago
+  empleadoNombre?: string;
+  // Indica si fue registrado con sesión de caja
+  registradoEnCaja: boolean;
+}
+
 // FASE 37: Traspaso de anticipo técnico → vendedor
 export interface TraspasoAnticipo {
   id: string;

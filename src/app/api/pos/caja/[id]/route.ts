@@ -5,6 +5,7 @@ import {
   cerrarCaja,
   agregarMovimientoCaja,
   getMovimientosSesion,
+  getAnticiposBySesion,
 } from "@/lib/db/caja";
 import { getVentasBySesion } from "@/lib/db/ventas";
 
@@ -68,6 +69,12 @@ export async function GET(
     if (action === "movimientos") {
       const movimientos = await getMovimientosSesion(id);
       return NextResponse.json({ success: true, data: movimientos });
+    }
+
+    // FASE 41: Bolsa virtual — anticipos de reparación de esta sesión
+    if (action === "anticipos") {
+      const anticipos = await getAnticiposBySesion(id);
+      return NextResponse.json({ success: true, data: anticipos });
     }
 
     // FASE 31: Reporte X/Z — datos completos de la sesión

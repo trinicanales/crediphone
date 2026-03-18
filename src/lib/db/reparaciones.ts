@@ -1229,6 +1229,8 @@ export async function addAnticipoReparacion(
     recibido_por: recibidoPor,
     fecha_anticipo: new Date().toISOString(),
     estado: "pendiente",
+    // FASE 41: Vincular con la sesión de caja para bolsa virtual
+    sesion_caja_id: sesionCajaId || null,
   };
   if (anticipo.desgloseMixto) anticipoData.desglose_mixto = anticipo.desgloseMixto;
   if (anticipo.referenciaPago) anticipoData.referencia_pago = anticipo.referenciaPago;

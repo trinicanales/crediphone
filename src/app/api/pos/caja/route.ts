@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
-import { getSesionActiva, abrirCaja, getSesionesCaja } from "@/lib/db/caja";
+import { getSesionActiva, abrirCaja, getSesionesCaja, getAnticiposSinSesion } from "@/lib/db/caja";
 
 /**
  * GET /api/pos/caja
@@ -37,6 +37,16 @@ export async function GET(request: NextRequest) {
         success: true,
         data: sesion,
       });
+    }
+
+    // FASE 41: Anticipos sin sesión de caja (anti-fraude) — solo admin y super_admin
+    if (action === "anticipos-sin-sesion") {
+      if (!["admin", "super_admin"].includes(role)) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
+      const distribFilter = role === "super_admin" ? undefined : (distribuidorId ?? undefined);
+      const anticipos = await getAnticiposSinSesion(distribFilter);
+      return NextResponse.json({ success: true, data: anticipos });
     }
 
     // Obtener historial de sesiones (scoped por distribuidor)
