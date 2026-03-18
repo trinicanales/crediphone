@@ -28,7 +28,7 @@ el usuario no es super_admin.
 
 ### [REACT-001] 27 errores de ESLint — React/lógica
 **Severidad:** ALTA
-**Estado:** PENDIENTE
+**Estado:** ✅ RESUELTO — commit `1085bd5` (2026-03-18)
 **Archivos con errores CRÍTICOS (no solo warnings):**
 
 | Archivo | Error | Impacto |
@@ -73,6 +73,7 @@ el usuario no es super_admin.
 | 38 | (ver historial) | — |
 | 39 | Sistema de autorización de descuentos: zonas verde/amarillo/rojo, polling, WhatsApp token, panel admin, config | `614ede1` |
 | SEC | SECURITY-001 + SECURITY-002: 17 API routes con auth + multi-tenant reportes | `7a5e4f5` |
+| REACT-001 | 12 errores críticos ESLint: vars before declare, setState en effects, mutación state, Date.now en render, JSX quotes | `1085bd5` |
 
 ---
 
@@ -259,4 +260,4 @@ Por eso existe este archivo. Si algo importante pasa en una sesión (nueva decis
 
 ---
 
-*Última actualización: 2026-03-18 — Trini + Claude (sesión seguridad: SECURITY-001 + SECURITY-002 resueltos)*
+*Última actualización: 2026-03-18 — Trini + Claude (REACT-001 resuelto: 12 errores ESLint críticos)*

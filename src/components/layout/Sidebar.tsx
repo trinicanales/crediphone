@@ -21,22 +21,23 @@ import {
   SlidersHorizontal,
   X,
   LogOut,
-  ShoppingCart,
-  MapPin,
   Building2,
   Tag,
   Truck,
-  DollarSign,
-  Landmark,
   History,
-  Layers,
-  AlertTriangle,
-  Settings,
   Smartphone,
   ChevronDown,
   Eye,
   Store,
   Zap,
+  // Íconos nuevos (SESIÓN VISUAL)
+  ClipboardCheck,   // Inventario/Verificar  (era MapPin)
+  CalendarX2,       // Cartera y Mora        (era AlertTriangle)
+  PackageX,         // Alertas Stock         (era AlertTriangle)
+  Cpu,              // Panel Técnico         (era Settings)
+  BadgeDollarSign,  // Comisiones            (era DollarSign)
+  Vault,            // Caja / Turno          (era Landmark)
+  Warehouse,        // Ubicaciones           (era Layers)
 } from "lucide-react";
 
 interface NavItem {
@@ -47,32 +48,72 @@ interface NavItem {
   moduleKey?: keyof ModulosHabilitados;
 }
 
-const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, moduleKey: "dashboard" },
-  { href: "/dashboard/admin/distribuidores", label: "Distribuidores", icon: Building2, roles: ["super_admin"] },
-  { href: "/dashboard/reparaciones", label: "Reparaciones", icon: Wrench, roles: ["admin", "tecnico", "vendedor", "cobrador", "super_admin"], moduleKey: "reparaciones" },
-  { href: "/dashboard/dashboard-reparaciones", label: "KPI Reparaciones", icon: BarChart3, roles: ["admin", "tecnico", "super_admin"], moduleKey: "dashboard-reparaciones" },
-  { href: "/dashboard/clientes", label: "Clientes", icon: Users, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "clientes" },
-  { href: "/dashboard/creditos", label: "Créditos", icon: CreditCard, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "creditos" },
-  { href: "/dashboard/creditos/cartera-vencida", label: "Cartera Vencida", icon: AlertTriangle, roles: ["admin", "cobrador", "vendedor", "super_admin"], moduleKey: "creditos" },
-  { href: "/dashboard/pagos", label: "Pagos", icon: Wallet, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "pagos" },
-  { href: "/dashboard/productos", label: "Productos", icon: Package, roles: ["admin", "vendedor", "super_admin"], moduleKey: "productos" },
-  { href: "/dashboard/admin/categorias", label: "Categorías", icon: Tag, roles: ["admin", "super_admin"], moduleKey: "inventario_avanzado" },
-  { href: "/dashboard/admin/proveedores", label: "Proveedores", icon: Truck, roles: ["admin", "super_admin"], moduleKey: "inventario_avanzado" },
-  { href: "/dashboard/pos", label: "POS", icon: ShoppingCart, roles: ["admin", "vendedor", "super_admin"], moduleKey: "pos" },
-  { href: "/dashboard/pos/caja", label: "Caja", icon: Landmark, roles: ["admin", "vendedor", "super_admin"], moduleKey: "pos" },
-  { href: "/dashboard/pos/historial", label: "Historial Ventas", icon: History, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "pos" },
-  { href: "/dashboard/inventario/verificar", label: "Inventario", icon: MapPin, roles: ["admin", "vendedor", "super_admin"], moduleKey: "inventario_avanzado" },
-  { href: "/dashboard/inventario/ubicaciones", label: "Ubicaciones", icon: Layers, roles: ["admin", "vendedor", "super_admin"], moduleKey: "inventario_avanzado" },
-  { href: "/dashboard/inventario/alertas", label: "Alertas Stock", icon: AlertTriangle, roles: ["admin", "super_admin"], moduleKey: "inventario_avanzado" },
-  { href: "/dashboard/empleados", label: "Empleados", icon: UserCheck, roles: ["admin", "super_admin"], moduleKey: "empleados" },
-  { href: "/dashboard/reportes", label: "Reportes", icon: FileBarChart, roles: ["admin", "super_admin"], moduleKey: "reportes" },
-  { href: "/dashboard/reportes/comisiones", label: "Comisiones", icon: DollarSign, roles: ["admin", "super_admin"], moduleKey: "reportes" },
-  { href: "/dashboard/reportes/equipos", label: "Equipos", icon: Smartphone, roles: ["admin", "super_admin"], moduleKey: "reportes" },
-  { href: "/dashboard/recordatorios", label: "Recordatorios", icon: BellRing, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "recordatorios" },
-  { href: "/dashboard/payjoy", label: "Payjoy", icon: Zap, moduleKey: "payjoy" },
-  { href: "/dashboard/tecnico", label: "Técnico", icon: Settings, roles: ["tecnico", "super_admin"], moduleKey: "tecnico" },
-  { href: "/dashboard/configuracion", label: "Configuración", icon: SlidersHorizontal, roles: ["admin", "super_admin"] },
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: "INICIO",
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, moduleKey: "dashboard" },
+      { href: "/dashboard/admin/distribuidores", label: "Distribuidores", icon: Building2, roles: ["super_admin"] },
+    ],
+  },
+  {
+    label: "VENTAS",
+    items: [
+      { href: "/dashboard/pos", label: "POS — Venta", icon: Store, roles: ["admin", "vendedor", "super_admin"], moduleKey: "pos" },
+      { href: "/dashboard/pos/caja", label: "Caja / Turno", icon: Vault, roles: ["admin", "vendedor", "super_admin"], moduleKey: "pos" },
+      { href: "/dashboard/pos/historial", label: "Historial Ventas", icon: History, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "pos" },
+      { href: "/dashboard/payjoy", label: "Payjoy", icon: Zap, moduleKey: "payjoy" },
+    ],
+  },
+  {
+    label: "CRÉDITOS Y CLIENTES",
+    items: [
+      { href: "/dashboard/clientes", label: "Clientes", icon: Users, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "clientes" },
+      { href: "/dashboard/creditos", label: "Créditos", icon: CreditCard, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "creditos" },
+      { href: "/dashboard/pagos", label: "Cobros y Pagos", icon: Wallet, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "pagos" },
+      { href: "/dashboard/recordatorios", label: "Recordatorios", icon: BellRing, roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "recordatorios" },
+    ],
+  },
+  {
+    label: "INVENTARIO",
+    items: [
+      { href: "/dashboard/productos", label: "Productos", icon: Package, roles: ["admin", "vendedor", "super_admin"], moduleKey: "productos" },
+      { href: "/dashboard/admin/categorias", label: "Categorías", icon: Tag, roles: ["admin", "super_admin"], moduleKey: "inventario_avanzado" },
+      { href: "/dashboard/admin/proveedores", label: "Proveedores", icon: Truck, roles: ["admin", "super_admin"], moduleKey: "inventario_avanzado" },
+      { href: "/dashboard/inventario/verificar", label: "Verificar Stock", icon: ClipboardCheck, roles: ["admin", "vendedor", "super_admin"], moduleKey: "inventario_avanzado" },
+      { href: "/dashboard/inventario/ubicaciones", label: "Ubicaciones", icon: Warehouse, roles: ["admin", "vendedor", "super_admin"], moduleKey: "inventario_avanzado" },
+      { href: "/dashboard/inventario/alertas", label: "Alertas Stock", icon: PackageX, roles: ["admin", "super_admin"], moduleKey: "inventario_avanzado" },
+    ],
+  },
+  {
+    label: "REPARACIONES",
+    items: [
+      { href: "/dashboard/reparaciones", label: "Órdenes", icon: Wrench, roles: ["admin", "tecnico", "vendedor", "cobrador", "super_admin"], moduleKey: "reparaciones" },
+      { href: "/dashboard/dashboard-reparaciones", label: "Panel KPI", icon: BarChart3, roles: ["admin", "tecnico", "super_admin"], moduleKey: "dashboard-reparaciones" },
+      { href: "/dashboard/tecnico", label: "Panel Técnico", icon: Cpu, roles: ["tecnico", "super_admin"], moduleKey: "tecnico" },
+    ],
+  },
+  {
+    label: "REPORTES",
+    items: [
+      { href: "/dashboard/creditos/cartera-vencida", label: "Cartera y Mora", icon: CalendarX2, roles: ["admin", "cobrador", "vendedor", "super_admin"], moduleKey: "creditos" },
+      { href: "/dashboard/reportes", label: "Reportes", icon: FileBarChart, roles: ["admin", "super_admin"], moduleKey: "reportes" },
+      { href: "/dashboard/reportes/comisiones", label: "Comisiones", icon: BadgeDollarSign, roles: ["admin", "super_admin"], moduleKey: "reportes" },
+      { href: "/dashboard/reportes/equipos", label: "Equipos", icon: Smartphone, roles: ["admin", "super_admin"], moduleKey: "reportes" },
+    ],
+  },
+  {
+    label: "ADMINISTRACIÓN",
+    items: [
+      { href: "/dashboard/empleados", label: "Empleados", icon: UserCheck, roles: ["admin", "super_admin"], moduleKey: "empleados" },
+      { href: "/dashboard/configuracion", label: "Configuración", icon: SlidersHorizontal, roles: ["admin", "super_admin"] },
+    ],
+  },
 ];
 
 /* ── Helpers ─────────────────────────────────────────────── */
@@ -123,9 +164,7 @@ function DistribuidorSelector() {
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
         style={{
-          background: open
-            ? "var(--color-sidebar-surface)"
-            : "var(--color-sidebar-surface)",
+          background: "var(--color-sidebar-surface)",
           border: "1px solid var(--color-sidebar-border)",
           color: "var(--color-text-inverted)",
         }}
@@ -175,9 +214,7 @@ function DistribuidorSelector() {
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors"
                 style={{
-                  background: isActive
-                    ? "rgba(0,184,217,0.12)"
-                    : "transparent",
+                  background: isActive ? "rgba(0,184,217,0.12)" : "transparent",
                   color: isActive
                     ? "var(--color-sidebar-active)"
                     : "var(--color-sidebar-text)",
@@ -219,9 +256,7 @@ function DistribuidorSelector() {
           {/* Separador */}
           <div
             className="my-1 mx-3"
-            style={{
-              borderTop: "1px solid var(--color-sidebar-border)",
-            }}
+            style={{ borderTop: "1px solid var(--color-sidebar-border)" }}
           />
 
           {/* Vista Global */}
@@ -279,12 +314,14 @@ export function Sidebar({ isOpen, onClose, userRole, userName, onLogout }: Sideb
     return pathname.startsWith(href);
   };
 
-  const filteredItems = navItems.filter((item) => {
-    if (item.roles && (!userRole || !item.roles.includes(userRole))) return false;
-    if (userRole === "super_admin") return true;
-    if (item.moduleKey && !isModuleEnabled(item.moduleKey)) return false;
-    return true;
-  });
+  /** Filtra items de un grupo según rol y módulos habilitados */
+  const filterItems = (items: NavItem[]) =>
+    items.filter((item) => {
+      if (item.roles && (!userRole || !item.roles.includes(userRole))) return false;
+      if (userRole === "super_admin") return true;
+      if (item.moduleKey && !isModuleEnabled(item.moduleKey)) return false;
+      return true;
+    });
 
   const initials = userName ? getInitials(userName) : "?";
   const roleLabel = userRole ? (ROLE_LABELS[userRole] ?? userRole) : "";
@@ -323,7 +360,6 @@ export function Sidebar({ isOpen, onClose, userRole, userName, onLogout }: Sideb
             href="/dashboard"
             className="flex items-center gap-2 select-none"
           >
-            {/* Punto de acento */}
             <span
               className="w-2 h-2 rounded-full shrink-0"
               style={{ background: "var(--color-sidebar-active)" }}
@@ -354,59 +390,84 @@ export function Sidebar({ isOpen, onClose, userRole, userName, onLogout }: Sideb
         {userRole === "super_admin" && <DistribuidorSelector />}
 
         {/* ── Navegación ────────────────────────────────────── */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2">
-          <ul className="space-y-0.5">
-            {filteredItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.href);
+        <nav className="flex-1 overflow-y-auto py-2 px-2">
+          {navGroups.map((group, groupIdx) => {
+            const visibleItems = filterItems(group.items);
+            if (visibleItems.length === 0) return null;
 
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={onClose}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-100"
-                    style={
-                      active
-                        ? {
-                            background:  "var(--color-sidebar-surface)",
-                            color:       "var(--color-sidebar-active)",
-                            borderLeft:  "2px solid var(--color-sidebar-active)",
-                            paddingLeft: "calc(0.75rem - 2px)",
-                          }
-                        : {
-                            color:       "var(--color-sidebar-text)",
-                            borderLeft:  "2px solid transparent",
-                            paddingLeft: "calc(0.75rem - 2px)",
-                          }
-                    }
-                    onMouseEnter={(e) => {
-                      if (!active) {
-                        (e.currentTarget as HTMLElement).style.background = "var(--color-sidebar-surface)";
-                        (e.currentTarget as HTMLElement).style.color = "var(--color-text-inverted)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active) {
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
-                        (e.currentTarget as HTMLElement).style.color = "var(--color-sidebar-text)";
-                      }
-                    }}
+            return (
+              <div key={group.label} className={groupIdx > 0 ? "mt-1" : ""}>
+
+                {/* ── Cabecera de grupo ── */}
+                <div className="flex items-center gap-2 px-1 pt-3 pb-1.5">
+                  <span
+                    className="text-[9px] font-semibold tracking-[0.14em] uppercase select-none shrink-0"
+                    style={{ color: "var(--color-sidebar-text-dim)" }}
                   >
-                    <Icon
-                      className="w-4 h-4 shrink-0"
-                      style={{
-                        color: active
-                          ? "var(--color-sidebar-active)"
-                          : "var(--color-sidebar-text-dim)",
-                      }}
-                    />
-                    <span className="truncate">{item.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                    {group.label}
+                  </span>
+                  <div
+                    className="flex-1 h-px"
+                    style={{ background: "var(--color-sidebar-border)" }}
+                  />
+                </div>
+
+                {/* ── Items del grupo ── */}
+                <ul className="space-y-0.5">
+                  {visibleItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
+
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={onClose}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-100"
+                          style={
+                            active
+                              ? {
+                                  background:  "var(--color-sidebar-surface)",
+                                  color:       "var(--color-sidebar-active)",
+                                  borderLeft:  "2px solid var(--color-sidebar-active)",
+                                  paddingLeft: "calc(0.75rem - 2px)",
+                                }
+                              : {
+                                  color:       "var(--color-sidebar-text)",
+                                  borderLeft:  "2px solid transparent",
+                                  paddingLeft: "calc(0.75rem - 2px)",
+                                }
+                          }
+                          onMouseEnter={(e) => {
+                            if (!active) {
+                              (e.currentTarget as HTMLElement).style.background = "var(--color-sidebar-surface)";
+                              (e.currentTarget as HTMLElement).style.color = "var(--color-text-inverted)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!active) {
+                              (e.currentTarget as HTMLElement).style.background = "transparent";
+                              (e.currentTarget as HTMLElement).style.color = "var(--color-sidebar-text)";
+                            }
+                          }}
+                        >
+                          <Icon
+                            className="w-4 h-4 shrink-0"
+                            style={{
+                              color: active
+                                ? "var(--color-sidebar-active)"
+                                : "var(--color-sidebar-text-dim)",
+                            }}
+                          />
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
 
         {/* ── Zona de usuario ───────────────────────────────── */}
