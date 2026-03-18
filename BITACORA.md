@@ -150,9 +150,8 @@ Conteo ciego por denominaciones, fondo fijo configurable, Pay In/Out, tolerancia
 
 ---
 
-### 🔴 FASE 41: Reparaciones en POS + Bolsa virtual completa
-**Lo que debes decirle a Claude:**
-> "Lee BITACORA.md y NOTAS_TRINI.md sección 'Bolsa virtual'. FASE 41."
+### 📊 FASE 41 — ✅ COMPLETADA (commit `cf1b789`, 2026-03-18)
+Bolsa virtual de reparaciones en caja: `sesion_caja_id` en `anticipos_reparacion`, `getAnticiposBySesion()`, `getAnticiposSinSesion()` (anti-fraude), sección "Bolsa de Reparaciones" en vista sesión activa, banner de anticipos sin sesión para admin/super_admin.
 
 ---
 
@@ -243,4 +242,4 @@ Por eso existe este archivo. Si algo importante pasa en una sesión (nueva decis
 
 ---
 
-*Última actualización: 2026-03-18 — Trini + Claude (FASE 40: conteo ciego, fondo fijo, Pay In/Out, tolerancia descuadre)*
+*Última actualización: 2026-03-18 — Trini + Claude (FASE 41: bolsa virtual reparaciones en caja, anticipos sin sesión anti-fraude)*
