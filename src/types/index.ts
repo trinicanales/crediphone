@@ -618,6 +618,7 @@ export interface CondicionesFuncionamiento {
   botonEncendido: "ok" | "falla";
   botonesVolumen: "ok" | "falla";
   sensorHuella: "ok" | "falla";
+  centroCarga: "ok" | "falla"; // Puerto de carga USB/Lightning
   llegaApagado?: boolean;
   estaMojado?: boolean;
   bateriaHinchada?: boolean;
