@@ -38,6 +38,7 @@ import {
   Vault,            // Caja / Turno
   Warehouse,        // Ubicaciones / Stock
   ShoppingCart,     // Órdenes de Compra
+  Receipt,          // Facturación / Contador
 } from "lucide-react";
 
 /* ── Tipos de navegación ────────────────────────────────────── */
@@ -151,6 +152,7 @@ const navGroups: NavGroup[] = [
       { href: "/dashboard/reportes",                label: "Reportes",      icon: FileBarChart,     roles: ["admin", "super_admin"], moduleKey: "reportes" },
       { href: "/dashboard/reportes/comisiones",     label: "Comisiones",    icon: BadgeDollarSign,  roles: ["admin", "super_admin"], moduleKey: "reportes" },
       { href: "/dashboard/creditos/cartera-vencida",label: "Cartera y Mora",icon: CalendarX2,       roles: ["admin", "cobrador", "vendedor", "super_admin"], moduleKey: "creditos" },
+      { href: "/dashboard/facturacion",             label: "Facturación",   icon: Receipt,          roles: ["admin", "super_admin"], moduleKey: "reportes" },
     ],
   },
   {

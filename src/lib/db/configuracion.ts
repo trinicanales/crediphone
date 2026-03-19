@@ -118,6 +118,10 @@ export async function updateConfiguracion(
     updateData.fondo_caja = config.fondoCaja;
   if (config.toleranciaDescuadre !== undefined)
     updateData.tolerancia_descuadre = config.toleranciaDescuadre;
+  // FASE 47-lite: Datos del contador externo
+  if (config.contadorNombre   !== undefined) updateData.contador_nombre   = config.contadorNombre;
+  if (config.contadorTelefono !== undefined) updateData.contador_telefono = config.contadorTelefono;
+  if (config.contadorEmail    !== undefined) updateData.contador_email    = config.contadorEmail;
   if (updatedBy) updateData.updated_by = updatedBy;
 
   // 1. Obtener el ID de la fila a actualizar (filtrando por distribuidor_id)
@@ -205,5 +209,9 @@ function mapConfigFromDB(db: any): Configuracion {
     // FASE 40: Caja — fondo fijo y tolerancia descuadre
     fondoCaja: db.fondo_caja != null ? parseFloat(db.fondo_caja) : 500,
     toleranciaDescuadre: db.tolerancia_descuadre != null ? parseFloat(db.tolerancia_descuadre) : 0,
+    // FASE 47-lite: Datos del contador externo
+    contadorNombre:   db.contador_nombre   ?? undefined,
+    contadorTelefono: db.contador_telefono ?? undefined,
+    contadorEmail:    db.contador_email    ?? undefined,
   };
 }

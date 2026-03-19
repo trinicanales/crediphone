@@ -917,6 +917,10 @@ export interface Configuracion {
   // FASE 40: Caja
   fondoCaja?: number;            // Monto sugerido de fondo al abrir caja (default: 500)
   toleranciaDescuadre?: number;  // Diferencia máxima permitida sin alerta (default: 0)
+  // FASE 47-lite: Datos del contador externo
+  contadorNombre?: string;       // Nombre del contador
+  contadorTelefono?: string;     // Teléfono/WhatsApp del contador (con código de país)
+  contadorEmail?: string;        // Email del contador
   // Auditoria
   updatedAt: Date;
   updatedBy?: string;

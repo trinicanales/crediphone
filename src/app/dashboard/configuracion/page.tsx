@@ -22,7 +22,10 @@ import {
   ChevronRight,
   Tag,
   Percent,
+  UserCog,
+  Receipt,
 } from "lucide-react";
+import Link from "next/link";
 import PayjoyConfigSection from "@/components/payjoy/PayjoyConfigSection";
 import { SonidosNotificacionConfig } from "@/components/configuracion/SonidosNotificacionConfig";
 import { ServiciosManager } from "@/components/configuracion/ServiciosManager";
@@ -1054,6 +1057,115 @@ export default function ConfiguracionPage() {
         <Card className="p-6">
           <PlantillasWhatsAppTab />
         </Card>
+      ),
+    },
+
+    // ══════════════════════════════════════════════════════
+    // TAB 11: CONTADOR EXTERNO (FASE 47-lite)
+    // ══════════════════════════════════════════════════════
+    {
+      id: "contador",
+      label: "Contador",
+      content: (
+        <div className="space-y-6">
+          <Card className="p-6">
+            <SectionHeader
+              icon={<UserCog className="w-5 h-5" style={{ color: "var(--color-accent)" }} />}
+              title="Datos del Contador Externo"
+              subtitle="Información de contacto del contador que gestiona la facturación y obligaciones fiscales"
+            />
+
+            {/* Banner informativo */}
+            <div
+              className="flex items-start gap-3 p-4 rounded-xl mb-6"
+              style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-border-subtle)" }}
+            >
+              <Receipt className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "var(--color-accent)" }} />
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
+                  Resumen para tu contador
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-text-secondary)" }}>
+                  Desde la sección{" "}
+                  <Link
+                    href="/dashboard/facturacion"
+                    className="underline font-medium"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    Facturación
+                  </Link>
+                  {" "}puedes generar un resumen del período y enviárselo por WhatsApp con un solo clic.
+                  El número que registres aquí se usará para abrir el chat directamente.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label style={labelSt}>Nombre del Contador</label>
+                <Input
+                  value={formData.contadorNombre || ""}
+                  onChange={(e) => handleChange("contadorNombre", e.target.value)}
+                  placeholder="Ej: Lic. Juan García Contadores"
+                />
+                <p style={hintSt}>Aparece en el resumen de facturación para identificar al destinatario</p>
+              </div>
+
+              <div>
+                <label style={labelSt}>Teléfono / WhatsApp del Contador</label>
+                <Input
+                  type="tel"
+                  value={formData.contadorTelefono || ""}
+                  onChange={(e) => handleChange("contadorTelefono", e.target.value)}
+                  placeholder="618 123 4567"
+                />
+                <p style={hintSt}>
+                  Solo dígitos, sin espacios ni guiones. Se usará para abrir WhatsApp web directamente.
+                  Ej: <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>6181234567</span>
+                </p>
+              </div>
+
+              <div>
+                <label style={labelSt}>Email del Contador</label>
+                <Input
+                  type="email"
+                  value={formData.contadorEmail || ""}
+                  onChange={(e) => handleChange("contadorEmail", e.target.value)}
+                  placeholder="contador@ejemplo.com"
+                />
+                <p style={hintSt}>Opcional — se muestra como referencia en el resumen de facturación</p>
+              </div>
+            </div>
+
+            <SaveButton saving={saving} onSave={handleSave} />
+          </Card>
+
+          {/* Acceso rápido */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                  Ir a Facturación
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                  Genera el resumen del período y envíalo por WhatsApp al contador
+                </p>
+              </div>
+              <Link href="/dashboard/facturacion">
+                <button
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  style={{
+                    background: "var(--color-accent)",
+                    color: "white",
+                  }}
+                >
+                  <Receipt className="w-4 h-4" />
+                  Abrir Facturación
+                </button>
+              </Link>
+            </div>
+          </Card>
+        </div>
       ),
     },
   ];
