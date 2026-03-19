@@ -12,8 +12,10 @@ import {
   Plus,
   Trash2,
   AlertCircle,
+  Wrench,
 } from "lucide-react";
-import { TipoPago, DesglosePagoMixto } from "@/types";
+import { TipoPago, DesglosePagoMixto, PiezaCotizacion } from "@/types";
+import { SelectorPiezasCotizacion } from "./SelectorPiezasCotizacion";
 
 interface Anticipo {
   id: string;
@@ -30,6 +32,7 @@ interface ComponentePresupuestoProps {
   onChange: (data: {
     presupuestoTotal: number;
     anticipos: Anticipo[];
+    piezasCotizacion?: PiezaCotizacion[];
   }) => void;
 }
 
@@ -43,16 +46,51 @@ export function ComponentePresupuesto({
     tipoPago: "efectivo",
     monto: 0,
   });
+  const [piezas, setPiezas] = useState<PiezaCotizacion[]>([]);
+  const [manoDeObra, setManoDeObra] = useState<number>(0);
+  const [modoManual, setModoManual] = useState(false); // true = usuario edita total manualmente
+
+  // Total calculado desde piezas + mano de obra
+  const totalPiezas = piezas.reduce((s, p) => s + p.precioTotal, 0);
+  const totalCalculado = totalPiezas + manoDeObra;
 
   // Cálculos automáticos
   const totalAnticipos = anticipos.reduce((sum, a) => sum + a.monto, 0);
   const saldoPendiente = presupuestoTotal - totalAnticipos;
 
+  // Cuando cambian las piezas o mano de obra: auto-actualizar total (si no es manual)
+  const handlePiezasChange = (nuevasPiezas: PiezaCotizacion[]) => {
+    setPiezas(nuevasPiezas);
+    const nuevoTotal = nuevasPiezas.reduce((s, p) => s + p.precioTotal, 0) + manoDeObra;
+    if (!modoManual) {
+      onChange({ presupuestoTotal: nuevoTotal, anticipos, piezasCotizacion: nuevasPiezas });
+    } else {
+      onChange({ presupuestoTotal, anticipos, piezasCotizacion: nuevasPiezas });
+    }
+  };
+
+  const handleManoDeObraChange = (valor: number) => {
+    setManoDeObra(valor);
+    const nuevoTotal = totalPiezas + valor;
+    if (!modoManual) {
+      onChange({ presupuestoTotal: nuevoTotal, anticipos, piezasCotizacion: piezas });
+    } else {
+      onChange({ presupuestoTotal, anticipos, piezasCotizacion: piezas });
+    }
+  };
+
   const handlePresupuestoChange = (value: number) => {
+    setModoManual(true);
     onChange({
       presupuestoTotal: value,
       anticipos,
+      piezasCotizacion: piezas,
     });
+  };
+
+  const usarTotalCalculado = () => {
+    setModoManual(false);
+    onChange({ presupuestoTotal: totalCalculado, anticipos, piezasCotizacion: piezas });
   };
 
   const agregarAnticipo = () => {
@@ -127,19 +165,118 @@ export function ComponentePresupuesto({
         </div>
       </div>
 
+      {/* PIEZAS Y REFACCIONES */}
+      <div
+        className="rounded-xl p-4"
+        style={{
+          border: "1px solid var(--color-border)",
+          background: "var(--color-bg-surface)",
+        }}
+      >
+        <SelectorPiezasCotizacion piezas={piezas} onChange={handlePiezasChange} />
+      </div>
+
+      {/* MANO DE OBRA */}
+      <div
+        className="rounded-xl p-4"
+        style={{
+          border: "1px solid var(--color-border)",
+          background: "var(--color-bg-surface)",
+        }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Wrench className="w-4 h-4" style={{ color: "var(--color-accent)" }} />
+          <label className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>
+            Mano de Obra
+          </label>
+        </div>
+        <div className="relative">
+          <span
+            className="absolute left-3 top-1/2 -translate-y-1/2 font-bold"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            $
+          </span>
+          <input
+            type="number"
+            value={manoDeObra || ""}
+            onChange={(e) => handleManoDeObraChange(parseFloat(e.target.value) || 0)}
+            onWheel={(e) => e.currentTarget.blur()}
+            className="w-full rounded-lg pl-7 pr-4 py-2.5 text-sm font-semibold focus:outline-none"
+            style={{
+              border: "1px solid var(--color-border)",
+              background: "var(--color-bg-sunken)",
+              color: "var(--color-text-primary)",
+            }}
+            placeholder="0.00"
+            step="0.01"
+            min="0"
+          />
+        </div>
+        {/* Desglose total calculado */}
+        {(piezas.length > 0 || manoDeObra > 0) && (
+          <div className="mt-2 text-xs space-y-0.5" style={{ color: "var(--color-text-secondary)" }}>
+            <div className="flex justify-between">
+              <span>Piezas</span>
+              <span style={{ fontFamily: "var(--font-data)" }}>
+                ${totalPiezas.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Mano de obra</span>
+              <span style={{ fontFamily: "var(--font-data)" }}>
+                ${manoDeObra.toFixed(2)}
+              </span>
+            </div>
+            <div
+              className="flex justify-between font-bold pt-1 border-t"
+              style={{ borderColor: "var(--color-border)", color: "var(--color-accent)" }}
+            >
+              <span>Total calculado</span>
+              <span style={{ fontFamily: "var(--font-data)" }}>
+                ${totalCalculado.toFixed(2)}
+              </span>
+            </div>
+            {modoManual && (
+              <button
+                type="button"
+                onClick={usarTotalCalculado}
+                className="text-xs underline w-full text-right mt-1"
+                style={{ color: "var(--color-accent)" }}
+              >
+                ← Usar total calculado
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* PRESUPUESTO TOTAL */}
       <motion.div
-        whileHover={{ scale: 1.02 }}
-        className="rounded-xl p-6 transition-all"
+        whileHover={{ scale: 1.01 }}
+        className="rounded-xl p-5 transition-all"
         style={{ border: "2px solid var(--color-success)", background: "var(--color-success-bg)", boxShadow: "var(--shadow-md)" }}
       >
-        <div className="flex items-center gap-3 mb-3">
-          <div className="rounded-lg p-2.5" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
-            <Calculator className="h-6 w-6" />
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg p-2.5" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+              <Calculator className="h-5 w-5" />
+            </div>
+            <label className="text-base font-bold" style={{ color: "var(--color-text-primary)" }}>
+              Presupuesto Total a Cobrar
+            </label>
           </div>
-          <label className="text-lg font-bold" style={{ color: "var(--color-text-primary)" }}>
-            Presupuesto Total
-          </label>
+          {modoManual && (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full"
+              style={{
+                background: "var(--color-warning-bg)",
+                color: "var(--color-warning-text)",
+              }}
+            >
+              Manual
+            </span>
+          )}
         </div>
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold" style={{ color: "var(--color-text-muted)" }}>
@@ -160,7 +297,9 @@ export function ComponentePresupuesto({
           />
         </div>
         <p className="mt-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
-          Incluye mano de obra, piezas y cualquier otro costo
+          {modoManual
+            ? "Editado manualmente — no refleja el desglose de piezas y mano de obra"
+            : "Calculado automáticamente: piezas + mano de obra"}
         </p>
       </motion.div>
 

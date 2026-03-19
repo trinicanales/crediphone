@@ -125,6 +125,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
   // Presupuesto
   const [presupuestoTotal, setPresupuestoTotal] = useState<number>(0);
   const [anticipos, setAnticipos] = useState<any[]>([]);
+  const [piezasCotizacion, setPiezasCotizacion] = useState<any[]>([]);
   // Archivos de foto pendientes de subir vía subida directa (modo creación)
   const [archivosPendientes, setArchivosPendientes] = useState<File[]>([]);
   // Token de sesión QR generado antes de guardar (para ligar esas fotos a la orden)
@@ -507,6 +508,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     });
     setPresupuestoTotal(0);
     setAnticipos([]);
+    setPiezasCotizacion([]);
     setPatronDesbloqueo("");
     setPasswordDispositivo("");
     setCuentasDispositivo([]);
@@ -958,6 +960,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                 onChange={(data) => {
                   setPresupuestoTotal(data.presupuestoTotal);
                   setAnticipos(data.anticipos);
+                  if (data.piezasCotizacion) setPiezasCotizacion(data.piezasCotizacion);
                 }}
               />
             </div>

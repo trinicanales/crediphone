@@ -374,6 +374,19 @@ export interface ParteReemplazada {
   productoId?: string; // Referencia al inventario (opcional)
 }
 
+// Pieza en cotización (antes de crear la orden — para calcular presupuesto)
+export interface PiezaCotizacion {
+  id: string;                  // temp ID (Date.now())
+  productoId?: string;         // si viene del catálogo
+  nombre: string;              // nombre de la pieza
+  cantidad: number;
+  precioUnitario: number;
+  precioTotal: number;
+  tieneStock: boolean;         // false = sin existencia (solo cotización)
+  stockActual?: number;        // cantidad actual en inventario
+  esLibre: boolean;            // true = agregada manualmente sin catálogo
+}
+
 // Pieza de inventario usada en una reparación (con tracking completo)
 export interface PiezaReparacion {
   id: string;
