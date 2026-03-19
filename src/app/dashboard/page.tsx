@@ -16,6 +16,8 @@ import { PanelAutorizacionesPendientes } from "@/components/autorizaciones/Panel
 import { CobradorDashboard } from "@/components/dashboard/CobradorDashboard";
 import { TecnicoDashboard } from "@/components/dashboard/TecnicoDashboard";
 import { VendedorDashboard } from "@/components/dashboard/VendedorDashboard";
+// FASE 53: Command Center para admin y super_admin
+import { DashboardEjecutivo } from "@/components/dashboard/DashboardEjecutivo";
 import type { DashboardStats as RepDashboardStats } from "@/lib/db/reparaciones-dashboard";
 import type { OrdenReparacionDetallada } from "@/types";
 
@@ -261,7 +263,12 @@ export default function DashboardPage() {
     return <VendedorDashboard />;
   }
 
-  // admin y super_admin → dashboard completo (continúa abajo)
+  // FASE 53: admin y super_admin → Command Center
+  if (user.role === "admin" || user.role === "super_admin") {
+    return <DashboardEjecutivo />;
+  }
+
+  // Fallback (no debería llegar aquí) → dashboard completo legacy
   return (
     <div className="p-6 lg:p-8 pb-24">
       {/* Header */}
