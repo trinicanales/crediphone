@@ -1406,3 +1406,63 @@ export interface DevolucionElegibilidad {
   esPayjoy: boolean;
   primerPagoPayjoy?: boolean; // true = cliente ya pagó → bloqueado
 }
+
+// =====================================================
+// FASE 46: Órdenes de Compra a Proveedores
+// =====================================================
+
+export type EstadoOrdenCompra =
+  | "borrador"
+  | "enviada"
+  | "recibida_parcial"
+  | "recibida"
+  | "cancelada";
+
+export interface OrdenCompraItem {
+  id: string;
+  ordenCompraId: string;
+  productoId: string | null;
+  descripcion: string;
+  sku?: string;
+  marca?: string;
+  modelo?: string;
+  cantidad: number;
+  cantidadRecibida: number;
+  precioUnitario: number;
+  descuentoPct: number;
+  subtotal: number;
+  notas?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OrdenCompra {
+  id: string;
+  distribuidorId: string | null;
+  proveedorId: string | null;
+  folio: string;
+  estado: EstadoOrdenCompra;
+  fechaOrden: string;          // YYYY-MM-DD
+  fechaEsperada?: string;
+  fechaRecibida?: string;
+  subtotal: number;
+  descuento: number;
+  total: number;
+  moneda: string;
+  condicionesPago?: string;
+  notas?: string;
+  notasRecepcion?: string;
+  creadoPor?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  // Relations (joins)
+  items?: OrdenCompraItem[];
+  proveedor?: { id: string; nombre: string; telefono?: string; email?: string };
+}
+
+export type OrdenCompraFormData = Omit<
+  OrdenCompra,
+  "id" | "folio" | "subtotal" | "total" | "createdAt" | "updatedAt" | "items" | "proveedor"
+> & {
+  items: Omit<OrdenCompraItem, "id" | "ordenCompraId" | "subtotal" | "createdAt" | "updatedAt">[];
+};

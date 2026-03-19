@@ -37,6 +37,7 @@ import {
   BadgeDollarSign,  // Comisiones
   Vault,            // Caja / Turno
   Warehouse,        // Ubicaciones / Stock
+  ShoppingCart,     // Órdenes de Compra
 } from "lucide-react";
 
 /* ── Tipos de navegación ────────────────────────────────────── */
@@ -112,6 +113,13 @@ const navGroups: NavGroup[] = [
           { href: "/dashboard/admin/categorias",   label: "Categorías",  icon: Tag,     roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
           { href: "/dashboard/admin/proveedores",  label: "Proveedores", icon: Truck,   roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
         ],
+      },
+      {
+        href: "/dashboard/compras",
+        label: "Órdenes de Compra",
+        icon: ShoppingCart,
+        roles: ["admin", "super_admin"],
+        moduleKey: "inventario_avanzado",
       },
       {
         kind: "accordion",
