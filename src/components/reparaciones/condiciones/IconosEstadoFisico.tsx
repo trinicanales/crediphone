@@ -184,19 +184,19 @@ export function IconosEstadoFisico({
                   ? toggleCombinada(parte.keys)
                   : toggleSimple(parte.key)
               }
-              className="p-2 rounded-lg border-2 transition-all hover:shadow-md active:scale-95 flex flex-col items-center"
+              className="p-2 rounded-lg border-2 transition-all hover:shadow-md active:scale-95 flex flex-col items-center overflow-hidden"
               style={{
                 background: estadoInfo.bgColor,
                 borderColor: estadoInfo.borderColor,
               }}
             >
-              {/* Ícono PNG o emoji fallback */}
-              <div className="w-8 h-8 mb-1 relative flex items-center justify-center">
+              {/* Ícono: contenedor fijo, imagen nunca rebasa */}
+              <div className="relative w-8 h-8 flex-shrink-0 mb-1">
                 <Image
                   src={parte.imagen}
                   alt={parte.nombre}
-                  width={32}
-                  height={32}
+                  fill
+                  sizes="32px"
                   className="object-contain"
                   style={
                     !esPerfecto
@@ -209,9 +209,9 @@ export function IconosEstadoFisico({
                 />
               </div>
 
-              {/* Nombre (corto para caber en 4 cols) */}
+              {/* Nombre truncado para no rebasar */}
               <div
-                className="text-[10px] font-semibold leading-tight mb-1 text-center"
+                className="text-[10px] font-semibold leading-tight mb-1 text-center w-full truncate px-0.5"
                 style={{ color: "var(--color-text-primary)" }}
               >
                 {parte.nombre}
@@ -219,9 +219,9 @@ export function IconosEstadoFisico({
 
               {/* Dot de estado + label */}
               <div className="flex flex-col items-center gap-0.5">
-                <span className="text-base">{estadoInfo.emoji}</span>
+                <span className="text-sm leading-none">{estadoInfo.emoji}</span>
                 <span
-                  className="text-[9px] font-medium"
+                  className="text-[9px] font-medium leading-tight"
                   style={{ color: estadoInfo.dotColor }}
                 >
                   {estadoInfo.label}

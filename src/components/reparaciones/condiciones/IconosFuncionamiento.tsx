@@ -69,6 +69,7 @@ export function IconosFuncionamiento({
               onClick={() => toggle(comp.key as keyof CondicionesFuncionamiento)}
               className={`
                 p-2 rounded-lg border-2 transition-all text-center
+                overflow-hidden flex flex-col items-center
                 hover:shadow-md active:scale-95
                 ${esOk
                   ? "bg-green-50 border-green-500 hover:bg-green-100"
@@ -76,14 +77,14 @@ export function IconosFuncionamiento({
                 }
               `}
             >
-              {/* Icono: imagen propia o emoji fallback */}
-              <div className="flex items-center justify-center h-8 mb-1">
+              {/* Icono: contenedor fijo, imagen nunca rebasa */}
+              <div className="relative w-7 h-7 flex-shrink-0 mb-1">
                 {comp.imagen ? (
                   <Image
                     src={comp.imagen}
                     alt={comp.nombre}
-                    width={32}
-                    height={32}
+                    fill
+                    sizes="28px"
                     className="object-contain"
                     style={{
                       filter: esOk
@@ -92,18 +93,20 @@ export function IconosFuncionamiento({
                     }}
                   />
                 ) : (
-                  <span className="text-2xl">{comp.emoji}</span>
+                  <span className="absolute inset-0 flex items-center justify-center text-xl leading-none">
+                    {comp.emoji}
+                  </span>
                 )}
               </div>
 
-              <div className="text-[10px] font-semibold text-gray-700 leading-tight">
+              <div className="text-[10px] font-semibold text-gray-700 leading-tight w-full truncate">
                 {comp.nombre}
               </div>
 
               {/* Punto indicador de estado */}
               <div
                 className={`
-                  w-2 h-2 rounded-full mx-auto mt-1.5
+                  w-2 h-2 rounded-full mx-auto mt-1
                   ${esOk ? "bg-green-500" : "bg-red-500"}
                 `}
               />
