@@ -7,6 +7,7 @@ import { ProductSearchBar } from "@/components/pos/ProductSearchBar";
 import { ProductCategoryGrid } from "@/components/pos/ProductCategoryGrid";
 import { ShoppingCart, CartItem } from "@/components/pos/ShoppingCart";
 import { ServiciosPOSPanel, ServicioPOSItem } from "@/components/pos/ServiciosPOSPanel";
+import { ReparacionesPOSPanel } from "@/components/pos/ReparacionesPOSPanel";
 import { PaymentMethodSelector } from "@/components/pos/PaymentMethodSelector";
 import { ReciboModal } from "@/components/pos/ReciboModal";
 import { DescuentoPOS } from "@/components/pos/DescuentoPOS";
@@ -79,8 +80,8 @@ export default function POSPage() {
   // Estadísticas
   const [stats, setStats] = useState<EstadisticasPOS | null>(null);
 
-  // FASE 36: Sección activa del panel izquierdo (Productos vs Servicios)
-  const [posSection, setPosSection] = useState<"productos" | "servicios">("productos");
+  // FASE 36/41: Sección activa del panel izquierdo (Productos / Servicios / Reparaciones)
+  const [posSection, setPosSection] = useState<"productos" | "servicios" | "reparaciones">("productos");
 
   // FASE 29: modo dual Standard / Visual
   const [posMode, setPosMode] = useState<"standard" | "visual">(() => {
@@ -1097,6 +1098,7 @@ export default function POSPage() {
             {[
               { id: "productos" as const, icon: <LayoutGrid className="w-3.5 h-3.5" />, label: "Productos" },
               { id: "servicios" as const, icon: <Wrench className="w-3.5 h-3.5" />, label: "Servicios" },
+              { id: "reparaciones" as const, icon: <FileText className="w-3.5 h-3.5" />, label: "Cobrar Rep." },
             ].map(({ id, icon, label }) => (
               <button
                 key={id}
@@ -1136,9 +1138,12 @@ export default function POSPage() {
                 </>
               )}
             </>
-          ) : (
+          ) : posSection === "servicios" ? (
             /* FASE 36: Panel de Servicios */
             <ServiciosPOSPanel onAgregarServicio={handleAgregarServicio} />
+          ) : (
+            /* FASE 41: Panel de cobro de Reparaciones desde POS */
+            <ReparacionesPOSPanel />
           )}
 
         </div>
