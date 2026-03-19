@@ -8,6 +8,7 @@ import {
   createOrdenReparacion,
   searchOrdenes,
   getEstadisticasReparaciones,
+  agregarPiezaReparacion,
 } from "@/lib/db/reparaciones";
 import { getAuthContext } from "@/lib/auth/server";
 import type { EstadoOrdenReparacion } from "@/types";
@@ -180,11 +181,48 @@ export async function POST(request: Request) {
       body.folioPreReservado || null      // ← folio pre-reservado si viene del modal
     );
 
+    // ── RESERVAR PIEZAS DEL INVENTARIO ─────────────────────────────────
+    // Si el formulario incluyó piezas de cotización con productoId,
+    // las insertamos en reparacion_piezas Y descontamos el stock.
+    // Esto "aparta" la pieza para que no sea usada en otra reparación.
+    const piezasCotizacion: Array<{
+      productoId?: string;
+      nombre: string;
+      cantidad: number;
+      precioUnitario: number;
+      esLibre?: boolean;
+    }> = body.piezasCotizacion ?? [];
+
+    const piezasReservadas: string[] = [];
+    const piezasError: string[] = [];
+
+    for (const pieza of piezasCotizacion) {
+      // Solo reservar las que tienen productoId (del catálogo con stock)
+      if (!pieza.productoId) continue;
+      try {
+        await agregarPiezaReparacion(
+          nuevaOrden.id,
+          pieza.productoId,
+          pieza.cantidad,
+          pieza.precioUnitario,
+          userId,
+          "Reservada en cotización inicial"
+        );
+        piezasReservadas.push(pieza.nombre);
+      } catch (err) {
+        // No bloquear la creación si una pieza no tiene stock suficiente
+        piezasError.push(`${pieza.nombre}: ${err instanceof Error ? err.message : "error"}`);
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────
+
     return NextResponse.json(
       {
         success: true,
         data: nuevaOrden,
         message: `Orden ${nuevaOrden.folio} creada exitosamente`,
+        piezasReservadas,
+        piezasError: piezasError.length > 0 ? piezasError : undefined,
       },
       { status: 201 }
     );

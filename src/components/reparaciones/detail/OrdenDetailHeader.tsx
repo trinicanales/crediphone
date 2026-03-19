@@ -3,7 +3,7 @@
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { Button } from "@/components/ui/Button";
 import type { OrdenReparacionDetallada } from "@/types";
-import { ArrowLeft, Download, Share2, Edit, Printer, Copy, CheckCheck, ExternalLink, X } from "lucide-react";
+import { ArrowLeft, Download, Share2, Edit, Printer, Copy, CheckCheck, ExternalLink, X, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -15,9 +15,10 @@ import {
 interface OrdenDetailHeaderProps {
   orden: OrdenReparacionDetallada;
   onEdit?: () => void;
+  onCancelar?: () => void;
 }
 
-export function OrdenDetailHeader({ orden, onEdit }: OrdenDetailHeaderProps) {
+export function OrdenDetailHeader({ orden, onEdit, onCancelar }: OrdenDetailHeaderProps) {
   const router = useRouter();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [printingTicket, setPrintingTicket] = useState(false);
@@ -265,6 +266,32 @@ export function OrdenDetailHeader({ orden, onEdit }: OrdenDetailHeaderProps) {
             <Share2 className="w-4 h-4 mr-2" />
             Compartir
           </Button>
+          {/* Cancelar orden — solo si no está cancelada/entregada */}
+          {onCancelar &&
+            orden.estado !== "cancelado" &&
+            orden.estado !== "entregado" && (
+            <button
+              type="button"
+              onClick={onCancelar}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                border: "1px solid var(--color-danger)",
+                color: "var(--color-danger)",
+                background: "var(--color-danger-bg)",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--color-danger)";
+                (e.currentTarget as HTMLButtonElement).style.color = "white";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--color-danger-bg)";
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--color-danger)";
+              }}
+            >
+              <XCircle className="w-4 h-4" />
+              Cancelar orden
+            </button>
+          )}
         </div>
       </div>
 

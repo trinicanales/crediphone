@@ -9,6 +9,7 @@ import { GaleriaFotosOrden } from "@/components/reparaciones/GaleriaFotosOrden";
 import { HistorialNotificaciones } from "@/components/reparaciones/HistorialNotificaciones";
 import { ModalEditarOrden } from "@/components/reparaciones/ModalEditarOrden";
 import { ModalEditarPresupuesto } from "@/components/reparaciones/ModalEditarPresupuesto";
+import { ModalCancelacion } from "@/components/reparaciones/ModalCancelacion";
 import { PiezasInventarioPanel } from "@/components/reparaciones/PiezasInventarioPanel";
 import { AnticipoCajaPanel } from "@/components/reparaciones/anticipos/AnticipoCajaPanel";
 import { CentroMensajesPanel } from "@/components/reparaciones/mensajeria/CentroMensajesPanel";
@@ -28,6 +29,7 @@ export default function OrdenDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
   const [modalPresupuestoOpen, setModalPresupuestoOpen] = useState(false);
+  const [modalCancelacionOpen, setModalCancelacionOpen] = useState(false);
 
   const recargarOrden = async () => {
     try {
@@ -508,7 +510,11 @@ export default function OrdenDetailPage() {
 
   return (
     <div className="p-6 lg:p-8">
-      <OrdenDetailHeader orden={orden} onEdit={() => setModalEditarOpen(true)} />
+      <OrdenDetailHeader
+        orden={orden}
+        onEdit={() => setModalEditarOpen(true)}
+        onCancelar={() => setModalCancelacionOpen(true)}
+      />
 
       <Tabs tabs={tabs} defaultTab="resumen" />
 
@@ -542,6 +548,17 @@ export default function OrdenDetailPage() {
               }
             });
         }}
+      />
+
+      <ModalCancelacion
+        isOpen={modalCancelacionOpen}
+        onClose={() => setModalCancelacionOpen(false)}
+        onConfirm={() => {
+          setModalCancelacionOpen(false);
+          recargarOrden();
+        }}
+        folio={orden.folio}
+        ordenId={orden.id}
       />
     </div>
   );

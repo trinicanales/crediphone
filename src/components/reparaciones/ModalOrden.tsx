@@ -367,9 +367,10 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
         fechaFirma: new Date().toISOString(),
         imagenesIds: imagenes.map((img) => img.id),
 
-        // Fase 8C - Presupuesto
+        // Fase 8C - Presupuesto + Piezas de cotización
         presupuestoTotal,
         anticiposData: anticipos,
+        piezasCotizacion: piezasCotizacion,
 
         // Super admin: asignar a distribuidor específico
         ...(isSuperAdmin && distribuidorSeleccionado ? { distribuidorId: distribuidorSeleccionado } : {}),
