@@ -438,7 +438,11 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 
 ## Estado Actual del Proyecto
 
-### Fases completadas:
+> **IMPORTANTE para Claude:** Este registro se mantiene actualizado. Antes de reportar una fase como "pendiente", verificar aquí. Muchas fases que parecen pendientes en versiones viejas del doc ya están implementadas.
+
+### ✅ Fases COMPLETAMENTE implementadas:
+
+#### Sistema base (FASES 1-27)
 - FASE 1-10: CRUD base (clientes, créditos, pagos, productos, empleados, reparaciones)
 - FASE 11-15: POS, caja, inventario avanzado, scoring, recordatorios
 - FASE 16-19: Reparaciones avanzadas (fotos QR, piezas, garantías, anticipos), reportes PDF
@@ -450,21 +454,75 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 - FASE 26: Users distribuidor_id nullable + fix crear empleados
 - FASE 27: Campos equipo en productos (imei, color, ram, almacenamiento, folio_remision) + parser WINDCEL + PDF remisión
 
-### Próximas fases (pendientes — NO iniciar hasta indicación):
+#### POS y Caja (FASES 28-33)
 - FASE 28: POS + Caja unificados con gestión de turno (aviso caja abierta, cierre desde POS)
-- FASE 29: POS dual mode — Standard (F-keys: F3 búsqueda, F4 cantidad, F10 pagar, F12 pago rápido) + Visual (grid por categoría, touchscreen)
+- FASE 29: POS dual mode — Standard (F-keys: F3/F4/F10/F12) + Visual (grid por categoría, touchscreen)
 - FASE 30: Selección de cliente en POS + captura IMEI al vender equipo serializado + Notas por venta/ítem
-- FASE 31: Reporte X (resumen turno sin cerrar) + Reporte Z (cierre formal PDF) + exportar cualquier tabla a Excel
-- FASE 32: Tickets térmicos 58mm en todos los módulos (venta POS, recepción reparación con QR, entrega reparación, pago crédito)
-- FASE 33: Devoluciones parciales por línea + Pedidos flotantes (poner venta en espera, nueva venta)
+- FASE 31: Reporte X (resumen turno sin cerrar) + Reporte Z (cierre formal PDF) + exportar CSV
+- FASE 32: Tickets térmicos 58mm (venta POS, recepción reparación con QR, entrega, pago crédito)
+- FASE 33: Devoluciones parciales por línea + Pedidos flotantes (poner venta en espera)
 
-### Funcionalidades recientes:
+#### Reparaciones avanzadas (FASE 34)
+- FASE 34: OrdenCard + OrdenDrawer con tabs (info, piezas, fotos, anticipos, historial)
+
+#### Promociones y control financiero (FASES 35-40)
+- FASE 35: Centro de Promociones con opt-in seguro — tabla `promociones`, CRUD admin, consentimiento presencial, integración en tracking page
+- FASE 36: Servicios sin inventario en POS — tabla `servicios` con flag `precio_fijo`, catálogo configurable, área "Servicios" en POS, precios variables con min/max por servicio
+- FASE 37: Control traspasos anticipo técnico→vendedor — tabla `traspasos_anticipo`, notificación inmediata al vendedor, confirmación de monto real, alerta discrepancia al admin
+- FASE 38: Confirmación de depósitos/transferencias — tabla `confirmaciones_deposito`, estado pendiente_confirmacion, link único en WhatsApp para aprobar/declinar desde celular
+- FASE 39: Control de descuentos con autorización — tablas `limites_autorizacion` + `log_autorizaciones`, zonas 0-5%/6-15%/>15%, aprobación remota admin vía push + link WhatsApp, descuentos en % y monto fijo
+- FASE 40: Reporte Z con conteo ciego + Reporte X — conteo por denominaciones, fondo fijo, Pay In/Out, tolerancia de descuadre, alerta admin, historial 1 año
+
+#### Caja avanzada y reparaciones (FASES 41-43 parcial)
+- FASE 41: Bolsa virtual de reparaciones en caja — anticipos en sesión activa desglosados, banner anticipos sin sesión para admin ⚠️ PENDIENTE: tab "Reparaciones" en POS para que vendedor cobre desde ahí
+- FASE 42: Sidebar acordeones colapsables, reorganización 7 grupos ⚠️ PENDIENTE: tabla `lotes_piezas` + recepción/verificación de lotes de piezas de proveedor
+- FASE 43: Aging report + tasa de mora real en cartera vencida
+
+#### Dashboard, reportes y comunicación (FASES 44-53)
+- FASE 44: Dashboard ejecutivo por rol (cobrador, técnico, vendedor, admin)
+- FASE 45: Sistema WhatsApp — plantillas configurables + notificaciones automáticas
+- FASE 46: Órdenes de Compra a Proveedores
+- FASE 47-lite: Resumen para contador — WhatsApp + período configurable
+- FASE 48: Mejoras portal tracking reparaciones (fotos, historial, anticipo con QR)
+- FASE 49: Exportar tablas a CSV (créditos, pagos, clientes, reparaciones)
+- FASE 50: Estado de Resultados (P&L) mensual en Reportes
+- FASE 51: Sidebar reordenado por prioridad de negocio en 8 grupos funcionales
+- FASE 52: Liquid Glass en íconos del sidebar (backdrop-filter, glow activo)
+- FASE 53: Dashboard Ejecutivo Persistente — Command Center para admin/super_admin (KPIs, OrdenesWidget, AccionesRápidas, ActivityStream, auto-refresh 3min)
+
+---
+
+### ⚠️ Fases PARCIALMENTE implementadas (tienen código pero les falta algo):
+
+#### FASE 41 — Reparaciones en POS (pendiente el tab)
+- ✅ Bolsa virtual en caja (anticipos desglosados por sesión)
+- ✅ Banner anticipos sin sesión para admin
+- ❌ FALTA: Tab "Reparaciones" en POS — buscador por folio/cliente/teléfono, bolsa virtual visual, registrar anticipo o cobrar saldo final desde POS, auto-estado "entregado" cuando saldo=$0
+- **Quién cobra:** el VENDEDOR desde POS
+
+#### FASE 42 — Gestión de lotes de piezas (pendiente la tabla y UI)
+- ✅ Bolsa virtual en caja con anticipos desglosados
+- ✅ Vinculación de piezas a órdenes (parcial)
+- ❌ FALTA: Tabla `lotes_piezas` (no creada en BD) — recepción de pedidos de proveedor, verificación de lote vs pedido, distribución costo de envío entre órdenes
+- **Urgente:** Sí — sin esto no se rastrea origen de piezas
+
+---
+
+### 🔜 Fases PENDIENTES (no iniciadas — esperar indicación):
+- FASE 53+: Facturación CFDI (integración Facturapi)
+- FASE 54: Control de asistencia / reloj checador
+- FASE 55: WhatsApp Business API oficial
+- FASE 56: Links de pago (Clip, Conekta)
+
+---
+
+### Funcionalidades destacadas recientes:
 - QR/barcode scan en POS para agregar productos rápido
-- QR/barcode scan al crear/editar productos
-- Página admin distribuidores: CRUD completo con toggle activo/inactivo, modal crear/editar
-- Redirect seguridad: empleados page redirige vendedor/cobrador/tecnico a dashboard
-- ProductSearchBar muestra error visible cuando falla la carga de productos
-- Importación WINDCEL: parser completo con marcas-kb, campos separados por columna, PDF remisión reimprimible
+- Parser WINDCEL con marcas-kb, PDF remisión reimprimible
+- Página admin distribuidores: CRUD completo con toggle activo/inactivo
+- Centro de Promociones con opt-in WhatsApp presencial
+- Dashboard Ejecutivo con auto-refresh + OrdenDrawer integrado
+- Descuentos con aprobación remota admin (>15% bloquea POS hasta respuesta)
 
 ---
 
