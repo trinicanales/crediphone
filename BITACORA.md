@@ -65,17 +65,34 @@ el usuario no es super_admin.
 | 24 | Solicitudes y garantías de piezas | — |
 | 25 | Caja con distribuidor nullable | — |
 | 26 | users.distribuidor_id nullable + fix crear empleados | — |
-| 27 | Campos equipo en productos (imei, color, ram, almacenamiento, folio_remision) + parser WINDCEL + PDF remisión | — |
-| 34 | Tarjetas interactivas + Drawer lateral en reparaciones | — |
-| 34b | Modal mixto + esperando_piezas + overdue WhatsApp | — |
-| 36 | (ver historial) | — |
-| 37 | (ver historial) | — |
-| 38 | (ver historial) | — |
+| 27 | Campos equipo en productos (imei, color, ram, almacenamiento, folio_remision) + parser WINDCEL + PDF remisión | `edf2b37` |
+| 28 | POS + Caja unificados: modal abrir/cerrar turno desde POS, aviso si otro empleado tiene caja abierta, badge de estado en header | `6a73b96` |
+| 29 | POS dual mode — Standard (F-keys: F3 búsqueda, F4 cantidad, F9/F10 cobro) + Visual (grid por categoría, touchscreen) | `f69e173`, `0952bbf` |
+| 30 | Selección cliente en POS + captura IMEI al vender equipo serializado + notas por venta/ítem + alertas demanda | `32ddc77`, `4ba6a5b` |
+| 31 | Reporte X (snapshot turno sin cerrar) + Reporte Z (cierre formal PDF) + exportar cualquier tabla a Excel | `b91e299` |
+| 32 | Tickets térmicos 58mm en todos los módulos (venta POS, recepción reparación con QR, entrega, pago crédito) | `5fe292a` |
+| 33 | Devoluciones parciales por línea en POS + pedidos flotantes (venta en espera) + regla Payjoy + config extendida | `db0b158`, `4ff9c6e` |
+| 34 | Tarjetas interactivas + Drawer lateral en reparaciones | `68afa8d` |
+| 34b | Modal mixto + esperando_piezas + overdue WhatsApp | `98c9032` |
+| 36 | Servicios sin inventario — POS integrado con carrito mixto productos+servicios + categorías dinámicas | `4bc4c50` |
+| 37 | Control de traspasos anticipo técnico → vendedor (anti-fraude) | `07c89a8` |
+| 38 | Confirmación de depósitos/transferencias | `97f5592` |
 | 39 | Sistema de autorización de descuentos: zonas verde/amarillo/rojo, polling, WhatsApp token, panel admin, config | `614ede1` |
 | SEC | SECURITY-001 + SECURITY-002: 17 API routes con auth + multi-tenant reportes | `7a5e4f5` |
 | REACT-001 | 12 errores críticos ESLint: vars before declare, setState en effects, mutación state, Date.now en render, JSX quotes | `1085bd5` |
-| Sesión Visual | Íconos corregidos (7) + Sidebar reorganizado en 7 grupos | `sesion-visual` |
+| Sesión Visual | Íconos corregidos (7) + Sidebar reorganizado en 7 grupos | `a05a948` |
 | 40 | Conteo ciego, fondo fijo, Pay In/Out, tolerancia descuadre, alerta admin | `68ae3fc` |
+| 44 | Dashboard ejecutivo por rol (widgets distintos: admin ve KPIs completos, vendedor ve su turno, técnico sus órdenes) | `1ede15d` |
+| 45 | Sistema WhatsApp — plantillas configurables + notificaciones automáticas por cambio estado reparación | `63a8808` |
+| 46 | Órdenes de Compra a Proveedores — flujo completo con recepción de mercancía y actualización de stock | `2ee1daf` |
+| 47-lite | Resumen para contador — descarga PDF/WhatsApp con ingresos del período configurable | `a97b166` |
+| 48 | Portal de tracking de reparaciones para cliente final (link público por orden) | `9892e0e` |
+| 49 | Exportar tablas a CSV — créditos, pagos, clientes, reparaciones | `3e3ebef` |
+| 50 | P&L básico mensual: Estado de Resultados en Reportes (ingresos − costos = utilidad) | `a643108` |
+| Iconos-1 | Iconos PNG en checklist condiciones reparación + campo centroCarga | `bf29094` |
+| Iconos-2 | Marco+Bisel unificados en un botón + todos los iconos PNG en estado físico | `90a8dd9` |
+| Iconos-3 | Iconos contenidos en su cuadro (overflow-hidden + fill) en ambos grids | `366f22c` |
+| Iconos-4 | Iconos nuevos (apagado, mojado, batería hinchada, QR, subir-foto) + nombres cortos en componentes | `fa99d25` |
 
 ---
 
@@ -166,13 +183,13 @@ Aging report + tasa de mora real: `/api/creditos/aging` con 6 buckets (corriente
 ---
 
 ### 🔄 FASES FUTURAS (en orden)
-- FASE 44: Dashboard ejecutivo por rol (widgets distintos por rol)
-- FASE 45: Notificaciones WhatsApp automáticas por cambio estado reparación
-- FASE 46: Órdenes de compra a proveedores
-- FASE 47: Facturación CFDI (integración Facturapi)
-- FASE 48: Portal de tracking de reparaciones para cliente final
-- FASE 49: Exportar cualquier tabla a CSV/Excel
-- FASE 50: P&L básico mensual
+- FASE 44-50: ✅ TODAS COMPLETADAS (ver tabla de fases arriba)
+- FASE 51: Sidebar reorganización definitiva — 25 ítems → 7 grupos con separadores y sub-tabs (ver CREDIPHONE-Auditoria-UX-2026.docx sección 5)
+- FASE 52: Sprint visual — pulido estilo empresarial (iconos Lucide correctos, tipografía datos, tokens CSS en todos los módulos)
+- FASE 53: Facturación CFDI (integración Facturapi)
+- FASE 54: Control de asistencia / reloj checador por QR o PIN
+- FASE 55: WhatsApp Business API oficial (plantillas aprobadas Meta, historial, doble tick)
+- FASE 56: Links de pago (Clip, Conekta) — enviar link de cobro al cliente por WhatsApp
 
 ---
 
@@ -250,4 +267,4 @@ Por eso existe este archivo. Si algo importante pasa en una sesión (nueva decis
 
 ---
 
-*Última actualización: 2026-03-18 — Trini + Claude (FASE 43: aging report + tasa de mora real, panel sobre cartera vencida)*
+*Última actualización: 2026-03-19 — Trini + Claude (FASES 28-33 registradas, FASES 44-50 registradas como completadas, trabajo de iconos PNG registrado)*

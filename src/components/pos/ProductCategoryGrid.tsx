@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Smartphone, Package, Search } from "lucide-react";
 import type { Producto, Categoria } from "@/types";
 
@@ -195,6 +196,7 @@ function ProductCard({
 }) {
   const [hover, setHover] = useState(false);
   const sinStock = producto.stock <= 0;
+  const tieneImagen = Boolean(producto.imagen);
 
   const formatPrice = (n: number) =>
     new Intl.NumberFormat("es-MX", {
@@ -210,9 +212,9 @@ function ProductCard({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       disabled={sinStock}
-      className="relative flex flex-col items-start p-3 rounded-xl text-left transition-all"
+      className="relative flex flex-col items-start rounded-xl text-left transition-all overflow-hidden"
       style={{
-        background: hover && !sinStock ? "var(--color-bg-elevated)" : "var(--color-bg-surface)",
+        background: "var(--color-bg-surface)",
         border: `1px solid ${hover && !sinStock ? "var(--color-border-strong)" : "var(--color-border-subtle)"}`,
         boxShadow: hover && !sinStock ? "var(--shadow-md)" : "var(--shadow-xs)",
         opacity: sinStock ? 0.45 : 1,
@@ -220,40 +222,67 @@ function ProductCard({
         transform: hover && !sinStock ? "translateY(-1px)" : "none",
       }}
     >
-      {/* Ícono */}
-      <div
-        className="w-10 h-10 rounded-lg flex items-center justify-center mb-2"
-        style={{ background: "var(--color-accent-light)" }}
-      >
-        <Smartphone className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-      </div>
-
-      {/* Nombre */}
-      <p
-        className="text-xs font-semibold line-clamp-2 leading-tight mb-1"
-        style={{ color: "var(--color-text-primary)" }}
-      >
-        {producto.nombre}
-      </p>
-
-      {/* Marca/modelo */}
-      {(producto.marca || producto.modelo) && (
-        <p className="text-xs line-clamp-1 mb-2" style={{ color: "var(--color-text-muted)" }}>
-          {[producto.marca, producto.modelo].filter(Boolean).join(" ")}
-        </p>
+      {/* Zona de imagen (si tiene foto) o icono */}
+      {tieneImagen ? (
+        <div className="relative w-full h-24 overflow-hidden">
+          <Image
+            src={producto.imagen!}
+            alt={producto.nombre}
+            fill
+            sizes="(max-width: 640px) 50vw, 33vw"
+            className="object-cover"
+            style={{
+              filter: sinStock ? "grayscale(0.6)" : "none",
+              transition: "transform 200ms ease",
+              transform: hover && !sinStock ? "scale(1.05)" : "scale(1)",
+            }}
+          />
+          {/* Overlay sutil al hover */}
+          {hover && !sinStock && (
+            <div
+              className="absolute inset-0"
+              style={{ background: "rgba(0,153,184,0.12)" }}
+            />
+          )}
+        </div>
+      ) : (
+        <div
+          className="w-full flex items-center justify-center py-4"
+          style={{ background: "var(--color-accent-light)" }}
+        >
+          <Smartphone className="w-8 h-8" style={{ color: "var(--color-accent)" }} />
+        </div>
       )}
 
-      {/* Precio */}
-      <p
-        className="text-sm font-bold mt-auto"
-        style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}
-      >
-        {formatPrice(Number(producto.precio))}
-      </p>
+      {/* Info del producto */}
+      <div className="flex flex-col w-full p-2.5 gap-0.5">
+        {/* Nombre */}
+        <p
+          className="text-xs font-semibold line-clamp-2 leading-tight"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {producto.nombre}
+        </p>
 
-      {/* Badge stock */}
+        {/* Marca/modelo */}
+        {(producto.marca || producto.modelo) && (
+          <p className="text-xs line-clamp-1" style={{ color: "var(--color-text-muted)" }}>
+            {[producto.marca, producto.modelo].filter(Boolean).join(" ")}
+          </p>
+        )}
+
+        {/* Precio */}
+        <p
+          className="text-sm font-bold mt-1"
+          style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}
+        >
+          {formatPrice(Number(producto.precio))}
+        </p>
+      </div>
+
+      {/* Badge stock — siempre sobre la imagen o icono */}
       <span
-        className="absolute top-2 right-2 text-xs px-1.5 py-0.5 rounded-full"
+        className="absolute top-1.5 right-1.5 text-xs px-1.5 py-0.5 rounded-full font-medium"
         style={{
           background: sinStock
             ? "var(--color-danger-bg)"
@@ -265,6 +294,7 @@ function ProductCard({
             : producto.stock <= 3
             ? "var(--color-warning-text)"
             : "var(--color-success-text)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
         }}
       >
         {sinStock ? "Agotado" : `×${producto.stock}`}
