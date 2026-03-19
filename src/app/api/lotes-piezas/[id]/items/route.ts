@@ -9,9 +9,10 @@ import type { LotePiezasItem } from "@/types";
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId, role } = await getAuthContext();
 
     if (!userId) {
@@ -39,7 +40,7 @@ export async function POST(
       );
     }
 
-    const item = await addItemToLote(params.id, body);
+    const item = await addItemToLote(id, body);
 
     return NextResponse.json(
       { success: true, data: item },

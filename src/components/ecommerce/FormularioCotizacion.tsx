@@ -37,7 +37,7 @@ export function FormularioCotizacion({ onClose }: FormularioCotizacionProps) {
       `📧 *Correo:* ${formData.correo}\n\n` +
       `💬 *Mensaje:*\n${formData.mensaje || "Sin mensaje adicional"}`;
 
-    const numeroWhatsApp = "5215512345678"; // Reemplazar con tu número
+    const numeroWhatsApp = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
     const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(
       mensaje
     )}`;

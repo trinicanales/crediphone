@@ -35,7 +35,7 @@ export function CarritoFlotante() {
   };
 
   const handleCheckoutWhatsApp = () => {
-    const numeroWhatsApp = "5215512345678"; // Reemplazar con tu numero
+    const numeroWhatsApp = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
     const mensaje = generarMensajeWhatsApp();
     const url = `https://wa.me/${numeroWhatsApp}?text=${mensaje}`;
     window.open(url, "_blank");

@@ -14,9 +14,10 @@ import type { LotePiezasFormData } from "@/types";
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId, role } = await getAuthContext();
 
     if (!userId) {
@@ -33,7 +34,7 @@ export async function GET(
       );
     }
 
-    const lote = await getLoteById(params.id);
+    const lote = await getLoteById(id);
 
     if (!lote) {
       return NextResponse.json(
@@ -60,9 +61,10 @@ export async function GET(
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId, role } = await getAuthContext();
 
     if (!userId) {
@@ -83,11 +85,11 @@ export async function PATCH(
 
     // Si se intenta marcar como recibido, registrar quién lo recibió
     if (body.estado === "recibido") {
-      const lote = await marcarLoteRecibido(params.id, userId);
+      const lote = await marcarLoteRecibido(id, userId);
       return NextResponse.json({ success: true, data: lote });
     }
 
-    const lote = await updateLote(params.id, body);
+    const lote = await updateLote(id, body);
 
     return NextResponse.json({ success: true, data: lote });
   } catch (error) {
@@ -105,9 +107,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId, role } = await getAuthContext();
 
     if (!userId) {
@@ -124,7 +127,7 @@ export async function DELETE(
       );
     }
 
-    await deleteLote(params.id);
+    await deleteLote(id);
 
     return NextResponse.json({ success: true, message: "Lote eliminado" });
   } catch (error) {

@@ -9,9 +9,10 @@ import { getAuthContext } from "@/lib/auth/server";
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId, role } = await getAuthContext();
 
     if (!userId) {
@@ -28,7 +29,7 @@ export async function POST(
       );
     }
 
-    const result = await distribuirCostoEnvio(params.id);
+    const result = await distribuirCostoEnvio(id);
 
     return NextResponse.json({
       success: result,

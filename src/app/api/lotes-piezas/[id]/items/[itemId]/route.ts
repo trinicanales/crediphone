@@ -12,9 +12,10 @@ import { getAuthContext } from "@/lib/auth/server";
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string; itemId: string } }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
+    const { itemId } = await params;
     const { userId, role } = await getAuthContext();
 
     if (!userId) {
@@ -45,7 +46,7 @@ export async function PATCH(
     }
 
     const item = await updateItemEstado(
-      params.itemId,
+      itemId,
       body.estadoItem,
       body.cantidadRecibida,
       body.notas
@@ -67,9 +68,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string; itemId: string } }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
+    const { itemId } = await params;
     const { userId, role } = await getAuthContext();
 
     if (!userId) {
@@ -86,7 +88,7 @@ export async function DELETE(
       );
     }
 
-    await deleteItemFromLote(params.itemId);
+    await deleteItemFromLote(itemId);
 
     return NextResponse.json({ success: true, message: "Item eliminado" });
   } catch (error) {
