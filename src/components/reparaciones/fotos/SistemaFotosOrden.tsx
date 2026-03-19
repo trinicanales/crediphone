@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { GeneradorQRFotos } from "./GeneradorQRFotos";
 import { ImagenReparacion } from "@/types";
 
@@ -144,7 +145,17 @@ export function SistemaFotosOrden({
             onClick={() => setMetodo("qr")}
             className="p-6 rounded-lg border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all text-center group"
           >
-            <div className="text-4xl mb-2">📱</div>
+            <div className="flex justify-center mb-2">
+              <div className="relative w-12 h-12 overflow-hidden">
+                <Image
+                  src="/iconos/subir-qr.png"
+                  alt="QR Celular"
+                  fill
+                  sizes="48px"
+                  className="object-contain"
+                />
+              </div>
+            </div>
             <div className="text-sm font-semibold text-gray-800 mb-1">
               QR desde Celular
             </div>
@@ -162,7 +173,17 @@ export function SistemaFotosOrden({
               disabled={subiendo}
               className="hidden"
             />
-            <div className="text-4xl mb-2">📁</div>
+            <div className="flex justify-center mb-2">
+              <div className="relative w-12 h-12 overflow-hidden">
+                <Image
+                  src="/iconos/subir-foto.png"
+                  alt="Subir foto"
+                  fill
+                  sizes="48px"
+                  className="object-contain"
+                />
+              </div>
+            </div>
             <div className="text-sm font-semibold text-gray-800 mb-1">
               Subida Directa
             </div>

@@ -9,28 +9,49 @@ interface IconosFuncionamientoProps {
 }
 
 /**
- * Componentes del checklist de funcionamiento.
- * - imagen: ruta relativa a /public (se sirve estáticamente por Next.js)
- * - emoji: fallback si no hay imagen propia
+ * nombre: máximo ~8 caracteres para caber en grid-cols-4 sin truncar.
+ * nombre completo se muestra en el tooltip (title).
  */
 const COMPONENTES_FUNCIONAMIENTO: {
   key: string;
-  imagen?: string;
+  imagen: string;
   emoji: string;
-  nombre: string;
+  nombre: string;       // etiqueta corta (visible)
+  nombreCompleto: string; // para title tooltip y badges de falla
 }[] = [
-  { key: "bateria",        imagen: "/iconos/bateria.png",          emoji: "🔋", nombre: "Batería" },
-  { key: "pantallaTactil", imagen: "/iconos/pantalla-quebrada.png", emoji: "📱", nombre: "Pantalla/Táctil" },
-  { key: "camaras",        imagen: "/iconos/camara.png",           emoji: "📷", nombre: "Cámaras" },
-  { key: "microfono",      imagen: "/iconos/microfono.png",        emoji: "🎤", nombre: "Micrófono" },
-  { key: "altavoz",        imagen: "/iconos/audifonos.png",        emoji: "🔊", nombre: "Altavoz" },
-  { key: "bluetooth",      imagen: "/iconos/bluetooth.png",        emoji: "📡", nombre: "Bluetooth" },
-  { key: "wifi",           imagen: "/iconos/wifi.png",             emoji: "📶", nombre: "WiFi" },
-  { key: "botonEncendido", imagen: "/iconos/boton-encendido.png",  emoji: "⏻",  nombre: "Power" },
-  { key: "botonesVolumen", imagen: "/iconos/botones.png",          emoji: "🔉", nombre: "Volumen" },
-  { key: "sensorHuella",  imagen: "/iconos/contrasena-huella.png", emoji: "👤", nombre: "Huella" },
-  { key: "centroCarga",   imagen: "/iconos/centro-de-carga.png",   emoji: "🔌", nombre: "Centro de Carga" },
+  { key: "bateria",        imagen: "/iconos/bateria.png",          emoji: "🔋", nombre: "Batería",    nombreCompleto: "Batería" },
+  { key: "pantallaTactil", imagen: "/iconos/pantalla-quebrada.png", emoji: "📱", nombre: "Pantalla",   nombreCompleto: "Pantalla / Táctil" },
+  { key: "camaras",        imagen: "/iconos/camara.png",           emoji: "📷", nombre: "Cámara",     nombreCompleto: "Cámaras" },
+  { key: "microfono",      imagen: "/iconos/microfono.png",        emoji: "🎤", nombre: "Micrófono",  nombreCompleto: "Micrófono" },
+  { key: "altavoz",        imagen: "/iconos/audifonos.png",        emoji: "🔊", nombre: "Altavoz",    nombreCompleto: "Altavoz" },
+  { key: "bluetooth",      imagen: "/iconos/bluetooth.png",        emoji: "📡", nombre: "Bluetooth",  nombreCompleto: "Bluetooth" },
+  { key: "wifi",           imagen: "/iconos/wifi.png",             emoji: "📶", nombre: "WiFi",       nombreCompleto: "WiFi" },
+  { key: "botonEncendido", imagen: "/iconos/boton-encendido.png",  emoji: "⏻",  nombre: "Encendido",  nombreCompleto: "Botón Encendido" },
+  { key: "botonesVolumen", imagen: "/iconos/botones.png",          emoji: "🔉", nombre: "Volumen",    nombreCompleto: "Botones Volumen" },
+  { key: "sensorHuella",  imagen: "/iconos/contrasena-huella.png", emoji: "👤", nombre: "Huella",     nombreCompleto: "Sensor Huella" },
+  { key: "centroCarga",   imagen: "/iconos/centro-de-carga.png",   emoji: "🔌", nombre: "Carga",      nombreCompleto: "Centro de Carga" },
 ];
+
+/** Iconos para las condiciones especiales (checkboxes) */
+const ICONOS_ESPECIALES = {
+  apagado:  "/iconos/equipo-apagado.png",
+  mojado:   "/iconos/mojado.png",
+  bateria:  "/iconos/bateria-hinchada.png",
+};
+
+function IconoEspecial({ src, alt }: { src: string; alt: string }) {
+  return (
+    <span className="relative inline-block w-4 h-4 flex-shrink-0 align-middle">
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="16px"
+        className="object-contain"
+      />
+    </span>
+  );
+}
 
 export function IconosFuncionamiento({
   condiciones,
@@ -46,9 +67,8 @@ export function IconosFuncionamiento({
     onChange({ ...condiciones, [key]: !condiciones[key] });
   };
 
-  const isCheckboxKey = (key: string): boolean => {
-    return ["llegaApagado", "estaMojado", "bateriaHinchada"].includes(key);
-  };
+  const isCheckboxKey = (key: string): boolean =>
+    ["llegaApagado", "estaMojado", "bateriaHinchada"].includes(key);
 
   return (
     <div className="space-y-3">
@@ -66,10 +86,11 @@ export function IconosFuncionamiento({
             <button
               key={comp.key}
               type="button"
+              title={comp.nombreCompleto}
               onClick={() => toggle(comp.key as keyof CondicionesFuncionamiento)}
               className={`
                 p-2 rounded-lg border-2 transition-all text-center
-                overflow-hidden flex flex-col items-center
+                overflow-hidden flex flex-col items-center gap-0
                 hover:shadow-md active:scale-95
                 ${esOk
                   ? "bg-green-50 border-green-500 hover:bg-green-100"
@@ -77,50 +98,45 @@ export function IconosFuncionamiento({
                 }
               `}
             >
-              {/* Icono: contenedor fijo, imagen nunca rebasa */}
-              <div className="relative w-7 h-7 flex-shrink-0 mb-1">
-                {comp.imagen ? (
-                  <Image
-                    src={comp.imagen}
-                    alt={comp.nombre}
-                    fill
-                    sizes="28px"
-                    className="object-contain"
-                    style={{
-                      filter: esOk
-                        ? "none"
-                        : "sepia(1) saturate(5) hue-rotate(-10deg) brightness(0.8)",
-                    }}
-                  />
-                ) : (
-                  <span className="absolute inset-0 flex items-center justify-center text-xl leading-none">
-                    {comp.emoji}
-                  </span>
-                )}
+              {/* Contenedor de ícono: overflow-hidden propio + position:relative para fill */}
+              <div className="relative w-7 h-7 flex-shrink-0 overflow-hidden mb-1">
+                <Image
+                  src={comp.imagen}
+                  alt={comp.nombre}
+                  fill
+                  sizes="28px"
+                  className="object-contain"
+                  style={{
+                    filter: esOk
+                      ? "none"
+                      : "sepia(1) saturate(5) hue-rotate(-10deg) brightness(0.8)",
+                  }}
+                />
               </div>
 
-              <div className="text-[10px] font-semibold text-gray-700 leading-tight w-full truncate">
+              {/* Nombre corto — nunca rebasa el botón */}
+              <div className="text-[10px] font-semibold text-gray-700 leading-none w-full text-center">
                 {comp.nombre}
               </div>
 
-              {/* Punto indicador de estado */}
+              {/* Punto de estado */}
               <div
-                className={`
-                  w-2 h-2 rounded-full mx-auto mt-1
-                  ${esOk ? "bg-green-500" : "bg-red-500"}
-                `}
+                className={`w-2 h-2 rounded-full mx-auto mt-1 flex-shrink-0 ${
+                  esOk ? "bg-green-500" : "bg-red-500"
+                }`}
               />
             </button>
           );
         })}
       </div>
 
-      {/* Checkboxes especiales - condiciones críticas */}
+      {/* Condiciones especiales */}
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
         <div className="text-xs font-semibold text-yellow-800 mb-2">
           ⚠️ Condiciones Especiales
         </div>
         <div className="flex flex-wrap gap-4 text-xs">
+
           <label className="flex items-center gap-2 cursor-pointer hover:text-yellow-900">
             <input
               type="checkbox"
@@ -128,7 +144,8 @@ export function IconosFuncionamiento({
               onChange={() => toggleCheckbox("llegaApagado")}
               className="w-4 h-4 rounded border-yellow-300 text-yellow-600 focus:ring-yellow-500"
             />
-            <span className="font-medium">🔌 Llega apagado</span>
+            <IconoEspecial src={ICONOS_ESPECIALES.apagado} alt="Apagado" />
+            <span className="font-medium">Llega apagado</span>
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer hover:text-yellow-900">
@@ -138,17 +155,8 @@ export function IconosFuncionamiento({
               onChange={() => toggleCheckbox("estaMojado")}
               className="w-4 h-4 rounded border-yellow-300 text-yellow-600 focus:ring-yellow-500"
             />
-            <span className="font-medium">
-              {/* Icono mojado */}
-              <Image
-                src="/iconos/mojado.png"
-                alt="Mojado"
-                width={16}
-                height={16}
-                className="inline object-contain mr-1 align-text-bottom"
-              />
-              Mojado / Líquido
-            </span>
+            <IconoEspecial src={ICONOS_ESPECIALES.mojado} alt="Mojado" />
+            <span className="font-medium">Mojado / Líquido</span>
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer hover:text-yellow-900">
@@ -158,12 +166,14 @@ export function IconosFuncionamiento({
               onChange={() => toggleCheckbox("bateriaHinchada")}
               className="w-4 h-4 rounded border-yellow-300 text-yellow-600 focus:ring-yellow-500"
             />
-            <span className="font-medium">⚠️ Batería hinchada</span>
+            <IconoEspecial src={ICONOS_ESPECIALES.bateria} alt="Batería hinchada" />
+            <span className="font-medium">Batería hinchada</span>
           </label>
+
         </div>
       </div>
 
-      {/* Indicador de fallas */}
+      {/* Resumen de fallas */}
       {(() => {
         const fallas = COMPONENTES_FUNCIONAMIENTO.filter(
           (comp) =>
@@ -188,18 +198,12 @@ export function IconosFuncionamiento({
             <div className="font-semibold mb-1">Componentes con problemas:</div>
             <div className="flex flex-wrap gap-1">
               {fallas.map((comp) => (
-                <span
-                  key={comp.key}
-                  className="bg-red-100 text-red-700 px-2 py-0.5 rounded"
-                >
-                  {comp.nombre}
+                <span key={comp.key} className="bg-red-100 text-red-700 px-2 py-0.5 rounded">
+                  {comp.nombreCompleto}
                 </span>
               ))}
               {condicionesEspeciales.map((cond, idx) => (
-                <span
-                  key={idx}
-                  className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded"
-                >
+                <span key={idx} className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">
                   {cond}
                 </span>
               ))}
