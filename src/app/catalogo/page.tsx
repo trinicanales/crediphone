@@ -515,9 +515,10 @@ export default function CatalogoPage() {
     try {
       setLoadingProductos(true);
       setErrorProductos(false);
-      const res  = await fetch("/api/productos");
+      const res  = await fetch("/api/public/productos");
       const data = await res.json();
       if (data.success) {
+        // El endpoint ya filtra stock > 0, pero lo dejamos por seguridad
         const disponibles = data.data.filter((p: Producto) => p.stock > 0);
         setProductos(disponibles);
         setFilteredProductos(disponibles);
