@@ -28,6 +28,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-green-400 transition-colors"
+                  suppressHydrationWarning
                 >
                   Contacto por WhatsApp
                 </a>
@@ -50,7 +51,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-6 text-center">
-          <p className="text-gray-500 text-xs">
+          <p className="text-gray-500 text-xs" suppressHydrationWarning>
             &copy; {new Date().getFullYear()} CREDIPHONE. Todos los derechos reservados.
           </p>
         </div>

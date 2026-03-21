@@ -14,13 +14,11 @@ export default function Home() {
   useEffect(() => {
     async function fetchProductos() {
       try {
-        const response = await fetch("/api/productos");
+        // Endpoint público — sin autenticación requerida para visitantes
+        const response = await fetch("/api/public/productos?limit=4");
         const data = await response.json();
         if (data.success) {
-          const disponibles = data.data
-            .filter((p: Producto) => p.stock > 0)
-            .slice(0, 4);
-          setProductos(disponibles);
+          setProductos((data.data as Producto[]).slice(0, 4));
         }
       } catch (error) {
         console.error("Error cargando productos:", error);
