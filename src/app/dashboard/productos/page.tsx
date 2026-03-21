@@ -631,6 +631,16 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
     fetch("/api/proveedores", { headers }).then((r) => r.json()).then((d) => { if (d.success) setProveedores(d.data); }).catch(() => {});
   }, [distribuidorActivo?.id]);
 
+  // FASE 53d: auto-marcar esSerializado cuando el tipo es equipo celular
+  useEffect(() => {
+    const esEquipo = formData.tipo === "equipo_nuevo" || formData.tipo === "equipo_usado";
+    if (esEquipo && !formData.esSerializado) {
+      setFormData((prev) => ({ ...prev, esSerializado: true }));
+    }
+  // Solo reaccionar al cambio de tipo, no al valor de esSerializado (para no crear loop)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.tipo]);
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, type } = e.target;
     const value = type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value;
@@ -644,7 +654,8 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
     if (!formData.marca.trim())                           e.marca   = "La marca es requerida";
     if (!formData.modelo.trim())                          e.modelo  = "El modelo es requerido";
     if (!formData.precio || Number(formData.precio) <= 0) e.precio  = "El precio debe ser mayor a 0";
-    if (Number(formData.stock) < 0)                       e.stock   = "El stock no puede ser negativo";
+    // FASE 53d: los servicios no tienen stock físico, no validar
+    if (formData.tipo !== "servicio" && Number(formData.stock) < 0) e.stock = "El stock no puede ser negativo";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -804,10 +815,21 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
         })()}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Stock Actual *" name="stock" type="number" value={formData.stock} onChange={handleChange} error={errors.stock} placeholder="1" required />
-        <Input label="Stock Mínimo" name="stockMinimo" type="number" value={formData.stockMinimo} onChange={handleChange} placeholder="3" />
-      </div>
+      {/* FASE 53d: servicios no tienen inventario físico */}
+      {formData.tipo === "servicio" ? (
+        <div
+          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
+          style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "1px solid var(--color-warning)22" }}
+        >
+          <span>⚡</span>
+          <span>Los servicios no tienen inventario físico — el stock se ignora al vender.</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Stock Actual *" name="stock" type="number" value={formData.stock} onChange={handleChange} error={errors.stock} placeholder="1" required />
+          <Input label="Stock Mínimo" name="stockMinimo" type="number" value={formData.stockMinimo} onChange={handleChange} placeholder="3" />
+        </div>
+      )}
 
       <div className="space-y-3">
         <div className="flex items-end gap-2">
@@ -852,18 +874,28 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
       <Input label="Ubicación Física" name="ubicacionFisica" value={formData.ubicacionFisica} onChange={handleChange} placeholder="Estante A1 · Cajón 2" />
       <Input label="Descripción" name="descripcion" value={formData.descripcion} onChange={handleChange} placeholder="Detalles adicionales del producto" />
 
-      <label className="flex items-center gap-3 cursor-pointer select-none py-1">
-        <input
-          type="checkbox"
-          id="esSerializado"
-          name="esSerializado"
-          checked={formData.esSerializado}
-          onChange={handleChange}
-          className="w-4 h-4 rounded"
-          style={{ accentColor: "var(--color-accent)" }}
-        />
-        <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Requiere número de serie / IMEI al vender</span>
-      </label>
+      {/* FASE 53d: los servicios no requieren serialización */}
+      {formData.tipo !== "servicio" && (
+        <label className="flex items-center gap-3 cursor-pointer select-none py-1">
+          <input
+            type="checkbox"
+            id="esSerializado"
+            name="esSerializado"
+            checked={formData.esSerializado}
+            onChange={handleChange}
+            className="w-4 h-4 rounded"
+            style={{ accentColor: "var(--color-accent)" }}
+          />
+          <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+            Requiere número de serie / IMEI al vender
+            {(formData.tipo === "equipo_nuevo" || formData.tipo === "equipo_usado") && (
+              <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--color-info-bg)", color: "var(--color-info-text)" }}>
+                Auto
+              </span>
+            )}
+          </span>
+        </label>
+      )}
 
       <ImageUpload
         currentImage={formData.imagen}
