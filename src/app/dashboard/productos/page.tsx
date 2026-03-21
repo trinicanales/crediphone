@@ -9,6 +9,7 @@ import { obtenerUrlImagen } from "@/lib/storage";
 import type { Producto } from "@/types";
 import ImportRemisionModal from "@/components/productos/ImportRemisionModal";
 import { BarcodeScanner } from "@/components/inventario/BarcodeScanner";
+import { useDistribuidor } from "@/components/DistribuidorProvider";
 import {
   Package, PackageCheck, AlertTriangle, TrendingUp,
   Pencil, Trash2, Search, Plus, Upload, Smartphone, Tag, RefreshCw, QrCode,
@@ -588,6 +589,9 @@ interface ProductoFormProps {
 }
 
 function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps) {
+  // FASE 53b: necesitamos el distribuidor activo para pasar el header a /api/categorias y /api/proveedores
+  const { distribuidorActivo } = useDistribuidor();
+
   const [formData, setFormData] = useState({
     nombre:          producto?.nombre              || "",
     marca:           producto?.marca               || "",
@@ -617,10 +621,15 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
   const [proveedores, setProveedores] = useState<{ id: string; nombre: string }[]>([]);
   const [showScanner, setShowScanner] = useState(false);
 
+  // FASE 53b: incluir X-Distribuidor-Id para que super_admin reciba las categorías del distribuidor activo
   useEffect(() => {
-    fetch("/api/categorias").then((r) => r.json()).then((d) => { if (d.success) setCategorias(d.data); }).catch(() => {});
-    fetch("/api/proveedores").then((r) => r.json()).then((d) => { if (d.success) setProveedores(d.data); }).catch(() => {});
-  }, []);
+    const headers: HeadersInit = {};
+    if (distribuidorActivo?.id) {
+      headers["X-Distribuidor-Id"] = distribuidorActivo.id;
+    }
+    fetch("/api/categorias", { headers }).then((r) => r.json()).then((d) => { if (d.success) setCategorias(d.data); }).catch(() => {});
+    fetch("/api/proveedores", { headers }).then((r) => r.json()).then((d) => { if (d.success) setProveedores(d.data); }).catch(() => {});
+  }, [distribuidorActivo?.id]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, type } = e.target;

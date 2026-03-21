@@ -1,38 +1,32 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getCategorias } from "@/lib/db/categorias";
-import { getDistribuidorId } from "@/lib/auth/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthContext } from "@/lib/auth/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    let distribuidorId = await getDistribuidorId();
+    const { userId, role, distribuidorId } = await getAuthContext();
 
-    if (!distribuidorId) {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
 
-      if (user) {
-        const adminClient = createAdminClient();
-        const { data: userData } = await adminClient
-          .from("users")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+    // Para super_admin: leer el distribuidor del header X-Distribuidor-Id
+    // (enviado por ProductoForm cuando hay un distribuidor activo seleccionado)
+    let efectivoDistribuidorId: string | null = distribuidorId ?? null;
 
-        if (userData?.role !== "super_admin") {
-          return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-        }
-        // super_admin sin distribuidor: retornar todas las categorías (sin filtro)
-      } else {
-        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    if (role === "super_admin") {
+      const headerDistribuidor = request.headers.get("X-Distribuidor-Id");
+      if (headerDistribuidor) {
+        efectivoDistribuidorId = headerDistribuidor;
       }
     }
 
-    // getCategorias requiere distribuidorId; si es super_admin sin distribuidor,
-    // usamos string vacía para que la query no filtre (o podemos pasar undefined)
-    const categorias = distribuidorId ? await getCategorias(distribuidorId) : [];
+    if (!efectivoDistribuidorId) {
+      // super_admin en Vista Global sin distribuidor seleccionado → lista vacía
+      return NextResponse.json({ success: true, data: [] });
+    }
 
+    const categorias = await getCategorias(efectivoDistribuidorId);
     return NextResponse.json({ success: true, data: categorias });
   } catch (error) {
     console.error("Error al obtener categorías:", error);
