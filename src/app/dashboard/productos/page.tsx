@@ -773,9 +773,35 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Precio de Venta *" name="precio" type="number" step="0.01" value={formData.precio} onChange={handleChange} error={errors.precio} placeholder="2999.00" required />
-        <Input label="Costo / Precio Compra" name="costo" type="number" step="0.01" value={formData.costo} onChange={handleChange} placeholder="2050.00" />
+      {/* FASE 53c: Costo primero → Precio de Venta, con margen en tiempo real */}
+      <div className="space-y-1.5">
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Costo / Precio Compra" name="costo" type="number" step="0.01" value={formData.costo} onChange={handleChange} placeholder="2050.00" />
+          <Input label="Precio de Venta *" name="precio" type="number" step="0.01" value={formData.precio} onChange={handleChange} error={errors.precio} placeholder="2999.00" required />
+        </div>
+        {/* Indicador de margen en tiempo real */}
+        {(() => {
+          const costo  = parseFloat(formData.costo  || "0");
+          const precio = parseFloat(formData.precio || "0");
+          if (!costo || !precio) return null;
+          const utilidad  = precio - costo;
+          const margenPct = (utilidad / costo) * 100;
+          const positivo  = utilidad >= 0;
+          return (
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{
+                background: positivo ? "var(--color-success-bg)" : "var(--color-danger-bg)",
+                color:      positivo ? "var(--color-success-text)" : "var(--color-danger-text)",
+                border:     `1px solid ${positivo ? "var(--color-success)" : "var(--color-danger)"}22`,
+              }}
+            >
+              <span>{positivo ? "↑" : "↓"} Margen: {margenPct.toFixed(1)}%</span>
+              <span style={{ opacity: 0.6 }}>·</span>
+              <span>Utilidad: ${utilidad.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
