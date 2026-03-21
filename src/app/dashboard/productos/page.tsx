@@ -13,6 +13,7 @@ import { useDistribuidor } from "@/components/DistribuidorProvider";
 import {
   Package, PackageCheck, AlertTriangle, TrendingUp,
   Pencil, Trash2, Search, Plus, Upload, Smartphone, Tag, RefreshCw, QrCode,
+  History, ShoppingCart, Wrench, Warehouse, ChevronRight,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 
@@ -49,7 +50,8 @@ export default function ProductosPage() {
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
   const [productoToDelete, setProductoToDelete] = useState<Producto | null>(null);
-  const [importRemisionOpen, setImportRemisionOpen] = useState(false);
+  const [importRemisionOpen, setImportRemisionOpen]   = useState(false);
+  const [imeiModalOpen, setImeiModalOpen]             = useState(false); // FASE 58
 
   useEffect(() => { fetchProductos(); }, []);
 
@@ -118,6 +120,10 @@ export default function ProductosPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
+          <Button variant="secondary" onClick={() => setImeiModalOpen(true)}>
+            <History className="w-4 h-4 mr-2" />
+            Historial IMEI
+          </Button>
           <Button variant="secondary" onClick={() => setImportRemisionOpen(true)}>
             <Upload className="w-4 h-4 mr-2" />
             Importar Remisión
@@ -321,6 +327,9 @@ export default function ProductosPage() {
         onClose={() => setImportRemisionOpen(false)}
         onImportado={() => { fetchProductos(); setImportRemisionOpen(false); }}
       />
+
+      {/* FASE 58: Modal de Historial IMEI */}
+      <HistorialImeiModal isOpen={imeiModalOpen} onClose={() => setImeiModalOpen(false)} />
     </div>
   );
 }
@@ -1052,5 +1061,356 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
         </Button>
       </div>
     </form>
+  );
+}
+
+// ─── Historial IMEI Modal (FASE 58) ────────────────────────────────────────────
+
+interface EventoTimeline {
+  tipo:        "inventario" | "venta" | "reparacion";
+  fecha:       string;
+  titulo:      string;
+  descripcion: string;
+  referencia?: string;
+  enlace?:     string;
+  monto?:      number;
+  estado?:     string;
+}
+
+function HistorialImeiModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const { distribuidorActivo } = useDistribuidor();
+  const [imeiInput, setImeiInput]       = useState("");
+  const [imeiSearch, setImeiSearch]     = useState("");
+  const [eventos, setEventos]           = useState<EventoTimeline[]>([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [errorSearch, setErrorSearch]   = useState<string | null>(null);
+  const [searched, setSearched]         = useState(false);
+  const [scanFocused, setScanFocused]   = useState(false);
+  const [scanned, setScanned]           = useState(false);
+
+  // Reset al cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      setImeiInput("");
+      setImeiSearch("");
+      setEventos([]);
+      setErrorSearch(null);
+      setSearched(false);
+      setScanned(false);
+    }
+  }, [isOpen]);
+
+  const buscar = useCallback(async (imeiOverride?: string) => {
+    const target = (imeiOverride ?? imeiInput).trim();
+    if (!target || target.length < 6) return;
+
+    setLoadingSearch(true);
+    setErrorSearch(null);
+    setSearched(false);
+
+    try {
+      const hdrs: Record<string, string> = {};
+      if (distribuidorActivo?.id) hdrs["X-Distribuidor-Id"] = distribuidorActivo.id;
+
+      const res  = await fetch(
+        `/api/productos/historial-imei?imei=${encodeURIComponent(target)}`,
+        { headers: hdrs }
+      );
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Error al buscar");
+
+      setEventos(json.data ?? []);
+      setImeiSearch(target);
+      setSearched(true);
+    } catch (e) {
+      setErrorSearch(e instanceof Error ? e.message : "Error desconocido");
+    } finally {
+      setLoadingSearch(false);
+    }
+  }, [imeiInput, distribuidorActivo]);
+
+  const EVENTO_CFG = {
+    inventario: { Icon: Warehouse,    color: "var(--color-info-text)",    bg: "var(--color-info-bg)",    label: "Inventario" },
+    venta:      { Icon: ShoppingCart, color: "var(--color-success-text)", bg: "var(--color-success-bg)", label: "Venta"      },
+    reparacion: { Icon: Wrench,       color: "var(--color-warning-text)", bg: "var(--color-warning-bg)", label: "Reparación" },
+  } as const;
+
+  function fmtFecha(f: string) {
+    return new Date(f).toLocaleString("es-MX", {
+      day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Historial de IMEI / Serie" size="lg">
+      <div className="space-y-5">
+
+        {/* ── Campo de búsqueda ── */}
+        <div>
+          <label style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--color-text-secondary)", display: "block", marginBottom: "0.375rem" }}>
+            IMEI / Número de Serie
+          </label>
+          <div className="flex gap-2">
+            <div style={{ position: "relative", flex: 1 }}>
+              <input
+                type="text"
+                value={imeiInput}
+                onChange={(e) => setImeiInput(e.target.value)}
+                onFocus={() => setScanFocused(true)}
+                onBlur={() => setScanFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (imeiInput.trim().length >= 6) {
+                      setScanned(true);
+                      setScanFocused(false);
+                      setTimeout(() => setScanned(false), 2200);
+                      buscar(imeiInput.trim());
+                    }
+                  }
+                }}
+                placeholder={scanFocused ? "🔴 Listo — apunta el escáner aquí" : "Ej: 356938035643809"}
+                style={{
+                  width: "100%",
+                  padding: "0.5625rem 0.875rem",
+                  background: scanned ? "var(--color-success-bg)" : "var(--color-bg-sunken)",
+                  border: `1.5px solid ${scanFocused ? "var(--color-accent)" : scanned ? "var(--color-success)" : "var(--color-border)"}`,
+                  borderRadius: "var(--radius-md)",
+                  color: "var(--color-text-primary)",
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.08em",
+                  fontSize: "0.875rem",
+                  outline: "none",
+                  boxShadow: scanFocused ? "0 0 0 3px rgba(0,153,184,0.15)" : "none",
+                  transition: "border 150ms ease, background 150ms ease, box-shadow 150ms ease",
+                }}
+              />
+              {scanned && (
+                <span style={{
+                  position: "absolute", right: "0.75rem", top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--color-success)", fontSize: "0.75rem", fontWeight: 600,
+                }}>
+                  ✓ Capturado
+                </span>
+              )}
+            </div>
+            <Button
+              onClick={() => buscar()}
+              disabled={loadingSearch || imeiInput.trim().length < 6}
+            >
+              {loadingSearch
+                ? <RefreshCw className="w-4 h-4 animate-spin" />
+                : <Search className="w-4 h-4" />
+              }
+            </Button>
+          </div>
+          <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.375rem" }}>
+            Compatible con escáner USB/Bluetooth — Enter busca automáticamente
+          </p>
+        </div>
+
+        {/* ── Skeleton de carga ── */}
+        {loadingSearch && (
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex gap-3 animate-pulse">
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--color-bg-elevated)", flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ height: 13, width: "35%", background: "var(--color-bg-elevated)", borderRadius: 4, marginBottom: 8 }} />
+                  <div style={{ height: 11, width: "65%", background: "var(--color-bg-elevated)", borderRadius: 4 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Error ── */}
+        {errorSearch && !loadingSearch && (
+          <div style={{
+            padding: "0.875rem 1rem",
+            background: "var(--color-danger-bg)",
+            border: "1px solid var(--color-danger)",
+            borderRadius: "var(--radius-md)",
+            color: "var(--color-danger-text)",
+            fontSize: "0.875rem",
+          }}>
+            ⚠️ {errorSearch}
+          </div>
+        )}
+
+        {/* ── Empty ── */}
+        {searched && !loadingSearch && !errorSearch && eventos.length === 0 && (
+          <div style={{
+            textAlign: "center", padding: "2.5rem 1rem",
+            background: "var(--color-bg-elevated)",
+            borderRadius: "var(--radius-lg)",
+          }}>
+            <History className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--color-text-muted)" }} />
+            <p style={{ fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: "0.25rem" }}>
+              Sin historial para este IMEI
+            </p>
+            <p style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
+              {imeiSearch}
+            </p>
+            <p style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", marginTop: "0.5rem" }}>
+              No aparece en inventario, ventas ni reparaciones
+            </p>
+          </div>
+        )}
+
+        {/* ── Timeline ── */}
+        {searched && !loadingSearch && !errorSearch && eventos.length > 0 && (
+          <div>
+            {/* Header de resultados */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginBottom: "1.25rem",
+              paddingBottom: "0.75rem",
+              borderBottom: "1px solid var(--color-border-subtle)",
+            }}>
+              <div>
+                <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: "0.125rem" }}>
+                  Trazabilidad del equipo
+                </p>
+                <p style={{
+                  fontFamily: "var(--font-mono)", fontSize: "0.9375rem",
+                  fontWeight: 700, color: "var(--color-text-primary)",
+                  letterSpacing: "0.08em",
+                }}>
+                  {imeiSearch}
+                </p>
+              </div>
+              <span style={{
+                padding: "0.25rem 0.875rem",
+                background: "var(--color-accent-light)",
+                color: "var(--color-accent)",
+                borderRadius: "var(--radius-full)",
+                fontSize: "0.75rem", fontWeight: 700,
+              }}>
+                {eventos.length} evento{eventos.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            {/* Línea de tiempo */}
+            <div style={{ position: "relative" }}>
+              {/* Línea vertical */}
+              <div style={{
+                position: "absolute",
+                left: 17, top: 18,
+                bottom: 18,
+                width: 2,
+                background: "var(--color-border-subtle)",
+              }} />
+
+              <div className="space-y-4">
+                {eventos.map((ev, idx) => {
+                  const cfg = EVENTO_CFG[ev.tipo] ?? EVENTO_CFG.inventario;
+                  const { Icon } = cfg;
+                  return (
+                    <div key={idx} style={{ display: "flex", gap: "0.75rem", position: "relative" }}>
+                      {/* Círculo con ícono */}
+                      <div style={{
+                        width: 36, height: 36, borderRadius: "50%",
+                        background: cfg.bg,
+                        border: `2px solid ${cfg.color}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0, position: "relative", zIndex: 1,
+                      }}>
+                        <Icon style={{ width: 16, height: 16, color: cfg.color }} />
+                      </div>
+
+                      {/* Tarjeta de evento */}
+                      <div style={{
+                        flex: 1,
+                        background: "var(--color-bg-surface)",
+                        border: "1px solid var(--color-border-subtle)",
+                        borderRadius: "var(--radius-md)",
+                        padding: "0.75rem 1rem",
+                        boxShadow: "var(--shadow-xs)",
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem" }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {/* Título + badge tipo */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
+                              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-text-primary)" }}>
+                                {ev.titulo}
+                              </span>
+                              <span style={{
+                                padding: "0.1rem 0.5rem",
+                                background: cfg.bg, color: cfg.color,
+                                borderRadius: "var(--radius-full)",
+                                fontSize: "0.6875rem", fontWeight: 600,
+                              }}>
+                                {cfg.label}
+                              </span>
+                            </div>
+                            {/* Descripción */}
+                            <p style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)", marginBottom: "0.375rem", lineHeight: 1.4 }}>
+                              {ev.descripcion}
+                            </p>
+                            {/* Meta: fecha, ref, estado */}
+                            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+                              <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
+                                {fmtFecha(ev.fecha)}
+                              </span>
+                              {ev.referencia && (
+                                <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
+                                  Ref: {ev.referencia}
+                                </span>
+                              )}
+                              {ev.estado && (
+                                <span style={{ fontSize: "0.6875rem", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
+                                  [{ev.estado}]
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Monto + enlace */}
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.375rem", flexShrink: 0 }}>
+                            {ev.monto != null && (
+                              <span style={{
+                                fontFamily: "var(--font-data)",
+                                fontSize: "0.9375rem",
+                                fontWeight: 700,
+                                color: ev.tipo === "venta" ? "var(--color-success)" : "var(--color-text-primary)",
+                              }}>
+                                ${Number(ev.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              </span>
+                            )}
+                            {ev.enlace && (
+                              <a
+                                href={ev.enlace}
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "var(--color-accent)",
+                                  display: "flex", alignItems: "center", gap: "0.25rem",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                Ver detalle
+                                <ChevronRight style={{ width: 12, height: 12 }} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
