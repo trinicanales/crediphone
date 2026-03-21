@@ -70,7 +70,8 @@ export async function createProducto(producto: Omit<Producto, "id" | "createdAt"
       imagen: producto.imagen,
       descripcion: producto.descripcion,
       // FASE 22: Inventario Avanzado
-      categoria_id: producto.categoriaId,
+      categoria_id:    producto.categoriaId,
+      subcategoria_id: producto.subcategoriaId ?? null, // FASE 57
       proveedor_id: producto.proveedorId,
       costo: producto.costo,
       stock_minimo: producto.stockMinimo,
@@ -107,8 +108,9 @@ export async function updateProducto(id: string, producto: Partial<Producto>, di
   if (producto.activo !== undefined) updates.activo = producto.activo;
 
   // FASE 22 Fields
-  if (producto.categoriaId !== undefined) updates.categoria_id = producto.categoriaId;
-  if (producto.proveedorId !== undefined) updates.proveedor_id = producto.proveedorId;
+  if (producto.categoriaId    !== undefined) updates.categoria_id    = producto.categoriaId;
+  if (producto.subcategoriaId !== undefined) updates.subcategoria_id = producto.subcategoriaId || null; // FASE 57
+  if (producto.proveedorId    !== undefined) updates.proveedor_id    = producto.proveedorId;
   if (producto.costo !== undefined) updates.costo = producto.costo;
   if (producto.stockMinimo !== undefined) updates.stock_minimo = producto.stockMinimo;
   if (producto.stockMaximo !== undefined) updates.stock_maximo = producto.stockMaximo;

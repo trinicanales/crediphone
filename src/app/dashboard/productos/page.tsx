@@ -604,6 +604,7 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
     descripcion:     producto?.descripcion         || "",
     tipo:            producto?.tipo                || "",
     categoriaId:     producto?.categoriaId         || "",
+    subcategoriaId:  producto?.subcategoriaId      || "", // FASE 57
     proveedorId:     producto?.proveedorId         || "",
     esSerializado:   producto?.esSerializado       || false,
     ubicacionFisica: producto?.ubicacionFisica     || "",
@@ -617,8 +618,9 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
   });
   const [loading, setLoading]       = useState(false);
   const [errors, setErrors]         = useState<Record<string, string>>({});
-  const [categorias, setCategorias] = useState<{ id: string; nombre: string }[]>([]);
-  const [proveedores, setProveedores] = useState<{ id: string; nombre: string }[]>([]);
+  const [categorias, setCategorias]       = useState<{ id: string; nombre: string }[]>([]);
+  const [subcategorias, setSubcategorias] = useState<{ id: string; nombre: string }[]>([]); // FASE 57
+  const [proveedores, setProveedores]     = useState<{ id: string; nombre: string }[]>([]);
   const [showScanner, setShowScanner] = useState(false);
   // FASE 54: sugerencias de marca y modelo para autocompletado
   const [sugerenciasMarcas, setSugerenciasMarcas]   = useState<string[]>([]);
@@ -654,6 +656,18 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.marca]);
+
+  // FASE 57: cargar subcategorías cuando cambia la categoría seleccionada
+  useEffect(() => {
+    if (!formData.categoriaId) { setSubcategorias([]); setFormData((p) => ({ ...p, subcategoriaId: "" })); return; }
+    const headers: HeadersInit = {};
+    if (distribuidorActivo?.id) headers["X-Distribuidor-Id"] = distribuidorActivo.id;
+    fetch(`/api/subcategorias?categoria_id=${formData.categoriaId}`, { headers })
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setSubcategorias(d.data); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.categoriaId]);
 
   // FASE 53d: auto-marcar esSerializado cuando el tipo es equipo celular
   useEffect(() => {
@@ -702,6 +716,7 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
           stockMinimo:     formData.stockMinimo    ? Number(formData.stockMinimo)    : undefined,
           tipo:            formData.tipo            || undefined,
           categoriaId:     formData.categoriaId     || undefined,
+          subcategoriaId:  formData.subcategoriaId  || undefined, // FASE 57
           proveedorId:     formData.proveedorId     || undefined,
           ubicacionFisica: formData.ubicacionFisica || undefined,
           codigoBarras:    formData.codigoBarras    || undefined,
@@ -762,6 +777,17 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
           </select>
         </div>
       </div>
+
+      {/* FASE 57: Subcategoría — visible solo si la categoría tiene subcategorías cargadas */}
+      {formData.categoriaId && subcategorias.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium mb-1" style={labelStyle}>Subcategoría</label>
+          <select name="subcategoriaId" value={formData.subcategoriaId} onChange={handleChange} className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none" style={selectStyle}>
+            <option value="">— Sin subcategoría —</option>
+            {subcategorias.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+          </select>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium mb-1" style={labelStyle}>Proveedor</label>

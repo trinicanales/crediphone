@@ -214,6 +214,7 @@ export interface Producto {
 
   // FASE 22: Inventario Avanzado
   categoriaId?: string;
+  subcategoriaId?: string; // FASE 57
   proveedorId?: string;
   costo?: number; // Precio de compra / base
   stockMinimo?: number; // Punto de reorden
