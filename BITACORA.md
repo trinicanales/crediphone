@@ -93,6 +93,13 @@ el usuario no es super_admin.
 | Iconos-2 | Marco+Bisel unificados en un botón + todos los iconos PNG en estado físico | `90a8dd9` |
 | Iconos-3 | Iconos contenidos en su cuadro (overflow-hidden + fill) en ambos grids | `366f22c` |
 | Iconos-4 | Iconos nuevos (apagado, mojado, batería hinchada, QR, subir-foto) + nombres cortos en componentes | `fa99d25` |
+| 35 | Centro de Promociones con opt-in seguro + tracking page con promos reales desde BD | `130e934`, `956e207` |
+| 41+ | Tab "Cobrar Rep." en POS: buscador, anticipo, cobro final, auto-entrega saldo=$0 | `b540863` |
+| 42+ | Sistema Lotes de Piezas: tabla BD, recepción, verificación, distribución costo envío | `36a0994` |
+| 51 | Sidebar reorganizado en 8 grupos funcionales por prioridad de negocio | — |
+| 52 | Liquid Glass en íconos del sidebar | — |
+| 53 | Dashboard Ejecutivo Persistente — Command Center con auto-refresh 3min | `25205bf` |
+| FIX | Hydration mismatch WhatsApp + async params Next.js 15/16 en lotes-piezas | `6d22fe4` |
 
 ---
 
@@ -167,13 +174,20 @@ Conteo ciego por denominaciones, fondo fijo configurable, Pay In/Out, tolerancia
 
 ---
 
-### 📊 FASE 41 — ✅ COMPLETADA (commit `cf1b789`, 2026-03-18)
-Bolsa virtual de reparaciones en caja: `sesion_caja_id` en `anticipos_reparacion`, `getAnticiposBySesion()`, `getAnticiposSinSesion()` (anti-fraude), sección "Bolsa de Reparaciones" en vista sesión activa, banner de anticipos sin sesión para admin/super_admin.
+### 📊 FASE 35 — ✅ COMPLETADA (commits `130e934` + `956e207`, 2026-03-19)
+Centro de Promociones con opt-in seguro: tabla `promociones`, CRUD admin, consentimiento presencial WhatsApp, endpoint público `/api/tracking/[token]/promociones`, integración en tracking page con promo cards dinámicas (descuento %, botón WhatsApp contextual).
 
 ---
 
-### 📊 FASE 42 — ✅ COMPLETADA (commit `a4f78c8`, 2026-03-18)
-Sidebar con acordeones colapsables: NavAccordion + AccordionNavItem. INVENTARIO colapsado en 2 grupos (Catálogo + Stock), REPARACIONES panel por rol, REPORTES simplificado.
+### 📊 FASE 41 — ✅ COMPLETADA (commits `cf1b789` + `b540863`)
+- Bolsa virtual de reparaciones en caja: `sesion_caja_id` en `anticipos_reparacion`, `getAnticiposBySesion()`, `getAnticiposSinSesion()` (anti-fraude), sección "Bolsa de Reparaciones" en vista sesión activa, banner de anticipos sin sesión para admin/super_admin.
+- Tab "Cobrar Rep." en POS (`b540863`, 2026-03-21): `ReparacionesPOSPanel.tsx`, búsqueda por folio/cliente/teléfono, modal anticipo, modal cobro final, auto-estado "entregado" cuando saldo=$0. APIs: `/api/pos/reparacion-buscar` y `/api/pos/reparacion-cobro`.
+
+---
+
+### 📊 FASE 42 — ✅ COMPLETADA (commits `a4f78c8` + `36a0994`)
+- Sidebar con acordeones colapsables: NavAccordion + AccordionNavItem. INVENTARIO colapsado en 2 grupos (Catálogo + Stock), REPARACIONES panel por rol, REPORTES simplificado.
+- Sistema Lotes de Piezas (`36a0994`, 2026-03-21): tablas `lotes_piezas` + `lotes_piezas_items` (migración `fase42_lotes_piezas_v2` aplicada en Supabase). `src/lib/db/lotes-piezas.ts`, 5 rutas API, página `/dashboard/lotes-piezas`, `distribuirCostoEnvio()` proporcional. Sidebar: ícono Package en grupo INVENTARIO. FK correcta: `ordenes_reparacion` (NO `reparaciones`).
 
 ---
 
@@ -182,14 +196,32 @@ Aging report + tasa de mora real: `/api/creditos/aging` con 6 buckets (corriente
 
 ---
 
-### 🔄 FASES FUTURAS (en orden)
-- FASE 44-50: ✅ TODAS COMPLETADAS (ver tabla de fases arriba)
-- FASE 51: Sidebar reorganización definitiva — 25 ítems → 7 grupos con separadores y sub-tabs (ver CREDIPHONE-Auditoria-UX-2026.docx sección 5)
-- FASE 52: Sprint visual — pulido estilo empresarial (iconos Lucide correctos, tipografía datos, tokens CSS en todos los módulos)
-- FASE 53: Facturación CFDI (integración Facturapi)
-- FASE 54: Control de asistencia / reloj checador por QR o PIN
-- FASE 55: WhatsApp Business API oficial (plantillas aprobadas Meta, historial, doble tick)
-- FASE 56: Links de pago (Clip, Conekta) — enviar link de cobro al cliente por WhatsApp
+### 📊 FASE 51 — ✅ COMPLETADA
+Sidebar reordenado por prioridad de negocio en 8 grupos funcionales.
+
+---
+
+### 📊 FASE 52 — ✅ COMPLETADA
+Liquid Glass en íconos del sidebar: backdrop-filter, glow activo.
+
+---
+
+### 📊 FASE 53 — ✅ COMPLETADA (commit `25205bf`)
+Dashboard Ejecutivo Persistente: Command Center para admin/super_admin, KPIs en tiempo real, OrdenesWidget, AccionesRápidas, ActivityStream, auto-refresh 3 min.
+
+---
+
+### 🔧 FIX — hydration mismatch + async params (commit `6d22fe4`, 2026-03-21)
+- Footer, CarritoFlotante, FormularioCotizacion: número WhatsApp unificado a `NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391"` (eliminado placeholder `5215512345678`)
+- Rutas API `lotes-piezas/[id]` y subrutas: params migrados a `Promise<{...}>` (Next.js 15/16)
+
+---
+
+### 🔄 FASES PENDIENTES (no iniciadas — esperar indicación de Trini)
+- FASE 54: Facturación CFDI (integración Facturapi)
+- FASE 55: Control de asistencia / reloj checador por QR o PIN
+- FASE 56: WhatsApp Business API oficial (plantillas aprobadas Meta, historial, doble tick)
+- FASE 57: Links de pago (Clip, Conekta) — enviar link de cobro al cliente por WhatsApp
 
 ---
 
@@ -267,4 +299,4 @@ Por eso existe este archivo. Si algo importante pasa en una sesión (nueva decis
 
 ---
 
-*Última actualización: 2026-03-19 — Trini + Claude (FASES 28-33 registradas, FASES 44-50 registradas como completadas, trabajo de iconos PNG registrado)*
+*Última actualización: 2026-03-21 — Trini + Claude (FASE 35 registrada, FASES 41+42 extendidas con trabajo de sesión, FASES 51-53 marcadas como completadas, fix hydration/async params registrado)*
