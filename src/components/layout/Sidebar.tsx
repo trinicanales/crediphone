@@ -1,6 +1,13 @@
 "use client";
 
-import { useState as useStateLocal } from "react";
+import { useState as useStateLocal, Suspense } from "react";
+import dynamic from "next/dynamic";
+
+// Carga dinámica del widget para no bloquear el render del sidebar
+const WidgetChecador = dynamic(
+  () => import("@/components/asistencia/WidgetChecador").then((m) => ({ default: m.WidgetChecador })),
+  { ssr: false, loading: () => null }
+);
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -39,6 +46,7 @@ import {
   Warehouse,        // Ubicaciones / Stock
   ShoppingCart,     // Órdenes de Compra
   Receipt,          // Facturación / Contador
+  ClockIcon,        // Asistencia / Reloj Checador
 } from "lucide-react";
 
 /* ── Tipos de navegación ────────────────────────────────────── */
@@ -184,6 +192,7 @@ const navGroups: NavGroup[] = [
     label: "ADMINISTRACIÓN",
     items: [
       { href: "/dashboard/empleados",                        label: "Empleados",             icon: UserCheck,         roles: ["admin", "super_admin"],  moduleKey: "empleados" },
+      { href: "/dashboard/asistencia",                       label: "Asistencia",            icon: ClockIcon,         roles: ["admin", "super_admin"] },
       { href: "/dashboard/admin/catalogo-reparaciones",      label: "Catálogo Reparaciones", icon: Wrench,            roles: ["admin", "super_admin"],  moduleKey: "reparaciones" },
       { href: "/dashboard/admin/distribuidores",             label: "Distribuidores",        icon: Building2,         roles: ["super_admin"] },
       { href: "/dashboard/configuracion",                    label: "Configuración",         icon: SlidersHorizontal, roles: ["admin", "super_admin"] },
@@ -714,6 +723,13 @@ export function Sidebar({ isOpen, onClose, userRole, userName, onLogout }: Sideb
               >
                 <LogOut className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* FASE 55: Widget Reloj Checador — visible para todos los empleados */}
+            <div className="px-3 pb-3">
+              <Suspense fallback={null}>
+                <WidgetChecador />
+              </Suspense>
             </div>
           </div>
         )}

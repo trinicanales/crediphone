@@ -1589,3 +1589,34 @@ export type CatalogoServicioFormData = Omit<
   CatalogoServicioReparacion,
   "id" | "createdBy" | "createdAt" | "updatedAt" | "precioEfectivo"
 >;
+
+// ─── FASE 55: Control de Asistencia / Reloj Checador ─────────────────────────
+
+export interface AsistenciaSesion {
+  id: string;
+  distribuidorId?: string;
+  usuarioId: string;
+  usuarioNombre?: string;
+  fechaEntrada: Date;
+  fechaSalida?: Date;
+  duracionMinutos?: number;   // GENERATED ALWAYS en la DB
+  notasEntrada?: string;
+  notasSalida?: string;
+  estado: "activo" | "cerrado";
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface EstadisticasAsistencia {
+  presentes: number;          // empleados con turno activo ahora mismo
+  totalHorasHoy: number;
+  totalHorasMes: number;
+  promedioHorasDia: number;
+  resumenEmpleados: {
+    usuarioId: string;
+    nombre: string;
+    horasMes: number;
+    diasTrabajados: number;
+    estadoActual: "presente" | "ausente";
+  }[];
+}
