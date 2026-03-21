@@ -623,6 +623,9 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
   // FASE 54: sugerencias de marca y modelo para autocompletado
   const [sugerenciasMarcas, setSugerenciasMarcas]   = useState<string[]>([]);
   const [sugerenciasModelos, setSugerenciasModelos] = useState<string[]>([]);
+  // FASE 56: soporte escáner USB/Bluetooth — estado de foco y confirmación visual
+  const [barcodeScanned, setBarcodeScanned] = useState(false);
+  const [barcodeFocused, setBarcodeFocused] = useState(false);
 
   // FASE 53b: incluir X-Distribuidor-Id para que super_admin reciba las categorías del distribuidor activo
   useEffect(() => {
@@ -871,14 +874,30 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
               name="codigoBarras"
               value={formData.codigoBarras}
               onChange={handleChange}
-              placeholder="Escanea, ingresa o genera el código"
+              placeholder={barcodeFocused ? "🔴 Listo — apunta el escáner aquí" : "Escanea, ingresa o genera el código"}
+              autoComplete="off"
+              onFocus={() => { setBarcodeFocused(true); setBarcodeScanned(false); }}
+              onBlur={() => setBarcodeFocused(false)}
+              onKeyDown={(e) => {
+                // FASE 56: Enter desde escáner USB/Bluetooth — no submitear el form
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (formData.codigoBarras.trim()) {
+                    setBarcodeScanned(true);
+                    setBarcodeFocused(false);
+                    // Auto-ocultar confirmación tras 2.5s
+                    setTimeout(() => setBarcodeScanned(false), 2500);
+                  }
+                }
+              }}
               className="flex-1 h-10 px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30"
               style={{
-                background: "var(--color-bg-sunken)",
-                border: "1px solid var(--color-border)",
+                background: barcodeScanned ? "var(--color-success-bg)" : "var(--color-bg-sunken)",
+                border: `1px solid ${barcodeScanned ? "var(--color-success)" : barcodeFocused ? "var(--color-accent)" : "var(--color-border)"}`,
                 color: "var(--color-text-primary)",
                 fontFamily: "var(--font-mono)",
                 letterSpacing: "0.04em",
+                transition: "border-color 150ms ease, background 150ms ease",
               }}
             />
             {/* Botón Generar — visible solo si el campo está vacío */}
@@ -931,8 +950,14 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
               <QrCode className="w-5 h-5" />
             </button>
           </div>
+          {/* FASE 56: confirmación visual tras scan USB/Bluetooth */}
+          {barcodeScanned && (
+            <p className="mt-1 text-xs font-medium" style={{ color: "var(--color-success)" }}>
+              ✓ Código capturado: {formData.codigoBarras}
+            </p>
+          )}
           {/* Ayuda: indica si el código fue generado automáticamente */}
-          {formData.codigoBarras?.startsWith("CP-") && (
+          {!barcodeScanned && formData.codigoBarras?.startsWith("CP-") && (
             <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
               ✦ Código interno generado — compatible con escáneres Code 128 / QR
             </p>
