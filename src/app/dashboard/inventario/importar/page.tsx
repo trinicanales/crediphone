@@ -195,9 +195,9 @@ export default function ImportarInventarioPage() {
         {/* Tabs de pestañas */}
         <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
           {[
-            { icon: <Smartphone size={14} />, label: "📱 TELEFONOS",   desc: "Equipos con IMEI individual. 1 fila = 1 equipo." },
-            { icon: <Package    size={14} />, label: "📦 PRODUCTOS",    desc: "Accesorios, cables, fundas, etc. con stock por unidad." },
-            { icon: <Wrench     size={14} />, label: "🔧 REFACCIONES",  desc: "Piezas para reparaciones (pantallas, baterías, etc.)." },
+            { icon: <Smartphone size={14} />, label: "TELEFONOS",   desc: "Equipos con IMEI individual. 1 fila = 1 equipo." },
+            { icon: <Package    size={14} />, label: "PRODUCTOS",    desc: "Accesorios, cables, fundas, etc. con stock por unidad." },
+            { icon: <Wrench     size={14} />, label: "REFACCIONES",  desc: "Piezas para reparaciones (pantallas, baterías, etc.)." },
           ].map((t) => (
             <div key={t.label}
               style={{ flex: "1 1 200px", background: "var(--color-bg-sunken)",

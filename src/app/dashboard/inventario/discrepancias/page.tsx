@@ -263,7 +263,7 @@ export default function DiscrepanciasPage() {
           border: "1px solid var(--color-danger)", borderRadius: "var(--radius-md)",
           color: "var(--color-danger-text)", fontSize: "0.875rem",
         }}>
-          ⚠️ {error}
+          <span className="flex items-center gap-1.5"><AlertTriangle size={14} />{error}</span>
         </div>
       )}
 

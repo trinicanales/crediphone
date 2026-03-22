@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/Button";
 import type { OrdenReparacionDetallada } from "@/types";
 import {
   Loader2, Package, Wrench, DollarSign, Clock, FileText, Edit,
-  ClipboardList, Camera, MessageCircle, Timer, CalendarDays,
+  ClipboardList, Camera, MessageCircle, Timer, CalendarDays, AlertTriangle,
 } from "lucide-react";
 
 export default function OrdenDetailPage() {
@@ -204,7 +204,7 @@ export default function OrdenDetailPage() {
               }}
             >
               <div className="flex items-start gap-3">
-                <span className="text-2xl shrink-0">⚠️</span>
+                <AlertTriangle size={22} className="shrink-0" style={{ color: "var(--color-warning)" }} />
                 <div>
                   <p
                     className="font-bold text-sm"

@@ -15,7 +15,7 @@ import {
   Package, PackageCheck, AlertTriangle, TrendingUp,
   Pencil, Trash2, Search, Plus, Upload, Smartphone, Tag, RefreshCw, QrCode,
   History, ShoppingCart, Wrench, Warehouse, ChevronRight,
-  Printer, Minus as MinusIcon, Plus as PlusIcon, CheckSquare, Square, CheckCircle,
+  Printer, Minus as MinusIcon, Plus as PlusIcon, CheckSquare, Square, CheckCircle, Zap,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 
@@ -445,7 +445,7 @@ function StatCard({
     >
       <div className="flex items-start justify-between">
         <div className="p-2 rounded-xl" style={{ background: iconBg, color: iconColor }}>{icon}</div>
-        {alert && <span style={{ color: "var(--color-warning)" }}>⚠️</span>}
+        {alert && <AlertTriangle size={14} style={{ color: "var(--color-warning)" }} />}
       </div>
       <div
         className={`mt-3 font-bold ${isText ? "text-lg" : "text-3xl"}`}
@@ -991,7 +991,7 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
           className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
           style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "1px solid var(--color-warning)22" }}
         >
-          <span>⚡</span>
+          <Zap size={14} />
           <span>Los servicios no tienen inventario físico — el stock se ignora al vender.</span>
         </div>
       ) : (
@@ -1012,7 +1012,7 @@ function ProductoForm({ mode, producto, onSuccess, onCancel }: ProductoFormProps
               name="codigoBarras"
               value={formData.codigoBarras}
               onChange={handleChange}
-              placeholder={barcodeFocused ? "🔴 Listo — apunta el escáner aquí" : "Escanea, ingresa o genera el código"}
+              placeholder={barcodeFocused ? "● Listo — apunta el escáner aquí" : "Escanea, ingresa o genera el código"}
               autoComplete="off"
               onFocus={() => { setBarcodeFocused(true); setBarcodeScanned(false); }}
               onBlur={() => setBarcodeFocused(false)}
@@ -1788,7 +1788,7 @@ function HistorialImeiModal({
                     }
                   }
                 }}
-                placeholder={scanFocused ? "🔴 Listo — apunta el escáner aquí" : "Ej: 356938035643809"}
+                placeholder={scanFocused ? "● Listo — apunta el escáner aquí" : "Ej: 356938035643809"}
                 style={{
                   width: "100%",
                   padding: "0.5625rem 0.875rem",
@@ -1854,7 +1854,7 @@ function HistorialImeiModal({
             color: "var(--color-danger-text)",
             fontSize: "0.875rem",
           }}>
-            ⚠️ {errorSearch}
+            <span className="flex items-center gap-1.5"><AlertTriangle size={14} />{errorSearch}</span>
           </div>
         )}
 

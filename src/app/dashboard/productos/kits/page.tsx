@@ -271,7 +271,7 @@ export default function KitsPage() {
         </div>
       )}
       {!loading && error && (
-        <div style={{ padding: "1rem", background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)", borderRadius: "var(--radius-md)", color: "var(--color-danger-text)", fontSize: "0.875rem" }}>⚠️ {error}</div>
+        <div style={{ padding: "1rem", background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)", borderRadius: "var(--radius-md)", color: "var(--color-danger-text)", fontSize: "0.875rem" }}><span className="flex items-center gap-1.5"><AlertTriangle size={14} />{error}</span></div>
       )}
       {!loading && !error && filtrados.length === 0 && (
         <div style={{ textAlign: "center", padding: "3rem 1rem", background: "var(--color-bg-surface)", border: "1px solid var(--color-border-subtle)", borderRadius: "var(--radius-lg)" }}>
