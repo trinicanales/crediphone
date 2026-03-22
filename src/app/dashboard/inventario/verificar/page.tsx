@@ -34,12 +34,13 @@ import type {
 // ── Tipos internos ─────────────────────────────────────────────────────────────
 
 interface PendingItem {
-  codigo: string;
+  codigo: string;          // barcode/SKU — vacío si el producto no tiene
+  productoId?: string;     // set cuando se toca manualmente (para scan_by_id)
   productoNombre?: string;
   productaMarca?: string;
   productoModelo?: string;
   stockSistema?: number;
-  cantidadActual?: number; // si ya estaba escaneado
+  cantidadActual?: number; // si ya estaba escaneado en esta sesión
 }
 
 type Tab = "scanner" | "contados" | "diferencias";
@@ -187,6 +188,27 @@ export default function VerificarInventarioPage() {
     });
   };
 
+  // Toque manual en un faltante de la lista → abre modal de conteo
+  const handleTapFaltante = (producto: Producto) => {
+    const codigoReal = producto.codigoBarras?.trim() || producto.sku?.trim() || "";
+    const yaEscaneado = items.find(
+      (it) =>
+        it.productoId === producto.id ||
+        (codigoReal && (it.codigoEscaneado === codigoReal || it.producto?.codigoBarras === codigoReal))
+    );
+
+    setPendingItem({
+      codigo: codigoReal,
+      // Sin barcode → usaremos scan_by_id para registrar por ID de producto
+      productoId: codigoReal ? undefined : producto.id,
+      productoNombre: producto.nombre,
+      productaMarca: producto.marca,
+      productoModelo: producto.modelo,
+      stockSistema: producto.stock,
+      cantidadActual: yaEscaneado?.cantidadEscaneada,
+    });
+  };
+
   // Step 2: user confirms quantity → submit to API
   const handleConfirmarCantidad = async () => {
     if (!pendingItem || !verificacion) return;
@@ -194,15 +216,26 @@ export default function VerificarInventarioPage() {
     const cantidad = Math.max(0, parseInt(cantidadInput) || 0);
     setPendingItem(null);
 
+    // Si no hay código de barras → usar scan_by_id con el ID del producto
+    const useScanById = !!pendingItem.productoId && !pendingItem.codigo;
+    const body = useScanById
+      ? {
+          action: "scan_by_id",
+          verificacionId: verificacion.id,
+          productoId: pendingItem.productoId,
+          cantidad,
+        }
+      : {
+          action: "scan",
+          verificacionId: verificacion.id,
+          codigoEscaneado: pendingItem.codigo,
+          cantidad,
+        };
+
     const res = await fetch("/api/inventario/verificaciones", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "scan",
-        verificacionId: verificacion.id,
-        codigoEscaneado: pendingItem.codigo,
-        cantidad,
-      }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
 
@@ -548,7 +581,12 @@ export default function VerificarInventarioPage() {
                       </div>
                     ) : (
                       faltantesPorUbicacion.map(([ubicacion, prods]) => (
-                        <FaltanteGroup key={ubicacion} ubicacion={ubicacion} productos={prods} />
+                        <FaltanteGroup
+                          key={ubicacion}
+                          ubicacion={ubicacion}
+                          productos={prods}
+                          onTap={handleTapFaltante}
+                        />
                       ))
                     )}
                   </div>
@@ -729,7 +767,7 @@ export default function VerificarInventarioPage() {
             {/* Producto */}
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-text-muted)" }}>
-                Producto escaneado
+                {pendingItem.productoId ? "Conteo manual" : "Producto escaneado"}
               </p>
               {pendingItem.productoNombre ? (
                 <>
@@ -873,7 +911,15 @@ function KpiMini({ icon, label, value, color }: { icon: React.ReactNode; label: 
 
 // ── Grupo de faltantes por ubicación (colapsable) ─────────────────────────────
 
-function FaltanteGroup({ ubicacion, productos }: { ubicacion: string; productos: Producto[] }) {
+function FaltanteGroup({
+  ubicacion,
+  productos,
+  onTap,
+}: {
+  ubicacion: string;
+  productos: Producto[];
+  onTap: (p: Producto) => void;
+}) {
   const [expanded, setExpanded] = useState(true);
   const esSinUbicacion = ubicacion === "Sin ubicación asignada";
 
@@ -917,25 +963,31 @@ function FaltanteGroup({ ubicacion, productos }: { ubicacion: string; productos:
 
       {/* Productos del grupo */}
       {expanded && productos.map((p) => (
-        <FaltanteRow key={p.id} producto={p} />
+        <FaltanteRow key={p.id} producto={p} onTap={onTap} />
       ))}
     </div>
   );
 }
 
-function FaltanteRow({ producto }: { producto: Producto }) {
+function FaltanteRow({ producto, onTap }: { producto: Producto; onTap: (p: Producto) => void }) {
   const [hover, setHover] = useState(false);
   const codigoMostrar = producto.codigoBarras || producto.sku;
+  const tieneBarcode = !!codigoMostrar;
+
   return (
-    <div
-      className="flex items-center gap-3 px-4 py-2.5"
+    <button
+      type="button"
+      className="w-full flex items-center gap-3 px-4 py-2.5 text-left"
       style={{
         background: hover ? "var(--color-bg-elevated)" : "transparent",
         borderBottom: "1px solid var(--color-border-subtle)",
         transition: "background var(--duration-fast)",
+        cursor: "pointer",
       }}
+      onClick={() => onTap(producto)}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      title="Toca para registrar el conteo"
     >
       <AlertTriangle className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--color-warning)" }} />
       <div className="flex-1 min-w-0">
@@ -949,15 +1001,24 @@ function FaltanteRow({ producto }: { producto: Producto }) {
               · {codigoMostrar}
             </span>
           )}
+          {!tieneBarcode && (
+            <span
+              className="ml-1 px-1 rounded text-xs"
+              style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)", fontSize: "0.65rem" }}
+            >
+              sin código
+            </span>
+          )}
         </p>
       </div>
+      {/* Stock del sistema — lo que debería haber */}
       <div className="shrink-0 text-right">
-        <span className="text-xs font-bold" style={{ color: "var(--color-text-secondary)", fontFamily: "var(--font-data)" }}>
+        <span className="text-sm font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
           {producto.stock}
         </span>
-        <p className="text-xs" style={{ color: "var(--color-text-muted)", lineHeight: 1 }}>uds.</p>
+        <p className="text-xs leading-none mt-0.5" style={{ color: "var(--color-text-muted)" }}>sistema</p>
       </div>
-    </div>
+    </button>
   );
 }
 

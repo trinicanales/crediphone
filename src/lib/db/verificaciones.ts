@@ -390,6 +390,94 @@ export async function scanProducto(
 }
 
 /**
+ * Registrar conteo de un producto seleccionado manualmente (sin escanear código).
+ * Útil para accesorios sin código de barras/SKU.
+ */
+export async function scanProductoById(
+  verificacionId: string,
+  productoId: string,
+  cantidad: number
+): Promise<VerificacionItem> {
+  const supabase = createAdminClient();
+
+  // Obtener datos de la sesión
+  const { data: verificacion } = await supabase
+    .from("verificaciones_inventario")
+    .select("distribuidor_id, usuario_id")
+    .eq("id", verificacionId)
+    .single();
+
+  const distribuidorId = verificacion?.distribuidor_id;
+
+  // Obtener el producto por ID
+  const { data: producto, error: prodError } = await supabase
+    .from("productos")
+    .select("id, codigo_barras, sku, nombre")
+    .eq("id", productoId)
+    .eq("activo", true)
+    .single();
+
+  if (prodError || !producto) throw new Error("Producto no encontrado");
+
+  // Código sintético para el registro: usa barcode si existe, si no el ID
+  const codigoEscaneado = (producto.codigo_barras || producto.sku || producto.id) as string;
+
+  // Verificar si ya fue registrado en esta sesión (buscar por producto_id)
+  const { data: existing } = await supabase
+    .from("verificaciones_items")
+    .select("*")
+    .eq("verificacion_id", verificacionId)
+    .eq("producto_id", productoId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  let data: any;
+  let error: any;
+
+  if (existing && existing.length > 0) {
+    // Actualizar conteo existente
+    const result = await supabase
+      .from("verificaciones_items")
+      .update({ cantidad_escaneada: cantidad, es_duplicado: false })
+      .eq("id", existing[0].id)
+      .select()
+      .single();
+    data = result.data;
+    error = result.error;
+  } else {
+    // Primera vez que se registra este producto
+    const result = await supabase
+      .from("verificaciones_items")
+      .insert({
+        verificacion_id: verificacionId,
+        producto_id: productoId,
+        codigo_escaneado: codigoEscaneado,
+        cantidad_escaneada: cantidad,
+        es_duplicado: false,
+        es_producto_nuevo: false,
+        distribuidor_id: distribuidorId,
+      })
+      .select()
+      .single();
+    data = result.data;
+    error = result.error;
+  }
+
+  if (error) throw error;
+
+  // Marcar última verificación en el producto
+  await supabase
+    .from("productos")
+    .update({
+      ultima_verificacion: new Date().toISOString(),
+      verificado_por: verificacion?.usuario_id,
+    })
+    .eq("id", productoId);
+
+  return mapVerificacionItemFromDB(data);
+}
+
+/**
  * Get missing products for a verification session
  */
 export async function getProductosFaltantes(

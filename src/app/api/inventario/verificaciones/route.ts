@@ -7,6 +7,7 @@ import {
   getAllVerificaciones,
   getEstadisticasVerificacion,
   scanProducto,
+  scanProductoById,
 } from "@/lib/db/verificaciones";
 import type { NuevaVerificacionFormData, ScanProductoFormData } from "@/types";
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     const action = body.action;
 
     if (action === "scan") {
-      // Scan a product
+      // Scan a product by barcode/SKU
       const scanData: ScanProductoFormData = {
         verificacionId: body.verificacionId,
         codigoEscaneado: body.codigoEscaneado,
@@ -101,6 +102,26 @@ export async function POST(request: NextRequest) {
       }
 
       const item = await scanProducto(scanData);
+
+      return NextResponse.json({ success: true, data: item });
+    }
+
+    if (action === "scan_by_id") {
+      // Registrar conteo manual por producto ID (accesorios sin código de barras)
+      const { verificacionId, productoId, cantidad } = body;
+
+      if (!verificacionId || !productoId) {
+        return NextResponse.json(
+          { success: false, error: "verificacionId y productoId son requeridos" },
+          { status: 400 }
+        );
+      }
+
+      const item = await scanProductoById(
+        verificacionId,
+        productoId,
+        cantidad ? Number(cantidad) : 1
+      );
 
       return NextResponse.json({ success: true, data: item });
     }
