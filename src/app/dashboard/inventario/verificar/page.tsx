@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useDistribuidor } from "@/components/DistribuidorProvider";
@@ -20,6 +20,9 @@ import {
   Wrench,
   BarChart2,
   ScanLine,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import type {
   VerificacionInventarioDetallada,
@@ -299,6 +302,27 @@ export default function VerificarInventarioPage() {
   const stockPositivo = conDiferencia.filter((d) => d.diferencia > 0);
   const stockNegativo = conDiferencia.filter((d) => d.diferencia < 0);
 
+  // ── Agrupación de faltantes por ubicación física ──────────────────────────
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const faltantesPorUbicacion = useMemo(() => {
+    const groups = new Map<string, Producto[]>();
+    for (const p of faltantes) {
+      const key = p.ubicacionFisica?.trim() || "Sin ubicación asignada";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(p);
+    }
+    // Ubicaciones con nombre primero (orden alfabético), "Sin ubicación" al final
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === "Sin ubicación asignada") return 1;
+      if (b === "Sin ubicación asignada") return -1;
+      return a.localeCompare(b, "es");
+    });
+  }, [faltantes]);
+
+  // Progreso de la sesión
+  const totalProductos = items.length + faltantes.length;
+  const porcentajeProgreso = totalProductos > 0 ? Math.round((items.length / totalProductos) * 100) : 0;
+
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8" style={{ background: "var(--color-bg-base)" }}>
       <div className="max-w-5xl mx-auto space-y-6">
@@ -364,10 +388,55 @@ export default function VerificarInventarioPage() {
             {/* KPI strip */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <KpiMini icon={<ScanLine className="w-4 h-4" />} label="Contados" value={items.length} color="accent" />
-              <KpiMini icon={<Package className="w-4 h-4" />} label="Faltantes" value={faltantes.length} color="warning" />
+              <KpiMini icon={<Package className="w-4 h-4" />} label="Pendientes" value={faltantes.length} color="warning" />
               <KpiMini icon={<TrendingDown className="w-4 h-4" />} label="Stock bajo" value={stockNegativo.length} color="danger" />
               <KpiMini icon={<TrendingUp className="w-4 h-4" />} label="Stock alto" value={stockPositivo.length} color="success" />
             </div>
+
+            {/* Barra de progreso de verificación */}
+            {totalProductos > 0 && (
+              <div
+                className="rounded-xl px-4 py-3"
+                style={{
+                  background: "var(--color-bg-surface)",
+                  border: "1px solid var(--color-border-subtle)",
+                  boxShadow: "var(--shadow-xs)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                    Progreso de verificación
+                  </span>
+                  <span className="text-xs font-bold" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
+                    {items.length} / {totalProductos} productos ({porcentajeProgreso}%)
+                  </span>
+                </div>
+                <div
+                  className="w-full rounded-full overflow-hidden"
+                  style={{ height: 8, background: "var(--color-bg-elevated)" }}
+                >
+                  <div
+                    style={{
+                      width: `${porcentajeProgreso}%`,
+                      height: "100%",
+                      background: porcentajeProgreso === 100
+                        ? "var(--color-success)"
+                        : "var(--color-accent)",
+                      borderRadius: "9999px",
+                      transition: "width 400ms ease",
+                    }}
+                  />
+                </div>
+                {faltantes.length > 0 && (
+                  <p className="text-xs mt-1.5" style={{ color: "var(--color-text-muted)" }}>
+                    Quedan <strong style={{ color: "var(--color-warning)" }}>{faltantes.length} productos</strong> por escanear
+                    {faltantesPorUbicacion.length > 1 && (
+                      <span> en <strong>{faltantesPorUbicacion.length} áreas</strong></span>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Tabs */}
             <div
@@ -439,9 +508,9 @@ export default function VerificarInventarioPage() {
                   )}
                 </div>
 
-                {/* Faltantes */}
+                {/* Faltantes — agrupados por ubicación */}
                 <div
-                  className="rounded-2xl"
+                  className="rounded-2xl overflow-hidden"
                   style={{
                     background: "var(--color-bg-surface)",
                     border: "1px solid var(--color-border-subtle)",
@@ -449,34 +518,38 @@ export default function VerificarInventarioPage() {
                   }}
                 >
                   <div
-                    className="px-5 py-4 flex items-center justify-between"
+                    className="px-5 py-3.5 flex items-center justify-between"
                     style={{ borderBottom: "1px solid var(--color-border-subtle)" }}
                   >
                     <p className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--color-warning)" }}>
                       <Package className="w-4 h-4" />
-                      Pendientes de contar ({faltantes.length})
+                      Por escanear
+                      {faltantes.length > 0 && (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-bold"
+                          style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)" }}
+                        >
+                          {faltantes.length}
+                        </span>
+                      )}
                     </p>
-                    <button onClick={() => verificacion && loadFaltantes(verificacion.id)}>
-                      <RefreshCw className="w-4 h-4" style={{ color: "var(--color-text-muted)" }} />
+                    <button onClick={() => verificacion && loadFaltantes(verificacion.id)} title="Actualizar lista">
+                      <RefreshCw className="w-3.5 h-3.5" style={{ color: "var(--color-text-muted)" }} />
                     </button>
                   </div>
-                  <div className="overflow-y-auto max-h-72">
+
+                  <div className="overflow-y-auto max-h-80">
                     {faltantes.length === 0 ? (
-                      <div className="flex flex-col items-center py-10">
+                      <div className="flex flex-col items-center py-10 gap-2">
                         <CheckCircle className="w-8 h-8" style={{ color: "var(--color-success)" }} />
-                        <p className="mt-2 text-sm font-medium" style={{ color: "var(--color-success)" }}>
-                          ¡Todos contados!
+                        <p className="text-sm font-semibold" style={{ color: "var(--color-success)" }}>
+                          ¡Todos los productos escaneados!
                         </p>
                       </div>
                     ) : (
-                      faltantes.slice(0, 30).map((p) => (
-                        <FaltanteRow key={p.id} producto={p} />
+                      faltantesPorUbicacion.map(([ubicacion, prods]) => (
+                        <FaltanteGroup key={ubicacion} ubicacion={ubicacion} productos={prods} />
                       ))
-                    )}
-                    {faltantes.length > 30 && (
-                      <p className="text-xs text-center py-2" style={{ color: "var(--color-text-muted)" }}>
-                        y {faltantes.length - 30} más...
-                      </p>
                     )}
                   </div>
                 </div>
@@ -798,8 +871,61 @@ function KpiMini({ icon, label, value, color }: { icon: React.ReactNode; label: 
   );
 }
 
+// ── Grupo de faltantes por ubicación (colapsable) ─────────────────────────────
+
+function FaltanteGroup({ ubicacion, productos }: { ubicacion: string; productos: Producto[] }) {
+  const [expanded, setExpanded] = useState(true);
+  const esSinUbicacion = ubicacion === "Sin ubicación asignada";
+
+  return (
+    <div>
+      {/* Header del grupo */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold uppercase tracking-wide"
+        style={{
+          background: "var(--color-bg-elevated)",
+          color: esSinUbicacion ? "var(--color-text-muted)" : "var(--color-text-secondary)",
+          borderBottom: "1px solid var(--color-border-subtle)",
+          borderTop: "1px solid var(--color-border-subtle)",
+          cursor: "pointer",
+        }}
+      >
+        <span className="flex items-center gap-1.5">
+          <MapPin className="w-3 h-3" style={{ color: esSinUbicacion ? "var(--color-text-muted)" : "var(--color-accent)" }} />
+          {ubicacion}
+        </span>
+        <span className="flex items-center gap-2">
+          <span
+            className="px-1.5 py-0.5 rounded-full font-bold"
+            style={{
+              background: "var(--color-warning-bg)",
+              color: "var(--color-warning-text)",
+              fontSize: "0.7rem",
+              fontFamily: "var(--font-data)",
+            }}
+          >
+            {productos.length}
+          </span>
+          {expanded
+            ? <ChevronUp className="w-3.5 h-3.5" style={{ color: "var(--color-text-muted)" }} />
+            : <ChevronDown className="w-3.5 h-3.5" style={{ color: "var(--color-text-muted)" }} />
+          }
+        </span>
+      </button>
+
+      {/* Productos del grupo */}
+      {expanded && productos.map((p) => (
+        <FaltanteRow key={p.id} producto={p} />
+      ))}
+    </div>
+  );
+}
+
 function FaltanteRow({ producto }: { producto: Producto }) {
   const [hover, setHover] = useState(false);
+  const codigoMostrar = producto.codigoBarras || producto.sku;
   return (
     <div
       className="flex items-center gap-3 px-4 py-2.5"
@@ -818,11 +944,19 @@ function FaltanteRow({ producto }: { producto: Producto }) {
         </p>
         <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
           {[producto.marca, producto.modelo].filter(Boolean).join(" ")}
+          {codigoMostrar && (
+            <span className="ml-1 font-mono" style={{ color: "var(--color-text-muted)", opacity: 0.7 }}>
+              · {codigoMostrar}
+            </span>
+          )}
         </p>
       </div>
-      <span className="text-sm font-bold shrink-0" style={{ color: "var(--color-text-secondary)", fontFamily: "var(--font-data)" }}>
-        {producto.stock}
-      </span>
+      <div className="shrink-0 text-right">
+        <span className="text-xs font-bold" style={{ color: "var(--color-text-secondary)", fontFamily: "var(--font-data)" }}>
+          {producto.stock}
+        </span>
+        <p className="text-xs" style={{ color: "var(--color-text-muted)", lineHeight: 1 }}>uds.</p>
+      </div>
     </div>
   );
 }
