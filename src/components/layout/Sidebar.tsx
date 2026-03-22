@@ -43,6 +43,7 @@ import {
   ClockIcon,        // Asistencia / Reloj Checador
   Package2,         // Kits y bundles (FASE 61)
   Barcode,          // Series por lote (FASE 62)
+  Upload,           // Importar Excel (Plantilla masiva)
 } from "lucide-react";
 
 /* ── Tipos de navegación ────────────────────────────────────── */
@@ -170,6 +171,7 @@ const navGroups: NavGroup[] = [
           { href: "/dashboard/inventario/alertas",      label: "Alertas Stock",   icon: PackageX,       roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
           { href: "/dashboard/inventario/discrepancias",label: "Discrepancias",   icon: FileBarChart,   roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
           { href: "/dashboard/inventario/series",       label: "Series x Lote",   icon: Barcode,        roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
+          { href: "/dashboard/inventario/importar",     label: "Importar Excel",  icon: Upload,         roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
         ],
       },
     ],
