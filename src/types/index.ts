@@ -1654,3 +1654,49 @@ export interface NuevoKitFormData {
   imagen?:       string;
   items:         { productoId: string; cantidad: number }[];
 }
+
+// ─── FASE 62: Series por lote ──────────────────────────────────────────────────
+
+export type EstadoLoteSerie = "borrador" | "procesado" | "cancelado";
+export type EstadoSerieItem = "valido" | "duplicado" | "invalido";
+
+export interface LoteSerieItem {
+  id:         string;
+  loteId:     string;
+  imei:       string;
+  estado:     EstadoSerieItem;
+  productoId?: string;
+  notas?:     string;
+  createdAt:  Date;
+}
+
+export interface LoteSerie {
+  id:             string;
+  distribuidorId: string;
+  productoId:     string;
+  folio:          string;
+  referencia?:    string;
+  proveedorId?:   string;
+  totalEsperado:  number;
+  totalRecibido:  number;
+  totalDuplicado: number;
+  totalInvalido:  number;
+  estado:         EstadoLoteSerie;
+  notas?:         string;
+  creadoPor?:     string;
+  createdAt:      Date;
+  updatedAt:      Date;
+  // Relaciones
+  producto?:      Partial<Producto>;
+  proveedor?:     { id: string; nombre: string } | null;
+  items?:         LoteSerieItem[];
+}
+
+export interface NuevoLoteSerieFormData {
+  productoId:     string;
+  referencia?:    string;
+  proveedorId?:   string;
+  totalEsperado:  number;
+  notas?:         string;
+  imeis:          string[];  // lista ya parseada y validada
+}

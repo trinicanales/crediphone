@@ -42,6 +42,7 @@ import {
   Receipt,          // Facturación / Contador
   ClockIcon,        // Asistencia / Reloj Checador
   Package2,         // Kits y bundles (FASE 61)
+  Barcode,          // Series por lote (FASE 62)
 } from "lucide-react";
 
 /* ── Tipos de navegación ────────────────────────────────────── */
@@ -168,6 +169,7 @@ const navGroups: NavGroup[] = [
           { href: "/dashboard/inventario/ubicaciones",  label: "Ubicaciones",     icon: Warehouse,      roles: ["admin", "vendedor", "super_admin"], moduleKey: "inventario_avanzado" },
           { href: "/dashboard/inventario/alertas",      label: "Alertas Stock",   icon: PackageX,       roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
           { href: "/dashboard/inventario/discrepancias",label: "Discrepancias",   icon: FileBarChart,   roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
+          { href: "/dashboard/inventario/series",       label: "Series x Lote",   icon: Barcode,        roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
         ],
       },
     ],
