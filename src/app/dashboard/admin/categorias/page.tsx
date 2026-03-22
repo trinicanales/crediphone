@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getCategorias } from "@/lib/db/categorias";
-import { getDistribuidorId } from "@/lib/auth/server";
+import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +9,12 @@ import { Plus, Tag, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 
 export default async function CategoriasPage() {
-    let distribuidorId = await getDistribuidorId();
+    // SEGURIDAD: solo admin y super_admin acceden a configuración de catálogo
+    const { role, distribuidorId: ctxDistribuidor } = await getAuthContext();
+    if (!["admin", "super_admin"].includes(role ?? "")) {
+        redirect("/dashboard");
+    }
+    let distribuidorId = ctxDistribuidor;
 
     // Fallback for super_admin without distribuidor_id (e.g. newly created)
     if (!distribuidorId) {

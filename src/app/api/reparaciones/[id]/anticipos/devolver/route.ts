@@ -18,7 +18,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
 
     const permitidos = ["admin", "super_admin"];
@@ -36,15 +36,23 @@ export async function POST(
 
     const supabase = createAdminClient();
 
-    // Obtener folio
+    // SEGURIDAD: obtener orden con distribuidor_id para verificar acceso multi-tenant
     const { data: orden } = await supabase
       .from("ordenes_reparacion")
-      .select("folio, estado")
+      .select("folio, estado, distribuidor_id")
       .eq("id", id)
       .single();
 
     if (!orden) {
       return NextResponse.json({ success: false, error: "Orden no encontrada" }, { status: 404 });
+    }
+
+    // SEGURIDAD: verificar que la orden pertenece al distribuidor del admin
+    if (!isSuperAdmin && orden.distribuidor_id && orden.distribuidor_id !== distribuidorId) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado para operar esta orden" },
+        { status: 403 }
+      );
     }
 
     // Sesión de caja activa

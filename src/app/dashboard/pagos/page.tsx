@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -32,6 +34,8 @@ const COLUMNAS_PAGOS_CSV: ColumnaExport<PagoConDetalles>[] = [
 ];
 
 export default function PagosPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [pagos, setPagos] = useState<PagoConDetalles[]>([]);
   const [filteredPagos, setFilteredPagos] = useState<PagoConDetalles[]>([]);
   const [creditos, setCreditos] = useState<Credito[]>([]);
@@ -43,6 +47,13 @@ export default function PagosPage() {
   const [selectedPago, setSelectedPago] = useState<Pago | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
   const [pagoToDelete, setPagoToDelete] = useState<Pago | null>(null);
+
+  // SEGURIDAD: técnico no tiene acceso a pagos/créditos
+  useEffect(() => {
+    if (user && user.role === "tecnico") {
+      router.push("/dashboard");
+    }
+  }, [user, router]);
 
   useEffect(() => { fetchData(); }, []);
 

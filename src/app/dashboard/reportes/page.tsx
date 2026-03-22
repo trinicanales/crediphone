@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 import { Download, TrendingUp, TrendingDown, DollarSign, BarChart2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import {
@@ -588,10 +590,19 @@ function TabPnl() {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function ReportesPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<ReportesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [tabActivo, setTabActivo] = useState<"creditos" | "pnl">("creditos");
+
+  // SEGURIDAD: solo admin y super_admin acceden a reportes financieros
+  useEffect(() => {
+    if (user && !["admin", "super_admin"].includes(user.role)) {
+      router.push("/dashboard");
+    }
+  }, [user, router]);
 
   const handleDownloadPdf = async () => {
     try {

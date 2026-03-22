@@ -76,8 +76,18 @@ export async function POST(
     // Intentar obtener contexto de auth (puede fallar si no hay sesión)
     const authCtx = await getAuthContext().catch(() => null);
 
-    if (!authCtx?.userId || !["admin", "super_admin"].includes(authCtx.role ?? "")) {
-      return NextResponse.json({ success: false, requiresAuth: true });
+    if (!authCtx?.userId) {
+      // SEGURIDAD: retornar 401 con requiresAuth para que el frontend muestre login
+      return NextResponse.json(
+        { success: false, requiresAuth: true, error: "Se requiere iniciar sesión" },
+        { status: 401 }
+      );
+    }
+    if (!["admin", "super_admin"].includes(authCtx.role ?? "")) {
+      return NextResponse.json(
+        { success: false, error: "Solo administradores pueden autorizar descuentos" },
+        { status: 403 }
+      );
     }
 
     const { token } = await params;

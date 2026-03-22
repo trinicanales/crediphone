@@ -46,7 +46,7 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json(
         { success: false, error: "Debes iniciar sesión para confirmar", requiresAuth: true },
@@ -61,6 +61,14 @@ export async function POST(
     const confirmacion = await getConfirmacionByToken(token);
     if (!confirmacion) {
       return NextResponse.json({ success: false, error: "Token no encontrado o expirado" }, { status: 404 });
+    }
+
+    // SEGURIDAD: verificar que la confirmación pertenece al distribuidor del admin
+    if (!isSuperAdmin && confirmacion.distribuidorId && confirmacion.distribuidorId !== distribuidorId) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado para confirmar este depósito" },
+        { status: 403 }
+      );
     }
 
     if (confirmacion.estado !== "pendiente_confirmacion") {

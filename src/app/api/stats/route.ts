@@ -3,14 +3,19 @@ import { getClientes } from "@/lib/db/clientes";
 import { getCreditos, getCreditosActivos } from "@/lib/db/creditos";
 import { getPagos, getTotalPagosDelDia } from "@/lib/db/pagos";
 import { getProductos } from "@/lib/db/productos";
-import { getDistribuidorId } from "@/lib/auth/server";
+import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   try {
-    // super_admin returns null → no filter (sees all); admin returns their distribuidorId
-    const distribuidorId = await getDistribuidorId();
-    const distId = distribuidorId ?? undefined;
+    // SEGURIDAD: usar getAuthContext() para obtener role + distribuidorId
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+
+    // super_admin ve todo (distId = undefined → sin filtro); otros solo su distribuidor
+    const distId = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
 
     // Ejecutar todas las consultas en paralelo para mejor rendimiento
     const [clientes, creditos, creditosActivos, pagosHoy, totalPagosHoy, productos] = await Promise.all([
@@ -39,10 +44,15 @@ export async function GET() {
       : "0";
 
     // Obtener distribución de riesgo desde scoring_clientes
+    // SEGURIDAD: filtrar por distribuidor para que admin solo vea su propio scoring
     const supabase = createAdminClient();
     let scoringQuery = supabase
       .from("scoring_clientes")
       .select("nivel_riesgo");
+
+    if (!isSuperAdmin && distribuidorId) {
+      scoringQuery = scoringQuery.eq("distribuidor_id", distribuidorId) as typeof scoringQuery;
+    }
 
     const { data: scoringData } = await scoringQuery;
 
