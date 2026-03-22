@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const XLSX = require("xlsx");
+import ExcelJS from "exceljs";
 
 /* ─── Tipos internos ──────────────────────────────────────────────────────────── */
 
@@ -377,22 +376,48 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const wb = XLSX.read(buffer, { type: "buffer" });
+
+    // Leer con ExcelJS (reemplaza xlsx vulnerable)
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
 
     const supabase = createAdminClient();
     const allResults: RowResult[] = [];
 
     // Detectar pestañas por nombre (busca parecidos)
-    for (const sheetName of wb.SheetNames) {
-      const sn = sheetName.toLowerCase();
-      const ws = wb.Sheets[sheetName];
+    for (const ws of wb.worksheets) {
+      const sn = ws.name.toLowerCase();
 
-      // Convertir a JSON desde fila 3 (headers en fila 3, datos desde fila 4)
-      const rows = XLSX.utils.sheet_to_json(ws, {
-        defval: "",
-        raw: false,
-        range: 2, // fila 3 es index 2
-      }) as Record<string, string>[];
+      // Extraer filas: fila 3 = headers, filas 4+ = datos
+      const headerRow = ws.getRow(3);
+      const headers: Record<number, string> = {};
+      headerRow.eachCell({ includeEmpty: true }, (cell: ExcelJS.Cell, colNumber: number) => {
+        const h = String(cell.value ?? "").trim();
+        if (h) headers[colNumber] = h;
+      });
+
+      const rows: Record<string, string>[] = [];
+      ws.eachRow((row: ExcelJS.Row, rowNumber: number) => {
+        if (rowNumber < 4) return; // saltar instrucciones + fila de headers
+        const rowData: Record<string, string> = {};
+        row.eachCell({ includeEmpty: true }, (cell: ExcelJS.Cell, colNumber: number) => {
+          const header = headers[colNumber];
+          if (header) {
+            // Obtener valor como string; manejar fórmulas con resultado
+            let val = "";
+            if (cell.type === ExcelJS.ValueType.Formula) {
+              val = String((cell as ExcelJS.Cell & { result?: unknown }).result ?? "");
+            } else {
+              val = String(cell.value ?? "");
+            }
+            rowData[header] = val.trim();
+          }
+        });
+        // Ignorar filas completamente vacías
+        if (Object.values(rowData).some((v) => v !== "")) {
+          rows.push(rowData);
+        }
+      });
 
       if (sn.includes("telef") || sn.includes("📱")) {
         const r = await procesarHojaTelefonos(rows, efectivoDistribuidorId!, supabase);
