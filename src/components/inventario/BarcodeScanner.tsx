@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Camera, X, AlertCircle, CheckCircle, RefreshCw, Zap } from "lucide-react";
+import { Camera, X, AlertCircle, CheckCircle, RefreshCw, Zap, ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -30,7 +30,11 @@ export function BarcodeScanner({
   const [flashActive, setFlashActive] = useState(false);
   const [scannerReady, setScannerReady] = useState(false);
 
+  const [fotoScanning, setFotoScanning] = useState(false);
+  const [fotoError, setFotoError] = useState("");
+
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastCodeRef = useRef<{ code: string; ts: number } | null>(null);
   const stopFnRef = useRef<(() => void) | null>(null);
 
@@ -135,6 +139,35 @@ export function BarcodeScanner({
     }
   }, [onScan]);
 
+  /** Decodifica un código desde una imagen seleccionada o tomada con cámara */
+  const handleFotoEscanear = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFotoError("");
+    setFotoScanning(true);
+
+    // Crear URL temporal para la imagen
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const reader = new BrowserMultiFormatReader();
+      const result = await reader.decodeFromImageUrl(objectUrl);
+      const code = result.getText();
+      setLastDetected(code);
+      setFlashActive(true);
+      setTimeout(() => setFlashActive(false), 600);
+      onScan(code);
+    } catch {
+      setFotoError("No se encontró ningún código en la imagen. Intenta con mejor iluminación o acerca más la cámara.");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+      setFotoScanning(false);
+      // Limpiar el input para permitir seleccionar el mismo archivo de nuevo
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [onScan]);
+
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualInput.trim()) {
@@ -169,30 +202,52 @@ export function BarcodeScanner({
           </div>
         </div>
 
-        {/* Botón cámara */}
+        {/* Botones cámara + foto */}
         <div className="flex gap-2">
           {!showCamera ? (
             <Button
               type="button"
               onClick={startScanner}
               variant="secondary"
-              className="w-full"
-              disabled={isScanning}
+              className="flex-1"
+              disabled={isScanning || fotoScanning}
             >
               <Camera className="w-4 h-4 mr-2" />
-              Escanear con Cámara
+              Cámara en vivo
             </Button>
           ) : (
             <Button
               type="button"
               onClick={stopScanner}
               variant="danger"
-              className="w-full"
+              className="flex-1"
             >
               <X className="w-4 h-4 mr-2" />
               Cerrar Cámara
             </Button>
           )}
+
+          {/* Input oculto para foto */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFotoEscanear}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isScanning || fotoScanning || showCamera}
+            title="Tomar foto o seleccionar imagen para escanear"
+          >
+            {fotoScanning
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <ImagePlus className="w-4 h-4" />
+            }
+          </Button>
         </div>
       </form>
 
@@ -217,6 +272,17 @@ export function BarcodeScanner({
               <RefreshCw className="w-3 h-3" /> Reintentar
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Error de foto ────────────────────────────── */}
+      {fotoError && (
+        <div
+          className="p-3 rounded-lg flex items-start gap-2"
+          style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}
+        >
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--color-warning)" }} />
+          <p className="text-xs" style={{ color: "var(--color-warning-text)" }}>{fotoError}</p>
         </div>
       )}
 

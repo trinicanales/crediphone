@@ -15,7 +15,7 @@ import {
   Package, PackageCheck, AlertTriangle, TrendingUp,
   Pencil, Trash2, Search, Plus, Upload, Smartphone, Tag, RefreshCw, QrCode,
   History, ShoppingCart, Wrench, Warehouse, ChevronRight,
-  Printer, Minus as MinusIcon, Plus as PlusIcon,
+  Printer, Minus as MinusIcon, Plus as PlusIcon, CheckSquare, Square,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 
@@ -55,6 +55,8 @@ export default function ProductosPage() {
   const [importRemisionOpen, setImportRemisionOpen]   = useState(false);
   const [imeiModalOpen, setImeiModalOpen]             = useState(false); // FASE 58
   const [etiquetaProducto, setEtiquetaProducto]       = useState<Producto | null>(null); // FASE 60
+  const [seleccionados, setSeleccionados]             = useState<Set<string>>(new Set());
+  const [etiquetasMasivasOpen, setEtiquetasMasivasOpen] = useState(false);
 
   useEffect(() => { fetchProductos(); }, []);
 
@@ -273,6 +275,15 @@ export default function ProductosPage() {
                       onEdit={() => handleEdit(producto)}
                       onDelete={() => handleDeleteClick(producto)}
                       onPrint={() => setEtiquetaProducto(producto)}
+                      seleccionado={seleccionados.has(producto.id)}
+                      onToggleSeleccion={() => {
+                        setSeleccionados((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(producto.id)) next.delete(producto.id);
+                          else next.add(producto.id);
+                          return next;
+                        });
+                      }}
                     />
                   ))}
                 </tbody>
@@ -281,29 +292,65 @@ export default function ProductosPage() {
 
             {/* Footer de tabla */}
             <div
-              className="px-4 py-3 flex items-center justify-between text-xs"
+              className="px-4 py-3 flex items-center justify-between text-xs gap-3 flex-wrap"
               style={{
                 background: "var(--color-bg-elevated)",
                 borderTop: "1px solid var(--color-border)",
                 color: "var(--color-text-muted)",
               }}
             >
-              <span>
-                Mostrando{" "}
-                <strong style={{ color: "var(--color-text-secondary)" }}>{filteredProductos.length}</strong>
-                {" "}de{" "}
-                <strong style={{ color: "var(--color-text-secondary)" }}>{productos.length}</strong> productos
-              </span>
-              {filteredProductos.length !== productos.length && (
+              <div className="flex items-center gap-3 flex-wrap">
+                <span>
+                  Mostrando{" "}
+                  <strong style={{ color: "var(--color-text-secondary)" }}>{filteredProductos.length}</strong>
+                  {" "}de{" "}
+                  <strong style={{ color: "var(--color-text-secondary)" }}>{productos.length}</strong> productos
+                </span>
+                {/* Seleccionar todos visibles */}
                 <button
-                  onClick={() => { setSearchQuery(""); setFiltroTipo("todos"); }}
+                  onClick={() => {
+                    if (seleccionados.size === filteredProductos.length) {
+                      setSeleccionados(new Set());
+                    } else {
+                      setSeleccionados(new Set(filteredProductos.map((p) => p.id)));
+                    }
+                  }}
+                  className="flex items-center gap-1 font-medium"
                   style={{ color: "var(--color-accent)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-                  onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
                 >
-                  Limpiar filtros
+                  {seleccionados.size === filteredProductos.length && filteredProductos.length > 0
+                    ? <><CheckSquare className="w-3.5 h-3.5" /> Deseleccionar todos</>
+                    : <><Square className="w-3.5 h-3.5" /> Seleccionar todos</>
+                  }
                 </button>
-              )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {seleccionados.size > 0 && (
+                  <button
+                    onClick={() => setEtiquetasMasivasOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                    style={{
+                      background: "var(--color-primary)",
+                      color: "#fff",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Imprimir etiquetas ({seleccionados.size})
+                  </button>
+                )}
+                {filteredProductos.length !== productos.length && (
+                  <button
+                    onClick={() => { setSearchQuery(""); setFiltroTipo("todos"); }}
+                    style={{ color: "var(--color-accent)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
             </div>
           </>
         )}
@@ -337,6 +384,13 @@ export default function ProductosPage() {
 
       {/* FASE 60: Modal de Etiqueta Imprimible */}
       <EtiquetaModal producto={etiquetaProducto} onClose={() => setEtiquetaProducto(null)} />
+
+      {/* FASE 63+: Modal etiquetas masivas */}
+      <EtiquetasMasivasModal
+        isOpen={etiquetasMasivasOpen}
+        productos={filteredProductos.filter((p) => seleccionados.has(p.id))}
+        onClose={() => setEtiquetasMasivasOpen(false)}
+      />
     </div>
   );
 }
@@ -407,8 +461,9 @@ function StatCard({
 
 // ─── Producto Row ─────────────────────────────────────────────────────────────
 
-function ProductoRow({ producto, fmt, onEdit, onDelete, onPrint }: {
+function ProductoRow({ producto, fmt, onEdit, onDelete, onPrint, seleccionado, onToggleSeleccion }: {
   producto: Producto; fmt: (n: number) => string; onEdit: () => void; onDelete: () => void; onPrint: () => void;
+  seleccionado?: boolean; onToggleSeleccion?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const bajo = producto.stockMinimo !== undefined && producto.stock <= producto.stockMinimo && producto.stock > 0;
@@ -430,6 +485,20 @@ function ProductoRow({ producto, fmt, onEdit, onDelete, onPrint }: {
       onMouseLeave={() => setHovered(false)}
       style={{ background: rowBg, borderBottom: "1px solid var(--color-border-subtle)" }}
     >
+      {/* Checkbox de selección */}
+      <td className="pl-3 pr-1 py-3 w-8">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleSeleccion?.(); }}
+          className="flex items-center justify-center"
+          title={seleccionado ? "Deseleccionar" : "Seleccionar para imprimir etiqueta"}
+        >
+          {seleccionado
+            ? <CheckSquare className="w-4 h-4" style={{ color: "var(--color-accent)" }} />
+            : <Square className="w-4 h-4" style={{ color: "var(--color-text-muted)" }} />
+          }
+        </button>
+      </td>
       {/* Imagen */}
       <td className="px-4 py-3">
         {producto.imagen ? (
@@ -1718,6 +1787,321 @@ function HistorialImeiModal({
             </div>
           </div>
         )}
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Modal Etiquetas Masivas (carta) ──────────────────────────────────────────
+
+/**
+ * Calcula cuántas etiquetas de tamaño `mmW x mmH` caben en carta (216×279mm)
+ * con márgenes de 8mm y gap de 3mm entre etiquetas.
+ */
+function calcularGridCarta(mmW: number, mmH: number) {
+  const pageW = 200; // 216 - 2*8 margen
+  const pageH = 263; // 279 - 2*8 margen
+  const gap = 3;
+  const cols = Math.floor((pageW + gap) / (mmW + gap));
+  const rows = Math.floor((pageH + gap) / (mmH + gap));
+  return { cols: Math.max(cols, 1), rows: Math.max(rows, 1), porPagina: Math.max(cols, 1) * Math.max(rows, 1) };
+}
+
+const MM_SIZES: Record<TamanoEtiqueta, { w: number; h: number }> = {
+  "50x30":  { w: 50,  h: 30  },
+  "70x40":  { w: 70,  h: 40  },
+  "100x50": { w: 100, h: 50  },
+};
+
+function EtiquetasMasivasModal({
+  isOpen,
+  productos,
+  onClose,
+}: {
+  isOpen: boolean;
+  productos: Producto[];
+  onClose: () => void;
+}) {
+  const [tamano, setTamano]           = useState<TamanoEtiqueta>("70x40");
+  const [mostrarPrecio, setMostrarPrecio] = useState(true);
+  const [copiasPorProducto, setCopias]    = useState(1);
+
+  if (!isOpen || productos.length === 0) return null;
+
+  const mm = MM_SIZES[tamano];
+  const cfg = TAMANOS.find((t) => t.id === tamano) ?? TAMANOS[1];
+  const { cols, porPagina } = calcularGridCarta(mm.w, mm.h);
+  const totalEtiquetas = productos.length * copiasPorProducto;
+  const totalPaginas   = Math.ceil(totalEtiquetas / porPagina);
+
+  function generarHTML() {
+    // Generar lista de etiquetas expandida (copias por producto)
+    const etiquetas: Producto[] = [];
+    for (const p of productos) {
+      for (let i = 0; i < copiasPorProducto; i++) etiquetas.push(p);
+    }
+
+    const labelCSS = `
+      .etiqueta {
+        width: ${mm.w}mm;
+        height: ${mm.h}mm;
+        border: 0.5pt solid #ccc;
+        border-radius: 1.5mm;
+        padding: 2mm;
+        display: inline-flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden;
+        box-sizing: border-box;
+        vertical-align: top;
+        margin: 1.5mm;
+        background: #fff;
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        break-inside: avoid;
+      }
+      .nombre { font-size: ${mm.w <= 50 ? "5pt" : mm.w <= 70 ? "6pt" : "8pt"}; font-weight: 700; line-height: 1.3; color: #111; }
+      .sub    { font-size: ${mm.w <= 50 ? "4pt" : "4.5pt"}; color: #666; margin-top: 0.5mm; }
+      .precio { font-size: ${mm.w <= 50 ? "10pt" : mm.w <= 70 ? "12pt" : "16pt"}; font-weight: 900; color: #0d1e35; line-height: 1; }
+      .qr-wrap { text-align: center; flex-shrink: 0; }
+      .qr-code { font-size: 3.5pt; font-family: monospace; color: #666; letter-spacing: 0.3pt; margin-top: 0.5mm; }
+      .bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 2mm; }
+    `;
+
+    const rows = etiquetas.map((p) => {
+      const codigo = p.codigoBarras ?? p.id.slice(-8).toUpperCase();
+      const precio = Number(p.precio ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 });
+      const sub    = [p.marca, p.modelo].filter(Boolean).join(" · ");
+      const qrSize = mm.w <= 50 ? 60 : mm.w <= 70 ? 80 : 100;
+      return `<div class="etiqueta">
+  <div>
+    <div class="nombre">${p.nombre ?? ""}</div>
+    ${sub ? `<div class="sub">${sub}</div>` : ""}
+  </div>
+  <div class="bottom">
+    ${mostrarPrecio ? `<div class="precio">$${precio}</div>` : ""}
+    <div class="qr-wrap">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(codigo)}&margin=0" width="${mm.w <= 50 ? "8mm" : mm.w <= 70 ? "10mm" : "14mm"}" alt="QR" />
+      <div class="qr-code">${codigo}</div>
+    </div>
+  </div>
+</div>`;
+    }).join("\n");
+
+    return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Etiquetas — ${productos.length} productos</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; }
+.pagina {
+  width: 216mm;
+  min-height: 279mm;
+  padding: 8mm;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0;
+  page-break-after: always;
+  background: white;
+}
+${labelCSS}
+@media print {
+  @page { size: letter; margin: 0; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pagina { page-break-after: always; }
+}
+</style>
+</head>
+<body>
+${chunkArray(rows.split("\n\n"), porPagina).map((chunk) =>
+  `<div class="pagina">${chunk.join("\n")}</div>`
+).join("\n")}
+<script>window.onload = () => window.print();<\/script>
+</body>
+</html>`;
+  }
+
+  function chunkArray<T>(arr: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+    return chunks;
+  }
+
+  function imprimir() {
+    const html = generarHTML();
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+  }
+
+  function exportarSVG() {
+    const mm = MM_SIZES[tamano];
+    const GAP = 3;
+    const MARGIN = 8;
+    const pageWmm = 216;
+    const pageHmm = 279;
+    const innerW = pageWmm - MARGIN * 2;
+    const innerH = pageHmm - MARGIN * 2;
+    const SCALE = 3.7795; // px/mm a 96dpi
+    const labelW = mm.w * SCALE;
+    const labelH = mm.h * SCALE;
+    const gapPx  = GAP * SCALE;
+    const marginPx = MARGIN * SCALE;
+    const pageWpx = pageWmm * SCALE;
+    const pageHpx = pageHmm * SCALE;
+
+    const etiquetas: Producto[] = [];
+    for (const p of productos) {
+      for (let i = 0; i < copiasPorProducto; i++) etiquetas.push(p);
+    }
+
+    // Posiciones
+    let shapes = "";
+    let x = marginPx;
+    let y = marginPx;
+    let maxRowH = 0;
+
+    for (const p of etiquetas) {
+      if (x + labelW > pageWpx - marginPx) {
+        x = marginPx;
+        y += maxRowH + gapPx;
+        maxRowH = 0;
+      }
+      if (y + labelH > pageHpx - marginPx) break; // sólo primera página
+
+      const codigo = p.codigoBarras ?? p.id.slice(-8).toUpperCase();
+      const precio = Number(p.precio ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 });
+      const sub    = [p.marca, p.modelo].filter(Boolean).join(" · ");
+
+      shapes += `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
+  <rect width="${labelW.toFixed(1)}" height="${labelH.toFixed(1)}" rx="5" ry="5" fill="white" stroke="#ccc" stroke-width="0.5"/>
+  <text x="4" y="14" font-size="${mm.w <= 50 ? 7 : 8}" font-weight="bold" fill="#111" font-family="Arial">${escXml(p.nombre ?? "")}</text>
+  ${sub ? `<text x="4" y="${mm.w <= 50 ? 20 : 22}" font-size="6" fill="#666" font-family="Arial">${escXml(sub)}</text>` : ""}
+  ${mostrarPrecio ? `<text x="4" y="${labelH - 5}" font-size="${mm.w <= 50 ? 12 : 14}" font-weight="bold" fill="#0d1e35" font-family="Arial">$${escXml(precio)}</text>` : ""}
+  <text x="${labelW - 4}" y="${labelH - 5}" font-size="5" fill="#666" font-family="monospace" text-anchor="end">${escXml(codigo)}</text>
+</g>`;
+
+      x += labelW + gapPx;
+      maxRowH = Math.max(maxRowH, labelH);
+    }
+
+    const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${pageWpx.toFixed(0)}" height="${pageHpx.toFixed(0)}" viewBox="0 0 ${pageWpx.toFixed(0)} ${pageHpx.toFixed(0)}">
+  <rect width="100%" height="100%" fill="white"/>
+  ${shapes}
+</svg>`;
+
+    const blob = new Blob([svgContent], { type: "image/svg+xml" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `etiquetas-carta-${productos.length}prods.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function escXml(s: string) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={`Imprimir etiquetas — ${productos.length} productos`} size="lg">
+      <div className="space-y-5">
+
+        {/* Config */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Tamaño */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Tamaño de etiqueta</p>
+            <div className="space-y-1.5">
+              {TAMANOS.map((t) => {
+                const m = MM_SIZES[t.id];
+                const g = calcularGridCarta(m.w, m.h);
+                return (
+                  <label key={t.id} className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="tamano-masivo" checked={tamano === t.id} onChange={() => setTamano(t.id)} style={{ accentColor: "var(--color-accent)" }} />
+                    <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>{t.label}</span>
+                    <span className="text-xs ml-auto" style={{ color: "var(--color-text-muted)" }}>{g.cols} col × {g.rows} fil = {g.porPagina}/pág</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Opciones */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Opciones</p>
+            <label className="flex items-center gap-2 cursor-pointer mb-3">
+              <input type="checkbox" checked={mostrarPrecio} onChange={(e) => setMostrarPrecio(e.target.checked)} style={{ accentColor: "var(--color-accent)" }} />
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Mostrar precio</span>
+            </label>
+
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Copias por producto</p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setCopias((c) => Math.max(1, c - 1))} className="w-7 h-7 rounded flex items-center justify-center" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)" }}>
+                <MinusIcon className="w-3 h-3" style={{ color: "var(--color-text-primary)" }} />
+              </button>
+              <span className="text-sm font-bold w-6 text-center" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-primary)" }}>{copiasPorProducto}</span>
+              <button onClick={() => setCopias((c) => Math.min(20, c + 1))} className="w-7 h-7 rounded flex items-center justify-center" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)" }}>
+                <PlusIcon className="w-3 h-3" style={{ color: "var(--color-text-primary)" }} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Resumen */}
+        <div className="rounded-lg px-4 py-3 flex items-center gap-6 text-sm" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}>
+          <div>
+            <span style={{ color: "var(--color-text-muted)" }}>Etiquetas total </span>
+            <strong style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>{totalEtiquetas}</strong>
+          </div>
+          <div>
+            <span style={{ color: "var(--color-text-muted)" }}>Páginas carta </span>
+            <strong style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>{totalPaginas}</strong>
+          </div>
+          <div>
+            <span style={{ color: "var(--color-text-muted)" }}>Por página </span>
+            <strong style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>{porPagina}</strong>
+            <span style={{ color: "var(--color-text-muted)" }}> ({cols} columnas)</span>
+          </div>
+        </div>
+
+        {/* Lista de productos seleccionados */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Productos seleccionados</p>
+          <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--color-border-subtle)", maxHeight: 180, overflowY: "auto" }}>
+            {productos.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                <div className="w-8 h-8 rounded flex items-center justify-center shrink-0" style={{ background: "var(--color-bg-elevated)" }}>
+                  {p.imagen ? <img src={obtenerUrlImagen(p.imagen) ?? ""} alt="" className="w-8 h-8 object-cover rounded" /> : <Smartphone className="w-4 h-4" style={{ color: "var(--color-text-muted)" }} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate" style={{ color: "var(--color-text-primary)" }}>{p.nombre}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>{[p.marca, p.modelo].filter(Boolean).join(" · ")}</p>
+                </div>
+                <span className="text-xs font-mono shrink-0" style={{ color: "var(--color-text-secondary)" }}>
+                  ${Number(p.precio).toLocaleString("es-MX", { minimumFractionDigits: 0 })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex gap-3 justify-end pt-2" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
+          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={exportarSVG}>
+            <Tag className="w-4 h-4 mr-2" />
+            Exportar SVG
+          </Button>
+          <Button onClick={imprimir}>
+            <Printer className="w-4 h-4 mr-2" />
+            Imprimir / PDF
+          </Button>
+        </div>
       </div>
     </Modal>
   );
