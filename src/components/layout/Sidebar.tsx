@@ -38,6 +38,7 @@ import {
   BadgeDollarSign,  // Comisiones
   Vault,            // Caja / Turno
   Warehouse,        // Ubicaciones / Stock
+  ShoppingBag,      // Servicios sin inventario
   ShoppingCart,     // Órdenes de Compra
   Receipt,          // Facturación / Contador
   ClockIcon,        // Asistencia / Reloj Checador
@@ -140,10 +141,11 @@ const navGroups: NavGroup[] = [
         roles: ["admin", "vendedor", "super_admin"],
         moduleKey: "productos",
         subItems: [
-          { href: "/dashboard/productos",         label: "Productos",   icon: Package,  roles: ["admin", "vendedor", "super_admin"], moduleKey: "productos" },
-          { href: "/dashboard/productos/kits",    label: "Kits",        icon: Package2, roles: ["admin", "super_admin"],             moduleKey: "productos" },
-          { href: "/dashboard/admin/categorias",  label: "Categorías",  icon: Tag,      roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
-          { href: "/dashboard/admin/proveedores", label: "Proveedores", icon: Truck,    roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
+          { href: "/dashboard/productos",         label: "Productos",   icon: Package,      roles: ["admin", "vendedor", "super_admin"], moduleKey: "productos" },
+          { href: "/dashboard/productos/kits",    label: "Kits",        icon: Package2,     roles: ["admin", "super_admin"],             moduleKey: "productos" },
+          { href: "/dashboard/servicios",         label: "Servicios",   icon: ShoppingBag,  roles: ["admin", "super_admin"],             moduleKey: "pos" },
+          { href: "/dashboard/admin/categorias",  label: "Categorías",  icon: Tag,          roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
+          { href: "/dashboard/admin/proveedores", label: "Proveedores", icon: Truck,        roles: ["admin", "super_admin"],             moduleKey: "inventario_avanzado" },
         ],
       },
       {

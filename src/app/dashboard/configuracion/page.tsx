@@ -29,7 +29,6 @@ import {
 import Link from "next/link";
 import PayjoyConfigSection from "@/components/payjoy/PayjoyConfigSection";
 import { SonidosNotificacionConfig } from "@/components/configuracion/SonidosNotificacionConfig";
-import { ServiciosManager } from "@/components/configuracion/ServiciosManager";
 import { PlantillasWhatsAppTab } from "@/components/configuracion/PlantillasWhatsAppTab";
 import { WhatsAppAPITab } from "@/components/configuracion/WhatsAppAPITab";
 
@@ -1039,16 +1038,6 @@ export default function ConfiguracionPage() {
     // ══════════════════════════════════════════════════════
     // TAB 9: SERVICIOS (FASE 36)
     // ══════════════════════════════════════════════════════
-    {
-      id: "servicios",
-      label: "Servicios",
-      content: (
-        <Card className="p-6">
-          <ServiciosManager />
-        </Card>
-      ),
-    },
-
     // ══════════════════════════════════════════════════════
     // TAB 10: PLANTILLAS WHATSAPP (FASE 45)
     // ══════════════════════════════════════════════════════
