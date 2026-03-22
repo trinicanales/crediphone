@@ -41,6 +41,8 @@ interface PendingItem {
   productoModelo?: string;
   stockSistema?: number;
   cantidadActual?: number; // si ya estaba escaneado en esta sesión
+  esSerializado?: boolean; // true = equipo con IMEI → mostrar stock; false = accesorio → conteo a ciegas
+  imei?: string;           // IMEI del equipo si aplica
 }
 
 type Tab = "scanner" | "contados" | "diferencias";
@@ -178,6 +180,10 @@ export default function VerificarInventarioPage() {
           (p as any).sku === codigo
       );
 
+    const serializado = prod?.esSerializado === true ||
+      prod?.tipo === "equipo_nuevo" ||
+      prod?.tipo === "equipo_usado";
+
     setPendingItem({
       codigo,
       productoNombre: prod?.nombre,
@@ -185,6 +191,8 @@ export default function VerificarInventarioPage() {
       productoModelo: prod?.modelo,
       stockSistema: prod?.stock,
       cantidadActual: yaEscaneado ? yaEscaneado.cantidadEscaneada : undefined,
+      esSerializado: serializado,
+      imei: (prod as any)?.imei,
     });
   };
 
@@ -197,6 +205,10 @@ export default function VerificarInventarioPage() {
         (codigoReal && (it.codigoEscaneado === codigoReal || it.producto?.codigoBarras === codigoReal))
     );
 
+    const serializado = producto.esSerializado === true ||
+      producto.tipo === "equipo_nuevo" ||
+      producto.tipo === "equipo_usado";
+
     setPendingItem({
       codigo: codigoReal,
       // Sin barcode → usaremos scan_by_id para registrar por ID de producto
@@ -206,6 +218,8 @@ export default function VerificarInventarioPage() {
       productoModelo: producto.modelo,
       stockSistema: producto.stock,
       cantidadActual: yaEscaneado?.cantidadEscaneada,
+      esSerializado: serializado,
+      imei: producto.imei,
     });
   };
 
@@ -785,21 +799,47 @@ export default function VerificarInventarioPage() {
               )}
             </div>
 
-            {/* Stock del sistema */}
-            {pendingItem.stockSistema !== undefined && (
-              <div
-                className="flex items-center justify-between px-3 py-2 rounded-lg"
-                style={{ background: "var(--color-bg-elevated)" }}
-              >
-                <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                  Stock en sistema
-                </span>
-                <span
-                  className="font-bold text-lg"
-                  style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}
+            {/* Equipo serializado: mostrar stock del sistema + IMEI */}
+            {pendingItem.esSerializado && pendingItem.stockSistema !== undefined && (
+              <div className="space-y-2">
+                <div
+                  className="flex items-center justify-between px-3 py-2 rounded-lg"
+                  style={{ background: "var(--color-bg-elevated)" }}
                 >
-                  {pendingItem.stockSistema}
-                </span>
+                  <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                    Unidades en sistema
+                  </span>
+                  <span
+                    className="font-bold text-lg"
+                    style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}
+                  >
+                    {pendingItem.stockSistema}
+                  </span>
+                </div>
+                {pendingItem.imei && (
+                  <div
+                    className="flex items-center justify-between px-3 py-2 rounded-lg"
+                    style={{ background: "var(--color-bg-elevated)" }}
+                  >
+                    <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>IMEI</span>
+                    <span
+                      className="text-xs font-bold tracking-wider"
+                      style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}
+                    >
+                      {pendingItem.imei}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Accesorio NO serializado: conteo a ciegas — no mostrar stock */}
+            {!pendingItem.esSerializado && pendingItem.stockSistema !== undefined && (
+              <div
+                className="px-3 py-2 rounded-lg text-xs"
+                style={{ background: "var(--color-info-bg)", color: "var(--color-info-text)" }}
+              >
+                Ingresa cuántas unidades contaste físicamente. La diferencia se calculará al finalizar.
               </div>
             )}
 
@@ -973,6 +1013,9 @@ function FaltanteRow({ producto, onTap }: { producto: Producto; onTap: (p: Produ
   const [hover, setHover] = useState(false);
   const codigoMostrar = producto.codigoBarras || producto.sku;
   const tieneBarcode = !!codigoMostrar;
+  const esEquipo = producto.esSerializado === true ||
+    producto.tipo === "equipo_nuevo" ||
+    producto.tipo === "equipo_usado";
 
   return (
     <button
@@ -1003,21 +1046,37 @@ function FaltanteRow({ producto, onTap }: { producto: Producto; onTap: (p: Produ
           )}
           {!tieneBarcode && (
             <span
-              className="ml-1 px-1 rounded text-xs"
-              style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)", fontSize: "0.65rem" }}
+              className="ml-1 px-1 rounded"
+              style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)", fontSize: "0.62rem" }}
             >
               sin código
             </span>
           )}
+          {producto.imei && (
+            <span className="ml-1 font-mono" style={{ color: "var(--color-text-muted)", fontSize: "0.65rem" }}>
+              IMEI {producto.imei}
+            </span>
+          )}
         </p>
       </div>
-      {/* Stock del sistema — lo que debería haber */}
-      <div className="shrink-0 text-right">
-        <span className="text-sm font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
-          {producto.stock}
+
+      {/* Solo equipos serializados muestran el stock del sistema */}
+      {esEquipo ? (
+        <div className="shrink-0 text-right">
+          <span className="text-sm font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
+            {producto.stock}
+          </span>
+          <p className="text-xs leading-none mt-0.5" style={{ color: "var(--color-text-muted)" }}>sistema</p>
+        </div>
+      ) : (
+        /* Accesorios: solo un hint de que es clickable */
+        <span
+          className="shrink-0 text-xs px-2 py-0.5 rounded-full"
+          style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)" }}
+        >
+          contar
         </span>
-        <p className="text-xs leading-none mt-0.5" style={{ color: "var(--color-text-muted)" }}>sistema</p>
-      </div>
+      )}
     </button>
   );
 }
