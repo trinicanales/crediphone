@@ -16,8 +16,8 @@ import {
   generarMensajeListoEntrega,
   generarMensajeNoReparable,
   generarMensajeCancelacion,
-  generarLinkWhatsApp,
 } from "@/lib/whatsapp-reparaciones";
+import { sendWhatsApp, generarLinkWa } from "@/lib/whatsapp-api";
 
 // Tipos de notificación para reparaciones (match con DB constraint)
 type TipoNotificacionReparacion =
@@ -80,12 +80,24 @@ export async function notificarCambioEstado(
           mensaje,
         };
 
-        // Generar link de WhatsApp si es canal whatsapp
+        // Enviar / preparar WhatsApp si es canal whatsapp
         if (destino.canal === "whatsapp" && orden.clienteTelefono) {
-          resultado.whatsappLink = generarLinkWhatsApp(
-            orden.clienteTelefono,
-            mensaje
-          );
+          // FASE 55: Intentar envío via API; si no está configurada → retorna link
+          const waResult = await sendWhatsApp({
+            telefono:    orden.clienteTelefono,
+            mensaje,
+            distribuidorId: orden.distribuidorId ?? undefined,
+            entidadTipo: "reparacion",
+            entidadId:   orden.id,
+          }).catch(() => null);
+
+          if (waResult?.canal === "link" && waResult.waLink) {
+            resultado.whatsappLink = waResult.waLink;
+          } else if (!waResult) {
+            // fallback si sendWhatsApp lanzó excepción
+            resultado.whatsappLink = generarLinkWa(orden.clienteTelefono, mensaje);
+          }
+          // Si canal === "api", el mensaje ya fue enviado automáticamente
         }
 
         notificaciones.push(resultado);

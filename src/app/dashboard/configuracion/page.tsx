@@ -31,6 +31,7 @@ import PayjoyConfigSection from "@/components/payjoy/PayjoyConfigSection";
 import { SonidosNotificacionConfig } from "@/components/configuracion/SonidosNotificacionConfig";
 import { ServiciosManager } from "@/components/configuracion/ServiciosManager";
 import { PlantillasWhatsAppTab } from "@/components/configuracion/PlantillasWhatsAppTab";
+import { WhatsAppAPITab } from "@/components/configuracion/WhatsAppAPITab";
 
 // ── Estilos compartidos ──────────────────────────────
 const labelSt: React.CSSProperties = {
@@ -1053,10 +1054,28 @@ export default function ConfiguracionPage() {
     // ══════════════════════════════════════════════════════
     {
       id: "plantillas",
-      label: <span className="flex items-center gap-1.5"><MessageCircle size={14} />WhatsApp</span>,
+      label: <span className="flex items-center gap-1.5"><MessageCircle size={14} />Plantillas WA</span>,
       content: (
         <Card className="p-6">
           <PlantillasWhatsAppTab />
+        </Card>
+      ),
+    },
+
+    // ══════════════════════════════════════════════════════
+    // TAB 13: WHATSAPP BUSINESS API (FASE 55)
+    // ══════════════════════════════════════════════════════
+    {
+      id: "whatsapp-api",
+      label: <span className="flex items-center gap-1.5"><MessageCircle size={14} />WA API</span>,
+      content: (
+        <Card className="p-6">
+          <SectionHeader
+            icon={<MessageCircle className="w-5 h-5" style={{ color: "var(--color-accent)" }} />}
+            title="WhatsApp Business API oficial"
+            subtitle="Configura los envíos automáticos via Meta Cloud API (sin requerir que el usuario abra WhatsApp)"
+          />
+          <WhatsAppAPITab />
         </Card>
       ),
     },

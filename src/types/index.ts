@@ -459,6 +459,7 @@ export interface GarantiaPieza {
 export interface OrdenReparacion {
   id: string;
   folio: string;
+  distribuidorId?: string; // FASE 21 + FASE 55
   clienteId: string;
   tecnicoId: string;
   productoId?: string;
@@ -939,6 +940,15 @@ export interface Configuracion {
   // Auditoria
   updatedAt: Date;
   updatedBy?: string;
+
+  // FASE 55: WhatsApp Business API oficial
+  waEnabled?: boolean;
+  waPhoneNumberId?: string;
+  waAccessToken?: string;
+  waBusinessAccountId?: string;
+  waApiVersion?: string;
+  waWebhookVerifyToken?: string;
+  waLogMensajes?: boolean;
 
   // Sonidos y push (FASE 28)
   sonidosConfig?: {
@@ -1699,4 +1709,31 @@ export interface NuevoLoteSerieFormData {
   totalEsperado:  number;
   notas?:         string;
   imeis:          string[];  // lista ya parseada y validada
+}
+
+// =====================================================
+// FASE 55: WhatsApp Business API
+// =====================================================
+
+export type CanalEnvioWA = "api" | "link" | "manual";
+export type EstadoMensajeWA = "pendiente" | "enviado" | "entregado" | "leido" | "fallido" | "recibido";
+export type TipoMensajeWA = "outbound" | "inbound" | "status";
+export type EntidadTipoWA = "credito" | "reparacion" | "pago" | "recordatorio" | "otro";
+
+export interface WhatsAppMensaje {
+  id: string;
+  distribuidorId?: string;
+  entidadTipo?: EntidadTipoWA;
+  entidadId?: string;
+  telefono: string;
+  mensaje: string;
+  tipo: TipoMensajeWA;
+  canal: CanalEnvioWA;
+  estado: EstadoMensajeWA;
+  waMessageId?: string;
+  errorDetalle?: string;
+  enviadoPorId?: string;
+  enviadoPorNombre?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

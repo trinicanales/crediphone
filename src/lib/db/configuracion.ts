@@ -122,6 +122,14 @@ export async function updateConfiguracion(
   if (config.contadorNombre   !== undefined) updateData.contador_nombre   = config.contadorNombre;
   if (config.contadorTelefono !== undefined) updateData.contador_telefono = config.contadorTelefono;
   if (config.contadorEmail    !== undefined) updateData.contador_email    = config.contadorEmail;
+  // FASE 55: WhatsApp Business API
+  if (config.waEnabled            !== undefined) updateData.wa_enabled              = config.waEnabled;
+  if (config.waPhoneNumberId      !== undefined) updateData.wa_phone_number_id      = config.waPhoneNumberId;
+  if (config.waAccessToken        !== undefined) updateData.wa_access_token         = config.waAccessToken;
+  if (config.waBusinessAccountId  !== undefined) updateData.wa_business_account_id  = config.waBusinessAccountId;
+  if (config.waApiVersion         !== undefined) updateData.wa_api_version          = config.waApiVersion;
+  if (config.waWebhookVerifyToken !== undefined) updateData.wa_webhook_verify_token = config.waWebhookVerifyToken;
+  if (config.waLogMensajes        !== undefined) updateData.wa_log_mensajes         = config.waLogMensajes;
   if (updatedBy) updateData.updated_by = updatedBy;
 
   // 1. Obtener el ID de la fila a actualizar (filtrando por distribuidor_id)
@@ -213,5 +221,13 @@ function mapConfigFromDB(db: any): Configuracion {
     contadorNombre:   db.contador_nombre   ?? undefined,
     contadorTelefono: db.contador_telefono ?? undefined,
     contadorEmail:    db.contador_email    ?? undefined,
+    // FASE 55: WhatsApp Business API
+    waEnabled:             db.wa_enabled             ?? false,
+    waPhoneNumberId:       db.wa_phone_number_id     ?? undefined,
+    waAccessToken:         db.wa_access_token        ?? undefined,
+    waBusinessAccountId:   db.wa_business_account_id ?? undefined,
+    waApiVersion:          db.wa_api_version         ?? "v20.0",
+    waWebhookVerifyToken:  db.wa_webhook_verify_token ?? undefined,
+    waLogMensajes:         db.wa_log_mensajes        ?? true,
   };
 }
