@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Smartphone, Package, Search, QrCode, X } from "lucide-react";
 import { BarcodeScanner } from "@/components/inventario/BarcodeScanner";
+import { obtenerUrlImagen } from "@/lib/storage";
 import type { Producto, Categoria } from "@/types";
 
 interface ProductCategoryGridProps {
@@ -277,7 +278,8 @@ function ProductCard({
   const [hover, setHover] = useState(false);
   const [imgError, setImgError] = useState(false);
   const sinStock = producto.stock <= 0;
-  const tieneImagen = Boolean(producto.imagen) && !imgError;
+  const imageUrl = obtenerUrlImagen(producto.imagen);
+  const tieneImagen = Boolean(imageUrl) && !imgError;
 
   const formatPrice = (n: number) =>
     new Intl.NumberFormat("es-MX", {
@@ -307,7 +309,7 @@ function ProductCard({
       {tieneImagen ? (
         <div className="relative w-full h-24 overflow-hidden">
           <Image
-            src={producto.imagen!}
+            src={imageUrl!}
             alt={producto.nombre}
             fill
             sizes="(max-width: 640px) 50vw, 33vw"

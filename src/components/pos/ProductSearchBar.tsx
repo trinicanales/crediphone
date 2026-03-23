@@ -5,6 +5,7 @@ import { Search, QrCode, X, Smartphone } from "lucide-react";
 import Image from "next/image";
 import { Input } from "@/components/ui/Input";
 import { BarcodeScanner } from "@/components/inventario/BarcodeScanner";
+import { obtenerUrlImagen } from "@/lib/storage";
 import type { Producto } from "@/types";
 
 interface ProductSearchBarProps {
@@ -316,7 +317,8 @@ function ProductDropdownItem({
   onSelect: (p: Producto) => void;
 }) {
   const [imgError, setImgError] = useState(false);
-  const tieneImagen = Boolean(producto.imagen) && !imgError;
+  const imageUrl = obtenerUrlImagen(producto.imagen);
+  const tieneImagen = Boolean(imageUrl) && !imgError;
 
   return (
     <button
@@ -346,7 +348,7 @@ function ProductDropdownItem({
       >
         {tieneImagen ? (
           <Image
-            src={producto.imagen!}
+            src={imageUrl!}
             alt={producto.nombre}
             width={44}
             height={44}
