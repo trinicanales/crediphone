@@ -17,6 +17,9 @@ import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { ShoppingCart as CartIcon, DollarSign, Receipt, LogOut as CloseIcon, X, LayoutGrid, Search as SearchIcon, User, ScanLine, FileText, Tag, Wrench, Package2 } from "lucide-react";
 import { generarReporteX, abrirReporte } from "@/lib/utils/reportes";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { OfflineBanner } from "@/components/pos/OfflineBanner";
+import { encolarOperacion } from "@/lib/offline/queue";
 import type {
   Producto,
   CajaSesion,
@@ -29,6 +32,7 @@ import type {
 export default function POSPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const isOnline = useOnlineStatus();
 
   // Estado de sesión de caja
   const [sesionCaja, setSesionCaja] = useState<CajaSesion | null>(null);
@@ -430,6 +434,19 @@ export default function POSPage() {
         notas: notasVenta || undefined,
       };
 
+      // ── MODO OFFLINE ──────────────────────────────────────────────
+      if (!isOnline) {
+        await encolarOperacion({ tipo: "venta", payload: ventaFormData });
+        setCartItems([]);
+        setDescuento(0);
+        setPropina(0);
+        setResumenCliente(null);
+        alert(`✓ Venta guardada localmente ($${total.toFixed(2)})\nSe enviará al servidor cuando vuelva el internet.`);
+        setProcessingVenta(false);
+        return;
+      }
+      // ─────────────────────────────────────────────────────────────
+
       const response = await fetch("/api/pos/ventas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -485,6 +502,19 @@ export default function POSPage() {
         montoRecibido: total,
         notas: notasVenta || undefined,
       };
+
+      // ── MODO OFFLINE ──────────────────────────────────────────────
+      if (!isOnline) {
+        await encolarOperacion({ tipo: "venta", payload: ventaFormData });
+        setCartItems([]);
+        setDescuento(0);
+        setPropina(0);
+        alert(`✓ Venta guardada localmente ($${total.toFixed(2)})\nSe enviará al servidor cuando vuelva el internet.`);
+        setProcessingVenta(false);
+        return;
+      }
+      // ─────────────────────────────────────────────────────────────
+
       const response = await fetch("/api/pos/ventas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -537,6 +567,19 @@ export default function POSPage() {
         montoRecibido: montoIngresado,
         notas: notasVenta || undefined,
       };
+
+      // ── MODO OFFLINE ──────────────────────────────────────────────
+      if (!isOnline) {
+        await encolarOperacion({ tipo: "venta", payload: ventaFormData });
+        setCartItems([]);
+        setDescuento(0);
+        setPropina(0);
+        alert(`✓ Venta guardada localmente ($${total.toFixed(2)})\nSe enviará al servidor cuando vuelva el internet.`);
+        setProcessingVenta(false);
+        return;
+      }
+      // ─────────────────────────────────────────────────────────────
+
       const response = await fetch("/api/pos/ventas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -951,6 +994,9 @@ export default function POSPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* Banner offline — indica falta de internet o ventas pendientes */}
+      <OfflineBanner onSyncComplete={() => fetchEstadisticas()} />
+
       {/* Alerta: caja abierta por otro empleado */}
       {cajaOtroEmpleado && alertaCajaVisible && (
         <div

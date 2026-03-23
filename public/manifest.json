@@ -1,0 +1,48 @@
+{
+  "name": "CREDIPHONE POS",
+  "short_name": "CREDIPHONE",
+  "description": "Sistema de administración CREDIPHONE — Ventas, créditos y reparaciones",
+  "start_url": "/dashboard/pos",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B1929",
+  "theme_color": "#0B1929",
+  "lang": "es-MX",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Punto de Venta",
+      "short_name": "POS",
+      "url": "/dashboard/pos",
+      "description": "Abrir el POS directamente"
+    },
+    {
+      "name": "Reparaciones",
+      "short_name": "Reparaciones",
+      "url": "/dashboard/reparaciones",
+      "description": "Ver órdenes de reparación"
+    }
+  ]
+}
