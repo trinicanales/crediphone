@@ -49,3 +49,7 @@ next-env.d.ts
 nul
 
 .vercel
+
+# Cloudflare / OpenNext build output
+.open-next/
+.wrangler/

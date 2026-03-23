@@ -1,0 +1,27 @@
+{
+  // CREDIPHONE ERP — Cloudflare Workers deployment
+  // Adapter: @opennextjs/cloudflare (OpenNext)
+  // Docs: https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/
+
+  "name": "crediphone",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // Variables de entorno — configurar en Cloudflare Dashboard > Workers & Pages > crediphone > Settings > Variables
+  // NEXT_PUBLIC_SUPABASE_URL
+  // NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // SUPABASE_SERVICE_ROLE_KEY
+  // PAYJOY_API_KEY (si aplica)
+  // PAYJOY_WEBHOOK_SECRET (si aplica)
+  // NEXT_PUBLIC_APP_URL = https://crediphone.com.mx
+
+  "observability": {
+    "enabled": true
+  }
+}
