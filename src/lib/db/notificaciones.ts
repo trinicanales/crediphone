@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendPushToUsers, sendPushToUser } from "@/lib/push/web-push-service";
 import type {
   Notificacion,
   AlertaRecordatorio,
@@ -423,9 +424,8 @@ export async function crearNotificacionTecnico(data: {
       console.error("Error al crear notificación para técnico:", error);
       // No lanzar error - las notificaciones son opcionales
     } else {
-      // FASE 28: Enviar push notification (fire-and-forget)
-      enviarPushNotificacion({
-        userIds: [data.tecnicoId],
+      // BUG FIX: Usar sendPushToUser directamente en vez de fetch a localhost
+      sendPushToUser(data.tecnicoId, {
         title: "CREDIPHONE — Nueva notificación",
         body: data.mensaje.replace(/^[^\w\s]+\s*/, "").substring(0, 120),
         url: "/dashboard/reparaciones",
@@ -434,36 +434,6 @@ export async function crearNotificacionTecnico(data: {
   } catch (error) {
     console.error("Error en crearNotificacionTecnico:", error);
     // No lanzar error - las notificaciones son opcionales
-  }
-}
-
-/**
- * Envía push notification a una lista de usuarios (FASE 28 — uso interno).
- * Fire-and-forget — no lanza errores al caller.
- */
-async function enviarPushNotificacion(payload: {
-  userIds: string[];
-  title: string;
-  body: string;
-  url?: string;
-}): Promise<void> {
-  try {
-    const baseUrl =
-      process.env.NEXTAUTH_URL ??
-      process.env.NEXT_PUBLIC_APP_URL ??
-      "http://localhost:3000";
-
-    await fetch(`${baseUrl}/api/push/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-internal-secret":
-          process.env.INTERNAL_API_SECRET ?? "crediphone-internal",
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    // push es opcional — no bloquear el flujo principal
   }
 }
 
@@ -613,9 +583,9 @@ export async function notificarResponsablesKassa(params: {
       console.error("[notificarResponsablesKassa] Error insertando notificaciones:", error);
     }
 
-    // Enviar push a todos
-    await enviarPushNotificacion({
-      userIds: destinatarios,
+    // BUG FIX: Usar sendPushToUsers directamente en vez de fetch a localhost
+    // (fetch a localhost fallaba silenciosamente en producción)
+    await sendPushToUsers(destinatarios, {
       title: params.titulo,
       body: params.cuerpo,
       url: params.url ?? "/dashboard",

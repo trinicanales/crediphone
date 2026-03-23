@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext } from "@/lib/auth/server";
 import { registrarNotificacion } from "@/lib/db/notificaciones";
 import type { CanalNotificacion, TipoNotificacion } from "@/lib/types/notificaciones";
 
 /**
  * POST /api/recordatorios/[id]/enviar
- * Registra el envío de un recordatorio
+ * Registra el envío de un recordatorio.
+ * Requiere autenticación — guarda el userId como enviadoPor.
  *
  * Body:
  * {
@@ -21,6 +23,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Auth — capturar quién envía el recordatorio
+    const { userId } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id: creditoId } = await params;
 
     // Validar que creditoId sea un UUID válido
@@ -109,7 +120,7 @@ export async function POST(
       );
     }
 
-    // Registrar notificación en base de datos
+    // Registrar notificación en base de datos (con enviadoPor capturado del auth)
     const notificacion = await registrarNotificacion({
       creditoId,
       clienteId,
@@ -120,8 +131,7 @@ export async function POST(
       telefono,
       email,
       fechaEnviado: new Date().toISOString(),
-      // TODO: Obtener userId del token de autenticación
-      // enviadoPor: userId,
+      enviadoPor: userId,
     });
 
     return NextResponse.json({

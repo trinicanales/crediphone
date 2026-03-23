@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { getAuthContext } from "@/lib/auth/server";
 import { getNotificacionesOrden } from "@/lib/notificaciones-reparaciones";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * GET /api/reparaciones/[id]/notificaciones
@@ -12,9 +15,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(id)) {
+    if (!UUID_REGEX.test(id)) {
       return NextResponse.json(
         { success: false, error: "ID inválido" },
         { status: 400 }
@@ -44,18 +45,26 @@ export async function GET(
 /**
  * POST /api/reparaciones/[id]/notificaciones
  * Registra envío manual de notificación
+ * Requiere autenticación (admin, super_admin, técnico del distribuidor)
  */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Auth — solo usuarios autenticados pueden registrar notificaciones manuales
+    const { userId } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const body = await request.json();
 
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(id)) {
+    if (!UUID_REGEX.test(id)) {
       return NextResponse.json(
         { success: false, error: "ID inválido" },
         { status: 400 }
@@ -78,6 +87,7 @@ export async function POST(
         fecha_enviado: new Date().toISOString(),
         datos_adicionales: {
           origen: "envio_manual",
+          enviadoPor: userId,
           fecha_accion: new Date().toISOString(),
         },
       })

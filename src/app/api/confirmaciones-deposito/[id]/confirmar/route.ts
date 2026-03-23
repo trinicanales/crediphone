@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { confirmarDeposito } from "@/lib/db/confirmaciones";
 import { getSesionActiva } from "@/lib/db/caja";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { sendPushToUser } from "@/lib/push/web-push-service";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -9,6 +11,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  * POST /api/confirmaciones-deposito/[id]/confirmar
  * El admin confirma que el depósito/transferencia fue verificado.
  * → El anticipo entra a la caja activa del admin.
+ * → Notifica al empleado que registró el depósito.
  * Roles: admin, super_admin
  */
 export async function POST(
@@ -37,6 +40,38 @@ export async function POST(
     }
 
     const confirmacion = await confirmarDeposito(id, userId, sesionCajaId);
+
+    // Notificar al empleado que registró el depósito (fire-and-forget)
+    if (confirmacion.registradoPor) {
+      try {
+        const supabase = createAdminClient();
+        const montoStr = `$${confirmacion.monto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+        const folio = confirmacion.folioOrden ? ` (orden ${confirmacion.folioOrden})` : "";
+        const mensaje = `Tu ${confirmacion.tipoPago} de ${montoStr}${folio} fue verificado y asentado en caja.`;
+
+        await supabase.from("notificaciones").insert({
+          destinatario_id: confirmacion.registradoPor,
+          tipo: "orden_actualizada",
+          canal: "sistema",
+          estado: "enviado",
+          mensaje,
+          fecha_enviado: new Date().toISOString(),
+          datos_adicionales: {
+            confirmacionId: id,
+            folioOrden: confirmacion.folioOrden ?? null,
+            origen: "deposito_confirmado",
+          },
+        });
+
+        sendPushToUser(confirmacion.registradoPor, {
+          title: "✅ Depósito confirmado",
+          body: mensaje,
+          url: "/dashboard/reparaciones",
+        }).catch(() => {});
+      } catch (notifErr) {
+        console.error("[confirmar deposito] Error al notificar registrador:", notifErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

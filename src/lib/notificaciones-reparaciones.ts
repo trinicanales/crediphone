@@ -8,7 +8,7 @@ import type {
   OrdenReparacionDetallada,
   EstadoOrdenReparacion,
 } from "@/types";
-import { sendPushToUser } from "@/lib/push/web-push-service";
+import { sendPushToUser, sendPushToUsers } from "@/lib/push/web-push-service";
 import {
   generarMensajePresupuesto,
   generarMensajeReparacionCompletada,
@@ -18,6 +18,7 @@ import {
   generarMensajeCancelacion,
 } from "@/lib/whatsapp-reparaciones";
 import { sendWhatsApp, generarLinkWa } from "@/lib/whatsapp-api";
+import { getAdminIdsParaNotificar } from "@/lib/db/notificaciones";
 
 // Tipos de notificación para reparaciones (match con DB constraint)
 type TipoNotificacionReparacion =
@@ -57,50 +58,77 @@ export async function notificarCambioEstado(
       trackingUrlPresupuesto = await crearTrackingToken(orden.id);
     }
 
+    // Resolver IDs de admin del distribuidor (una sola vez, reutilizado en el loop)
+    let adminIds: string[] = [];
+    const necesitaAdmin = config.destinos.some((d) => d.tipo === "admin");
+    if (necesitaAdmin) {
+      adminIds = await getAdminIdsParaNotificar(orden.distribuidorId ?? undefined).catch(() => []);
+    }
+
     for (const destino of config.destinos) {
       try {
         const mensaje = nuevoEstado === "presupuesto" && trackingUrlPresupuesto
           ? generarMensajePresupuesto(orden, trackingUrlPresupuesto)
           : config.generarMensaje(orden, notas);
-        const notificacion = await crearNotificacionReparacion({
-          ordenId: orden.id,
-          clienteId: destino.tipo === "cliente" ? orden.clienteId : undefined,
-          destinatarioId: destino.tipo === "tecnico" ? orden.tecnicoId : undefined,
-          tipo: config.tipoNotificacion,
-          canal: destino.canal,
-          mensaje,
-          telefono: destino.tipo === "cliente" ? orden.clienteTelefono : undefined,
-          folio: orden.folio,
-        });
 
-        const resultado: NotificacionCreada = {
-          id: notificacion?.id || "",
-          tipo: config.tipoNotificacion,
-          canal: destino.canal,
-          mensaje,
-        };
-
-        // Enviar / preparar WhatsApp si es canal whatsapp
-        if (destino.canal === "whatsapp" && orden.clienteTelefono) {
-          // FASE 55: Intentar envío via API; si no está configurada → retorna link
-          const waResult = await sendWhatsApp({
-            telefono:    orden.clienteTelefono,
-            mensaje,
-            distribuidorId: orden.distribuidorId ?? undefined,
-            entidadTipo: "reparacion",
-            entidadId:   orden.id,
-          }).catch(() => null);
-
-          if (waResult?.canal === "link" && waResult.waLink) {
-            resultado.whatsappLink = waResult.waLink;
-          } else if (!waResult) {
-            // fallback si sendWhatsApp lanzó excepción
-            resultado.whatsappLink = generarLinkWa(orden.clienteTelefono, mensaje);
+        if (destino.tipo === "admin" && adminIds.length > 0) {
+          // BUG FIX: Antes destinatarioId era undefined para admins → notif se perdía.
+          // Ahora creamos una notificación por cada admin del distribuidor.
+          for (const adminId of adminIds) {
+            await crearNotificacionReparacion({
+              ordenId: orden.id,
+              destinatarioId: adminId,
+              tipo: config.tipoNotificacion,
+              canal: destino.canal,
+              mensaje,
+              folio: orden.folio,
+            });
+            notificaciones.push({
+              id: adminId,
+              tipo: config.tipoNotificacion,
+              canal: destino.canal,
+              mensaje,
+            });
           }
-          // Si canal === "api", el mensaje ya fue enviado automáticamente
-        }
+        } else {
+          const notificacion = await crearNotificacionReparacion({
+            ordenId: orden.id,
+            clienteId: destino.tipo === "cliente" ? orden.clienteId : undefined,
+            destinatarioId: destino.tipo === "tecnico" ? orden.tecnicoId : undefined,
+            tipo: config.tipoNotificacion,
+            canal: destino.canal,
+            mensaje,
+            telefono: destino.tipo === "cliente" ? orden.clienteTelefono : undefined,
+            folio: orden.folio,
+          });
 
-        notificaciones.push(resultado);
+          const resultado: NotificacionCreada = {
+            id: notificacion?.id || "",
+            tipo: config.tipoNotificacion,
+            canal: destino.canal,
+            mensaje,
+          };
+
+          // Enviar / preparar WhatsApp si es canal whatsapp
+          if (destino.canal === "whatsapp" && orden.clienteTelefono) {
+            // Intentar envío via API; si no está configurada → retorna link
+            const waResult = await sendWhatsApp({
+              telefono:    orden.clienteTelefono,
+              mensaje,
+              distribuidorId: orden.distribuidorId ?? undefined,
+              entidadTipo: "reparacion",
+              entidadId:   orden.id,
+            }).catch(() => null);
+
+            if (waResult?.canal === "link" && waResult.waLink) {
+              resultado.whatsappLink = waResult.waLink;
+            } else if (!waResult) {
+              resultado.whatsappLink = generarLinkWa(orden.clienteTelefono, mensaje);
+            }
+          }
+
+          notificaciones.push(resultado);
+        }
       } catch (err) {
         console.error(
           `Error al notificar ${destino.tipo} por ${destino.canal}:`,
@@ -108,24 +136,23 @@ export async function notificarCambioEstado(
         );
       }
     }
-    // FASE 28: Push nativo a destinatarios con canal "sistema" (fire-and-forget)
-    const destinatariosConPush = config?.destinos
-      .filter((d) => d.canal === "sistema" && d.tipo !== "cliente")
-      .map((d) => {
-        if (d.tipo === "tecnico") return orden.tecnicoId;
-        return null; // admin se resuelve en el futuro si se agrega adminId al tipo
-      })
-      .filter((id): id is string => !!id);
 
-    if (destinatariosConPush && destinatariosConPush.length > 0) {
-      const pushPayload = {
-        title: `Orden ${orden.folio}`,
-        body: config!.generarMensaje(orden),
-        url: `/dashboard/reparaciones/${orden.id}`,
-      };
-      Promise.allSettled(
-        destinatariosConPush.map((id) => sendPushToUser(id, pushPayload))
-      ).catch(() => {}); // fire-and-forget silencioso
+    // Push nativo a destinatarios con canal "sistema" (fire-and-forget)
+    const pushPayload = {
+      title: `Orden ${orden.folio}`,
+      body: config!.generarMensaje(orden),
+      url: `/dashboard/reparaciones/${orden.id}`,
+    };
+
+    const idsParaPush: string[] = [];
+    for (const d of config.destinos) {
+      if (d.canal !== "sistema") continue;
+      if (d.tipo === "tecnico" && orden.tecnicoId) idsParaPush.push(orden.tecnicoId);
+      if (d.tipo === "admin") idsParaPush.push(...adminIds); // BUG FIX: admin push funcionando
+    }
+
+    if (idsParaPush.length > 0) {
+      sendPushToUsers(idsParaPush, pushPayload).catch(() => {}); // fire-and-forget
     }
   } catch (error) {
     console.error("Error en notificarCambioEstado:", error);

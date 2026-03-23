@@ -7,6 +7,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { TraspasoAnticipo } from "@/types";
 import { notificarResponsablesKassa } from "@/lib/db/notificaciones";
+import { sendPushToUser } from "@/lib/push/web-push-service";
 import type { UserRole } from "@/types";
 
 function mapTraspasoFromDB(row: Record<string, unknown>): TraspasoAnticipo {
@@ -300,23 +301,11 @@ async function notificarUsuario(params: {
       datos_adicionales: { titulo: params.titulo, cuerpo: params.cuerpo },
     });
 
-    // Push
-    const baseUrl =
-      process.env.NEXTAUTH_URL ??
-      process.env.NEXT_PUBLIC_APP_URL ??
-      "http://localhost:3000";
-    await fetch(`${baseUrl}/api/push/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-internal-secret": process.env.INTERNAL_API_SECRET ?? "crediphone-internal",
-      },
-      body: JSON.stringify({
-        userIds: [params.userId],
-        title: params.titulo,
-        body: params.cuerpo,
-        url: "/dashboard/reparaciones",
-      }),
+    // Push directo (sin pasar por localhost)
+    await sendPushToUser(params.userId, {
+      title: params.titulo,
+      body: params.cuerpo,
+      url: "/dashboard/reparaciones",
     }).catch(() => {});
   } catch (err) {
     console.error("[notificarUsuario] Error:", err);
