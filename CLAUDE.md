@@ -490,13 +490,20 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 - FASE 52: Liquid Glass en íconos del sidebar (backdrop-filter, glow activo)
 - FASE 53: Dashboard Ejecutivo Persistente — Command Center para admin/super_admin (KPIs, OrdenesWidget, AccionesRápidas, ActivityStream, auto-refresh 3min)
 
+#### Catálogo y asistencia (FASES 54a–55)
+- FASE 54a: Catálogo de Servicios de Reparación — tabla `catalogo_servicios_reparacion`, CRUD admin en `/dashboard/admin/catalogo-reparaciones`, precarga en órdenes (migraciones `fase54a-catalogo-servicios-reparacion.sql` + `fase54b-orden-catalogo-servicio.sql`)
+- FASE 55: Control de Asistencia / Reloj Checador — tabla `asistencia_registros`, check-in/out por QR o PIN, `WidgetChecador.tsx`, página `/dashboard/asistencia`, API `/api/asistencia/activa` + `/checkout` (migración `fase55-asistencia-checador.sql`)
+
 ---
 
 ### 🔜 Fases PENDIENTES (no iniciadas — esperar indicación):
-- FASE 53+: Facturación CFDI (integración Facturapi)
-- FASE 54: Control de asistencia / reloj checador
-- FASE 55: WhatsApp Business API oficial
-- FASE 56: Links de pago (Clip, Conekta)
+- FASE 54: Facturación CFDI (integración Facturapi)
+- FASE 56: WhatsApp Business API oficial (plantillas aprobadas Meta, historial, doble tick) — infraestructura parcial en `/api/whatsapp/` y `WhatsAppAPITab.tsx`, pendiente integración Meta completa
+- FASE 57: Links de pago (Clip, Conekta) — enviar link de cobro al cliente por WhatsApp
+
+### ⚠️ CÓDIGO SIN MIGRACIÓN BD (tablas no creadas — NO funcionan en producción):
+- **Kits** (FASE 61): `src/lib/db/kits.ts`, `src/app/api/kits/`, `src/app/dashboard/productos/kits/`, `KitsPOSPanel.tsx` — las tablas `kits` y `kits_items` NO existen en Supabase todavía
+- **Series por Lote** (FASE 62): `src/lib/db/lotesSeries.ts` — las tablas `lotes_series` y `lotes_series_items` NO existen en Supabase todavía
 
 ---
 
@@ -509,6 +516,8 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 - Descuentos con aprobación remota admin (>15% bloquea POS hasta respuesta)
 - Tab Reparaciones en POS: vendedor cobra anticipos/saldo final sin salir del POS, auto-entrega al saldo=$0
 - Lotes de Piezas: rastreo completo de pedidos a proveedor, verificación ítem a ítem, distribución proporcional de costo de envío
+- Catálogo de Servicios de Reparación: precarga estándar en órdenes nuevas
+- Control de Asistencia: check-in/out por QR o PIN, widget en dashboard
 
 ---
 
