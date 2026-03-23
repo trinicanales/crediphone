@@ -2,17 +2,37 @@
 
 /**
  * FASE 46 — Formulario para crear nueva Orden de Compra
+ * FASE 67 — Sugerencias de reabastecimiento: stock bajo + flujo de ventas + filtro por proveedor
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { Plus, Trash2, ShoppingCart, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, ShoppingCart, ArrowLeft, AlertTriangle, TrendingUp, PackageX, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import type { Proveedor, Producto } from "@/types";
 import Link from "next/link";
+
+// FASE 67: Tipos para sugerencias
+interface SugerenciaProducto {
+  id: string;
+  nombre: string;
+  marca: string;
+  modelo: string;
+  sku: string | null;
+  stock: number;
+  stock_minimo: number | null;
+  costo: number | null;
+  precio: number;
+  proveedor_id: string | null;
+  imagen: string | null;
+  estado: "SIN_STOCK" | "STOCK_BAJO" | "CON_VENTAS";
+  unidadesVendidas60d: number;
+  numVentas60d: number;
+  cantidadSugerida: number;
+}
 
 const labelSt: React.CSSProperties = {
   display: "block",
@@ -57,6 +77,17 @@ export default function NuevaOrdenCompraPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // FASE 67: estado de sugerencias
+  const [sugerencias, setSugerencias] = useState<{
+    sinStock: SugerenciaProducto[];
+    stockBajo: SugerenciaProducto[];
+    conVentas: SugerenciaProducto[];
+    totalUrgentes: number;
+  } | null>(null);
+  const [loadingSugs, setLoadingSugs] = useState(false);
+  const [showSugs, setShowSugs]       = useState(true);
+  const [agregados, setAgregados]     = useState<Set<string>>(new Set());
+
   const [form, setForm] = useState({
     proveedorId: "",
     fechaOrden: new Date().toISOString().split("T")[0],
@@ -83,6 +114,67 @@ export default function NuevaOrdenCompraPage() {
       if (prod.success) setProductos(prod.data ?? []);
     });
   }, []);
+
+  // FASE 67: cargar sugerencias cuando cambia el proveedor (o al inicio)
+  const cargarSugerencias = useCallback(async (proveedorId: string) => {
+    setLoadingSugs(true);
+    try {
+      const qs = proveedorId ? `?proveedorId=${encodeURIComponent(proveedorId)}` : "";
+      const res = await fetch(`/api/ordenes-compra/sugerencias${qs}`);
+      const d = await res.json();
+      if (d.success) setSugerencias(d.data);
+    } catch {
+      // silencioso
+    } finally {
+      setLoadingSugs(false);
+    }
+  }, []);
+
+  // Carga inicial de sugerencias (sin filtro de proveedor)
+  useEffect(() => { cargarSugerencias(""); }, [cargarSugerencias]);
+
+  // Cuando cambia el proveedor, recargar sugerencias filtradas
+  useEffect(() => {
+    cargarSugerencias(form.proveedorId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.proveedorId]);
+
+  // FASE 67: agregar sugerencia como nuevo ítem en la orden
+  const agregarSugerencia = (s: SugerenciaProducto) => {
+    const yaEnItems = items.findIndex(
+      (it) => it.productoId === s.id || (it.descripcion === s.nombre && !it.productoId)
+    );
+    if (yaEnItems >= 0) {
+      // Si ya está, solo actualiza cantidad
+      setItems((prev) => {
+        const next = [...prev];
+        next[yaEnItems] = {
+          ...next[yaEnItems],
+          cantidad: next[yaEnItems].cantidad + s.cantidadSugerida,
+        };
+        return next;
+      });
+    } else {
+      const nuevo: ItemForm = {
+        productoId: s.id,
+        descripcion: s.nombre,
+        sku: s.sku ?? "",
+        marca: s.marca ?? "",
+        modelo: s.modelo ?? "",
+        cantidad: s.cantidadSugerida,
+        precioUnitario: s.costo ?? s.precio ?? 0,
+        descuentoPct: 0,
+      };
+      // Reemplaza el primer ítem vacío, si existe
+      const primerVacio = items.findIndex((it) => !it.descripcion.trim() && !it.productoId);
+      if (primerVacio >= 0) {
+        setItems((prev) => { const next = [...prev]; next[primerVacio] = nuevo; return next; });
+      } else {
+        setItems((prev) => [...prev, nuevo]);
+      }
+    }
+    setAgregados((prev) => new Set(prev).add(s.id));
+  };
 
   // Calcular totales
   const subtotal = items.reduce((acc, it) => {
@@ -264,6 +356,118 @@ export default function NuevaOrdenCompraPage() {
           </div>
         </div>
       </Card>
+
+      {/* FASE 67: Panel de sugerencias de reabastecimiento */}
+      {(sugerencias || loadingSugs) && (
+        <Card className="mb-6" style={{ border: "1px solid var(--color-warning-bg)" }}>
+          {/* Header del panel */}
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" style={{ color: "var(--color-warning)" }} />
+              <h3 className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                Productos para reabastecer
+                {sugerencias && sugerencias.totalUrgentes > 0 && (
+                  <span
+                    className="ml-2 text-xs px-2 py-0.5 rounded-full font-bold"
+                    style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)" }}
+                  >
+                    {sugerencias.totalUrgentes} urgente{sugerencias.totalUrgentes !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => cargarSugerencias(form.proveedorId)}
+                className="p-1.5 rounded-lg"
+                style={{ color: "var(--color-text-muted)", background: "var(--color-bg-elevated)" }}
+                title="Recargar sugerencias"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingSugs ? "animate-spin" : ""}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSugs((v) => !v)}
+                className="p-1.5 rounded-lg flex items-center gap-1 text-xs"
+                style={{ color: "var(--color-text-muted)", background: "var(--color-bg-elevated)" }}
+              >
+                {showSugs ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                {showSugs ? "Ocultar" : "Mostrar"}
+              </button>
+            </div>
+          </div>
+          <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
+            {form.proveedorId
+              ? `Productos de ${proveedores.find((p) => p.id === form.proveedorId)?.nombre ?? "este proveedor"} · últimos 60 días`
+              : "Todos los proveedores · últimos 60 días — selecciona un proveedor para filtrar"}
+          </p>
+
+          {showSugs && (
+            <>
+              {loadingSugs && (
+                <div className="flex items-center gap-2 py-4" style={{ color: "var(--color-text-muted)" }}>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Cargando sugerencias...</span>
+                </div>
+              )}
+
+              {!loadingSugs && sugerencias && (
+                <div className="space-y-4">
+                  {/* Sin stock */}
+                  {sugerencias.sinStock.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-1.5" style={{ color: "var(--color-danger)" }}>
+                        <PackageX className="w-3.5 h-3.5" /> Sin stock ({sugerencias.sinStock.length})
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {sugerencias.sinStock.map((s) => (
+                          <SugerenciaCard key={s.id} sug={s} onAgregar={agregarSugerencia} agregado={agregados.has(s.id)} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stock bajo */}
+                  {sugerencias.stockBajo.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-1.5" style={{ color: "var(--color-warning)" }}>
+                        <AlertTriangle className="w-3.5 h-3.5" /> Stock bajo ({sugerencias.stockBajo.length})
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {sugerencias.stockBajo.map((s) => (
+                          <SugerenciaCard key={s.id} sug={s} onAgregar={agregarSugerencia} agregado={agregados.has(s.id)} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Con ventas recientes */}
+                  {sugerencias.conVentas.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-1.5" style={{ color: "var(--color-success)" }}>
+                        <TrendingUp className="w-3.5 h-3.5" /> Con flujo de ventas ({sugerencias.conVentas.length})
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {sugerencias.conVentas.slice(0, 9).map((s) => (
+                          <SugerenciaCard key={s.id} sug={s} onAgregar={agregarSugerencia} agregado={agregados.has(s.id)} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {sugerencias.sinStock.length === 0 && sugerencias.stockBajo.length === 0 && sugerencias.conVentas.length === 0 && (
+                    <p className="text-sm text-center py-4" style={{ color: "var(--color-text-muted)" }}>
+                      ✓ Todo el inventario está en niveles óptimos
+                      {form.proveedorId ? " para este proveedor" : ""}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </Card>
+      )}
 
       {/* Items */}
       <Card className="mb-6">
@@ -455,6 +659,84 @@ export default function NuevaOrdenCompraPage() {
           <ShoppingCart className="w-4 h-4 mr-2" />
           {saving ? "Guardando..." : "Crear orden en borrador"}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── FASE 67: Tarjeta de sugerencia de reabastecimiento ───────────────────────
+
+function SugerenciaCard({
+  sug,
+  onAgregar,
+  agregado,
+}: {
+  sug: SugerenciaProducto;
+  onAgregar: (s: SugerenciaProducto) => void;
+  agregado: boolean;
+}) {
+  const estadoStyle: Record<string, React.CSSProperties> = {
+    SIN_STOCK:  { background: "var(--color-danger-bg)",  color: "var(--color-danger-text)",  border: "1px solid rgba(185,28,28,0.15)" },
+    STOCK_BAJO: { background: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "1px solid rgba(180,83,9,0.15)" },
+    CON_VENTAS: { background: "var(--color-success-bg)", color: "var(--color-success-text)", border: "1px solid rgba(21,128,61,0.15)" },
+  };
+  const badgeLabel = {
+    SIN_STOCK:  "Sin stock",
+    STOCK_BAJO: `Stock: ${sug.stock}/${sug.stock_minimo ?? "—"}`,
+    CON_VENTAS: "Con ventas",
+  };
+
+  return (
+    <div
+      className="p-3 rounded-xl flex flex-col gap-2"
+      style={estadoStyle[sug.estado] || estadoStyle.CON_VENTAS}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold leading-snug truncate" style={{ color: "var(--color-text-primary)" }}>
+            {sug.nombre}
+          </p>
+          <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+            {sug.marca} {sug.modelo}{sug.sku ? ` · ${sug.sku}` : ""}
+          </p>
+        </div>
+        <span
+          className="text-xs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0"
+          style={{ background: "rgba(0,0,0,0.08)" }}
+        >
+          {badgeLabel[sug.estado]}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs flex gap-3" style={{ color: "var(--color-text-muted)" }}>
+          {sug.unidadesVendidas60d > 0 && (
+            <span title="Unidades vendidas en 60 días">
+              📦 {sug.unidadesVendidas60d} vendidas
+            </span>
+          )}
+          {sug.costo ? (
+            <span style={{ fontFamily: "var(--font-data)" }}>
+              Costo: ${Number(sug.costo).toFixed(2)}
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => onAgregar(sug)}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all"
+          style={
+            agregado
+              ? { background: "var(--color-success-bg)", color: "var(--color-success-text)" }
+              : { background: "var(--color-primary)", color: "var(--color-primary-text)" }
+          }
+        >
+          {agregado ? (
+            <>✓ Agregado</>
+          ) : (
+            <><Plus className="w-3 h-3" /> Pedir {sug.cantidadSugerida}</>
+          )}
+        </button>
       </div>
     </div>
   );
