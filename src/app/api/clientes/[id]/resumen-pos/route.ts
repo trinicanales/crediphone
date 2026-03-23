@@ -12,7 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
@@ -20,7 +20,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     }
 
-    const clienteId = params.id;
+    const { id: clienteId } = await params;
     const supabase = createAdminClient();
 
     // Verificar que el cliente pertenece al distribuidor del usuario
