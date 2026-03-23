@@ -56,8 +56,8 @@ type TipoMovUI = "pay_in" | "pay_out";
 
 function labelMovimiento(tipo: string): string {
   switch (tipo) {
-    case "pay_in":            return "Pay In";
-    case "pay_out":           return "Pay Out";
+    case "pay_in":            return "Entrada";
+    case "pay_out":           return "Salida";
     case "deposito":          return "Depósito";
     case "retiro":            return "Retiro";
     case "entrada_anticipo":  return "Anticipo (entrada)";
@@ -369,7 +369,7 @@ export default function CajaPage() {
           Gestión de Caja
         </h1>
         <p className="mt-2" style={{ color: "var(--color-text-secondary)" }}>
-          Administra turnos de caja, Pay In/Out y corte de caja
+          Administra turnos de caja, entradas/salidas y corte
         </p>
       </div>
 
@@ -448,14 +448,14 @@ export default function CajaPage() {
                 onClick={() => { setTipoMovimiento("pay_in"); setShowMovimientoModal(true); }}
               >
                 <ArrowUpCircle className="w-4 h-4 mr-2" />
-                Pay In
+                Entrada
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => { setTipoMovimiento("pay_out"); setShowMovimientoModal(true); }}
               >
                 <ArrowDownCircle className="w-4 h-4 mr-2" />
-                Pay Out
+                Salida
               </Button>
               <Button
                 variant="secondary"
@@ -826,8 +826,8 @@ export default function CajaPage() {
               {[
                 { label: "Monto Inicial",     value: `$${sesionActiva.montoInicial.toFixed(2)}`,           color: "var(--color-text-primary)" },
                 { label: "Ventas Efectivo",   value: `+$${sesionActiva.totalVentasEfectivo.toFixed(2)}`,   color: "var(--color-success)" },
-                { label: "Pay In",            value: `+$${sesionActiva.totalDepositos.toFixed(2)}`,         color: "var(--color-success)" },
-                { label: "Pay Out",           value: `-$${sesionActiva.totalRetiros.toFixed(2)}`,           color: "var(--color-danger)" },
+                { label: "Entradas",          value: `+$${sesionActiva.totalDepositos.toFixed(2)}`,         color: "var(--color-success)" },
+                { label: "Salidas",           value: `-$${sesionActiva.totalRetiros.toFixed(2)}`,           color: "var(--color-danger)" },
               ].map(({ label, value, color }) => (
                 <div key={label} className="flex justify-between">
                   <span style={{ color: "var(--color-text-secondary)" }}>{label}</span>
@@ -1101,7 +1101,7 @@ export default function CajaPage() {
         <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
           <Card className="max-w-md w-full p-6">
             <h2 className="text-xl font-bold mb-4" style={{ color: "var(--color-text-primary)" }}>
-              {tipoMovimiento === "pay_in" ? "Pay In — Entrada de Efectivo" : "Pay Out — Salida de Efectivo"}
+              {tipoMovimiento === "pay_in" ? "Entrada de Efectivo" : "Salida de Efectivo"}
             </h2>
             <p className="text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>
               {tipoMovimiento === "pay_in"
