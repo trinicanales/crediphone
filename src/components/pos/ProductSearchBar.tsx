@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search, QrCode, X } from "lucide-react";
+import { Search, QrCode, X, Smartphone } from "lucide-react";
+import Image from "next/image";
 import { Input } from "@/components/ui/Input";
 import { BarcodeScanner } from "@/components/inventario/BarcodeScanner";
 import type { Producto } from "@/types";
@@ -276,49 +277,12 @@ export function ProductSearchBar({ onSelectProduct, focusTrigger, topProductIds 
           }}
         >
           {filteredProductos.map((producto, index) => (
-            <button
+            <ProductDropdownItem
               key={producto.id}
-              onClick={() => handleSelect(producto)}
-              className="w-full px-4 py-3 text-left transition-colors"
-              style={{
-                borderBottom: "1px solid var(--color-border-subtle)",
-                background: index === selectedIndex ? "var(--color-accent-light)" : "transparent",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background =
-                  index === selectedIndex ? "var(--color-accent-light)" : "transparent";
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate" style={{ color: "var(--color-text-primary)" }}>
-                    {producto.nombre}
-                  </p>
-                  <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                    {producto.marca} {producto.modelo}
-                    {producto.codigoBarras && (
-                      <span className="ml-2 text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
-                        {producto.codigoBarras}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="ml-4 text-right shrink-0">
-                  <p className="text-lg font-semibold" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
-                    ${producto.precio.toFixed(2)}
-                  </p>
-                  <p
-                    className="text-sm"
-                    style={{ color: producto.stock > 0 ? "var(--color-success)" : "var(--color-danger)" }}
-                  >
-                    Stock: {producto.stock}
-                  </p>
-                </div>
-              </div>
-            </button>
+              producto={producto}
+              isSelected={index === selectedIndex}
+              onSelect={handleSelect}
+            />
           ))}
         </div>
       )}
@@ -338,6 +302,90 @@ export function ProductSearchBar({ onSelectProduct, focusTrigger, topProductIds 
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Feature 1: Ítem de dropdown con miniatura de producto ─── */
+function ProductDropdownItem({
+  producto,
+  isSelected,
+  onSelect,
+}: {
+  producto: Producto;
+  isSelected: boolean;
+  onSelect: (p: Producto) => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const tieneImagen = Boolean(producto.imagen) && !imgError;
+
+  return (
+    <button
+      onClick={() => onSelect(producto)}
+      className="w-full px-3 py-2.5 text-left transition-colors flex items-center gap-3"
+      style={{
+        borderBottom: "1px solid var(--color-border-subtle)",
+        background: isSelected ? "var(--color-accent-light)" : "transparent",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.background = "var(--color-bg-elevated)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.background =
+          isSelected ? "var(--color-accent-light)" : "transparent";
+      }}
+    >
+      {/* Thumbnail */}
+      <div
+        className="shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+        style={{
+          width: "44px",
+          height: "44px",
+          background: "var(--color-accent-light)",
+          border: "1px solid var(--color-border-subtle)",
+        }}
+      >
+        {tieneImagen ? (
+          <Image
+            src={producto.imagen!}
+            alt={producto.nombre}
+            width={44}
+            height={44}
+            className="object-cover w-full h-full"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <Smartphone className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="font-medium truncate text-sm" style={{ color: "var(--color-text-primary)" }}>
+          {producto.nombre}
+        </p>
+        <p className="text-xs truncate" style={{ color: "var(--color-text-secondary)" }}>
+          {producto.marca} {producto.modelo}
+          {producto.codigoBarras && (
+            <span className="ml-2 font-mono" style={{ color: "var(--color-text-muted)" }}>
+              {producto.codigoBarras}
+            </span>
+          )}
+        </p>
+      </div>
+
+      {/* Precio + Stock */}
+      <div className="text-right shrink-0">
+        <p className="font-semibold text-sm" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
+          ${producto.precio.toFixed(2)}
+        </p>
+        <p
+          className="text-xs"
+          style={{ color: producto.stock > 0 ? "var(--color-success)" : "var(--color-danger)" }}
+        >
+          ×{producto.stock}
+        </p>
+      </div>
+    </button>
   );
 }
 

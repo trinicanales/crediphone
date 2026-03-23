@@ -40,6 +40,9 @@ interface ShoppingCartProps {
   onUpdateQuantity: (itemKey: string, cantidad: number) => void;
   onRemoveItem: (itemKey: string) => void;
   onClear?: () => void;
+  onUpdatePrice?: (itemKey: string, precio: number) => void;  // Feature 3: precio editable
+  propina?: number;                                            // Feature 6: propina
+  onPropinaChange?: (v: number) => void;                      // Feature 6: propina
 }
 
 export function ShoppingCart({
@@ -48,9 +51,12 @@ export function ShoppingCart({
   onUpdateQuantity,
   onRemoveItem,
   onClear,
+  onUpdatePrice,
+  propina = 0,
+  onPropinaChange,
 }: ShoppingCartProps) {
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
-  const total = subtotal - descuento;
+  const total = subtotal - descuento + propina;
 
   if (items.length === 0) {
     return (
@@ -167,9 +173,40 @@ export function ShoppingCart({
                       Servicio sin inventario
                     </p>
                   )}
-                  <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-data)" }}>
-                    ${item.precioUnitario.toFixed(2)} c/u
-                  </p>
+                  {onUpdatePrice ? (
+                    <div className="flex items-center gap-0.5 mt-1">
+                      <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={item.precioUnitario}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v) && v >= 0) onUpdatePrice(key, v);
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        title="Editar precio unitario"
+                        style={{
+                          width: "72px",
+                          background: "var(--color-bg-sunken)",
+                          border: "1px solid var(--color-border)",
+                          color: "var(--color-text-muted)",
+                          fontFamily: "var(--font-data)",
+                          fontSize: "0.75rem",
+                          padding: "1px 4px",
+                          textAlign: "right",
+                          borderRadius: "4px",
+                          outline: "none",
+                        }}
+                      />
+                      <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>c/u</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-data)" }}>
+                      ${item.precioUnitario.toFixed(2)} c/u
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col items-end gap-2 shrink-0">
@@ -196,12 +233,30 @@ export function ShoppingCart({
                       <Minus className="w-4 h-4" style={{ color: "var(--color-text-secondary)" }} />
                     </button>
 
-                    <span
-                      className="w-12 text-center font-medium"
-                      style={{ color: "var(--color-text-primary)" }}
-                    >
-                      {item.cantidad}
-                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={maxCantidad === Infinity ? undefined : maxCantidad}
+                      value={item.cantidad}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!isNaN(v) && v >= 1) {
+                          onUpdateQuantity(key, maxCantidad === Infinity ? v : Math.min(v, maxCantidad));
+                        }
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      className="text-center font-medium rounded-md"
+                      style={{
+                        width: "3rem",
+                        background: "var(--color-bg-sunken)",
+                        border: "1px solid var(--color-border)",
+                        color: "var(--color-text-primary)",
+                        fontFamily: "var(--font-data)",
+                        fontSize: "0.875rem",
+                        padding: "2px 4px",
+                        outline: "none",
+                      }}
+                    />
 
                     <button
                       onClick={() => onUpdateQuantity(key, item.cantidad + 1)}
@@ -258,6 +313,40 @@ export function ShoppingCart({
             <span className="font-medium" style={{ color: "var(--color-danger)", fontFamily: "var(--font-data)" }}>
               -${descuento.toFixed(2)}
             </span>
+          </div>
+        )}
+
+        {/* Feature 6: Propina */}
+        {onPropinaChange !== undefined && (
+          <div className="flex justify-between items-center text-sm">
+            <span style={{ color: "var(--color-text-secondary)" }}>Propina:</span>
+            <div className="flex items-center gap-1">
+              <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>$</span>
+              <input
+                type="number"
+                min={0}
+                step={5}
+                value={propina}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  onPropinaChange(!isNaN(v) && v >= 0 ? v : 0);
+                }}
+                onFocus={(e) => e.target.select()}
+                placeholder="0"
+                style={{
+                  width: "68px",
+                  background: "var(--color-bg-sunken)",
+                  border: "1px solid var(--color-border)",
+                  color: propina > 0 ? "var(--color-success)" : "var(--color-text-muted)",
+                  fontFamily: "var(--font-data)",
+                  fontSize: "0.875rem",
+                  padding: "2px 4px",
+                  textAlign: "right",
+                  borderRadius: "4px",
+                  outline: "none",
+                }}
+              />
+            </div>
           </div>
         )}
 

@@ -39,6 +39,17 @@ export default function POSPage() {
   // Estado del carrito
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [descuento, setDescuento] = useState(0);
+  const [propina, setPropina] = useState(0);
+
+  // Feature 5: Resumen de créditos del cliente seleccionado
+  const [resumenCliente, setResumenCliente] = useState<{
+    creditosActivos: number;
+    deudaTotal: number;
+    ultimaVentaFecha: string | null;
+    ultimaVentaMonto: number | null;
+    score: number | null;
+    scoreCategoria: string | null;
+  } | null>(null);
 
   // Estado de pago
   const [paymentData, setPaymentData] = useState<any>(null);
@@ -275,6 +286,18 @@ export default function POSPage() {
     setCartItems(cartItems.filter((item) => getCartItemKey(item) !== itemKey));
   };
 
+  // Feature 3: Editar precio unitario de un ítem del carrito
+  const handleUpdatePrice = (itemKey: string, precio: number) => {
+    setCartItems((prev) =>
+      prev.map((item) => {
+        if (getCartItemKey(item) === itemKey) {
+          return { ...item, precioUnitario: precio, subtotal: precio * item.cantidad };
+        }
+        return item;
+      })
+    );
+  };
+
   // FASE 36: Agregar un servicio al carrito
   const handleAgregarServicio = (svcItem: ServicioPOSItem) => {
     if (!svcItem.servicioId) return;
@@ -352,10 +375,7 @@ export default function POSPage() {
       return;
     }
 
-    // Confirmar venta
-    const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const total = subtotal - descuento;
-
+    // Confirmar venta (total ya calculado arriba con propina incluida)
     if (
       !confirm(
         `¿Completar venta por $${total.toFixed(2)} con ${paymentData.metodoPago}?`
@@ -402,6 +422,7 @@ export default function POSPage() {
         clienteId: clienteSeleccionado?.id,
         items: itemsExpandidos,
         descuento,
+        propina: propina > 0 ? propina : undefined,
         metodoPago: paymentData.metodoPago,
         desgloseMixto: paymentData.desgloseMixto,
         referenciaPago: paymentData.referenciaPago,
@@ -423,6 +444,8 @@ export default function POSPage() {
         // Limpiar carrito y datos
         setCartItems([]);
         setDescuento(0);
+        setPropina(0);
+        setResumenCliente(null);
         // Actualizar estadísticas
         fetchEstadisticas();
       } else {
@@ -439,8 +462,6 @@ export default function POSPage() {
   // FASE 29: F12 — pago rápido efectivo exacto
   const handlePagoRapido = async () => {
     if (cartItems.length === 0 || !sesionCaja) return;
-    const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const total = subtotal - descuento;
     if (processingVenta) return;
     setProcessingVenta(true);
     try {
@@ -459,6 +480,7 @@ export default function POSPage() {
           notas: item.notas,
         })),
         descuento,
+        propina: propina > 0 ? propina : undefined,
         metodoPago: "efectivo",
         montoRecibido: total,
         notas: notasVenta || undefined,
@@ -474,6 +496,7 @@ export default function POSPage() {
         setShowReciboModal(true);
         setCartItems([]);
         setDescuento(0);
+        setPropina(0);
         fetchEstadisticas();
       } else {
         alert(data.error || "Error al crear venta");
@@ -489,8 +512,6 @@ export default function POSPage() {
   // F9: cobrar en efectivo — monto exacto si se deja vacío, o con cambio si se ingresa más
   const handleCobroModal = async () => {
     if (cartItems.length === 0 || !sesionCaja || processingVenta) return;
-    const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const total = subtotal - descuento;
     const montoIngresado = cobroMonto.trim() === "" ? total : parseFloat(cobroMonto);
     if (isNaN(montoIngresado) || montoIngresado < total) return;
     setShowCobroModal(false);
@@ -511,6 +532,7 @@ export default function POSPage() {
           notas: item.notas,
         })),
         descuento,
+        propina: propina > 0 ? propina : undefined,
         metodoPago: "efectivo",
         montoRecibido: montoIngresado,
         notas: notasVenta || undefined,
@@ -607,9 +629,20 @@ export default function POSPage() {
     setVentaCompletada(null);
     setCartItems([]);
     setDescuento(0);
+    setPropina(0);
     setClienteSeleccionado(null);
     setBusquedaCliente("");
     setNotasVenta("");
+    setResumenCliente(null);
+  };
+
+  // Feature 5: Cargar resumen del cliente cuando se selecciona
+  const fetchResumenCliente = async (clienteId: string) => {
+    try {
+      const res = await fetch(`/api/clientes/${clienteId}/resumen-pos`);
+      const data = await res.json();
+      if (data.success) setResumenCliente(data.data);
+    } catch { /* silencioso */ }
   };
 
   // FASE 30: Búsqueda de clientes con debounce
@@ -704,7 +737,7 @@ export default function POSPage() {
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-  const total = subtotal - descuento;
+  const total = subtotal - descuento + propina;
 
   // Verificando sesión
   if (loadingSesion) {
@@ -1204,6 +1237,9 @@ export default function POSPage() {
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
             onClear={handleClearCart}
+            onUpdatePrice={handleUpdatePrice}
+            propina={propina}
+            onPropinaChange={setPropina}
           />
 
           {/* ── Fila de extras: Descuento | Cliente | Notas ── */}
@@ -1295,26 +1331,92 @@ export default function POSPage() {
               {extrasPanel === "cliente" && (
                 <div className="p-3">
                   {clienteSeleccionado ? (
-                    <div
-                      className="flex items-center justify-between px-3 py-2 rounded-lg"
-                      style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)" }}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <User className="w-4 h-4 shrink-0" style={{ color: "var(--color-accent)" }} />
-                        <span className="text-sm font-medium truncate" style={{ color: "var(--color-text-primary)" }}>
-                          {clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ""}
-                        </span>
-                        <span className="text-xs shrink-0" style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
-                          {clienteSeleccionado.telefono}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => { setClienteSeleccionado(null); setBusquedaCliente(""); }}
-                        className="p-0.5 rounded ml-2 shrink-0"
-                        style={{ color: "var(--color-text-muted)" }}
+                    <div className="space-y-2">
+                      {/* Tag del cliente */}
+                      <div
+                        className="flex items-center justify-between px-3 py-2 rounded-lg"
+                        style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)" }}
                       >
-                        <X className="w-4 h-4" />
-                      </button>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <User className="w-4 h-4 shrink-0" style={{ color: "var(--color-accent)" }} />
+                          <span className="text-sm font-medium truncate" style={{ color: "var(--color-text-primary)" }}>
+                            {clienteSeleccionado.nombre} {clienteSeleccionado.apellido ?? ""}
+                          </span>
+                          <span className="text-xs shrink-0" style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
+                            {clienteSeleccionado.telefono}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => { setClienteSeleccionado(null); setBusquedaCliente(""); setResumenCliente(null); }}
+                          className="p-0.5 rounded ml-2 shrink-0"
+                          style={{ color: "var(--color-text-muted)" }}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Feature 5: Resumen de créditos */}
+                      {resumenCliente && (
+                        <div
+                          className="rounded-lg px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-1"
+                          style={{
+                            background: "var(--color-bg-elevated)",
+                            border: "1px solid var(--color-border-subtle)",
+                          }}
+                        >
+                          <div>
+                            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Créditos activos</p>
+                            <p className="text-sm font-semibold" style={{
+                              color: resumenCliente.creditosActivos > 0 ? "var(--color-warning)" : "var(--color-success)",
+                              fontFamily: "var(--font-data)",
+                            }}>
+                              {resumenCliente.creditosActivos}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Deuda total</p>
+                            <p className="text-sm font-semibold" style={{
+                              color: resumenCliente.deudaTotal > 0 ? "var(--color-danger)" : "var(--color-success)",
+                              fontFamily: "var(--font-data)",
+                            }}>
+                              ${resumenCliente.deudaTotal.toFixed(0)}
+                            </p>
+                          </div>
+                          {resumenCliente.ultimaVentaMonto !== null && (
+                            <div className="col-span-2">
+                              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                                Última compra: <span style={{ fontFamily: "var(--font-data)", color: "var(--color-text-secondary)" }}>
+                                  ${resumenCliente.ultimaVentaMonto.toFixed(0)}
+                                </span>
+                                {resumenCliente.ultimaVentaFecha && (
+                                  <span className="ml-1" style={{ color: "var(--color-text-muted)" }}>
+                                    · {new Date(resumenCliente.ultimaVentaFecha).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          )}
+                          {resumenCliente.scoreCategoria && (
+                            <div className="col-span-2">
+                              <span
+                                className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full font-medium"
+                                style={{
+                                  background: resumenCliente.scoreCategoria === "excelente" ? "var(--color-success-bg)" :
+                                    resumenCliente.scoreCategoria === "bueno" ? "var(--color-info-bg)" :
+                                    resumenCliente.scoreCategoria === "regular" ? "var(--color-warning-bg)" :
+                                    "var(--color-danger-bg)",
+                                  color: resumenCliente.scoreCategoria === "excelente" ? "var(--color-success-text)" :
+                                    resumenCliente.scoreCategoria === "bueno" ? "var(--color-info-text)" :
+                                    resumenCliente.scoreCategoria === "regular" ? "var(--color-warning-text)" :
+                                    "var(--color-danger-text)",
+                                }}
+                              >
+                                Score: {resumenCliente.scoreCategoria}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="relative">
@@ -1359,6 +1461,8 @@ export default function POSPage() {
                                 setBusquedaCliente("");
                                 setShowClienteDropdown(false);
                                 setExtrasPanel(null);
+                                setResumenCliente(null);
+                                fetchResumenCliente(c.id);
                               }}
                               className="w-full px-3 py-2.5 text-left text-sm hover:opacity-80 flex items-center gap-2"
                               style={{ borderBottom: "1px solid var(--color-border-subtle)" }}
