@@ -849,8 +849,8 @@ export default function ReportesPage() {
                           fontSize: 12,
                           color: "var(--color-text-primary)",
                         }}
-                        formatter={(value: number | undefined, name: string | undefined) =>
-                          name === "Monto" ? [fmt(value ?? 0), name ?? ""] : [value ?? 0, name ?? ""]
+                        formatter={(value: unknown, name: unknown) =>
+                          name === "Monto" ? [fmt(typeof value === "number" ? value : 0), String(name ?? "")] : [typeof value === "number" ? value : 0, String(name ?? "")]
                         }
                       />
                       <Legend />
@@ -917,7 +917,7 @@ export default function ReportesPage() {
                           fontSize: 12,
                           color: "var(--color-text-primary)",
                         }}
-                        formatter={(value: number | undefined) => [fmt(value ?? 0), "Cobrado"]}
+                        formatter={(value: unknown) => [fmt(typeof value === "number" ? value : 0), "Cobrado"]}
                       />
                       <Bar
                         dataKey="monto"
@@ -1077,7 +1077,7 @@ export default function ReportesPage() {
                         fontSize: 12,
                         color: "var(--color-text-primary)",
                       }}
-                      formatter={(value: number | undefined) => [fmt(value ?? 0), "Monto"]}
+                      formatter={(value: unknown) => [fmt(typeof value === "number" ? value : 0), "Monto"]}
                     />
                     <Bar
                       dataKey="monto"
