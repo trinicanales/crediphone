@@ -8,6 +8,9 @@
   "compatibility_date": "2025-01-01",
   "compatibility_flags": ["nodejs_compat"],
 
+  // Minificación — reduce el bundle gzip de ~5 MB a ~4.4 MB (requerido para plan pagado Workers Bundled $5/mes)
+  "minify": true,
+
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
