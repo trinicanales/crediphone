@@ -1,6 +1,9 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
+// Required for Cloudflare Workers — middleware must run on Edge Runtime
+export const runtime = "edge";
+
 export async function proxy(request: NextRequest) {
   return await updateSession(request);
 }
