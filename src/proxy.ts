@@ -1,15 +1,8 @@
-import { type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase/middleware";
-
-// Required for Cloudflare Workers — middleware must run on Edge Runtime
-export const runtime = "edge";
-
-export async function proxy(request: NextRequest) {
-  return await updateSession(request);
-}
-
-export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
-};
+/**
+ * Este archivo fue el proxy de Next.js 16 (Node.js runtime).
+ * Reemplazado por src/middleware.ts (Edge Runtime) para compatibilidad
+ * con Cloudflare Workers + @opennextjs/cloudflare.
+ *
+ * src/proxy.ts corre siempre en Node.js y no es compatible con CF Workers.
+ * src/middleware.ts usa Edge Runtime por defecto — sí es compatible.
+ */
