@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const BUCKET_NAME = "reparaciones";
+import { r2Delete } from "@/lib/r2";
 
 export async function DELETE(
   request: NextRequest,
@@ -33,16 +32,9 @@ export async function DELETE(
       );
     }
 
-    // Eliminar del storage usando admin client (server-side)
+    // Eliminar de R2 (no bloquea si falla — continúa para eliminar de BD)
     if (imagen.path_storage) {
-      const { error: storageError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .remove([imagen.path_storage]);
-
-      if (storageError) {
-        console.warn("No se pudo eliminar la imagen del storage:", storageError);
-        // Continuar de todas formas para eliminar de la BD
-      }
+      await r2Delete(imagen.path_storage);
     }
 
     // Eliminar de la base de datos

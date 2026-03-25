@@ -1,48 +1,39 @@
-import { createClient } from "@supabase/supabase-js";
+/**
+ * Storage de imágenes de reparaciones — Cloudflare R2
+ *
+ * Las operaciones de subida/eliminación se delegan a API routes
+ * (server-side → R2 binding). Las URLs son públicas.
+ */
 import imageCompression from "browser-image-compression";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const R2_PUBLIC_URL = (
+  process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? ""
+).replace(/\/$/, "");
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-const BUCKET_NAME = "reparaciones";
-
-/**
- * Genera un nombre de archivo único con timestamp
- */
-function generarNombreArchivo(
-  ordenId: string,
-  tipoImagen: string,
-  extension: string = "jpg"
-): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  return `${ordenId}/${tipoImagen}/${timestamp}-${random}.${extension}`;
-}
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 /**
- * Comprime una imagen antes de subirla
+ * Comprime una imagen antes de subirla (solo browser)
  */
 export async function comprimirImagen(archivo: File): Promise<File> {
   const opciones = {
-    maxSizeMB: 1, // Máximo 1MB
-    maxWidthOrHeight: 1920, // Máximo 1920px
+    maxSizeMB: 1,
+    maxWidthOrHeight: 1920,
     useWebWorker: true,
-    fileType: "image/jpeg",
+    fileType: "image/jpeg" as const,
   };
-
   try {
-    const archivoComprimido = await imageCompression(archivo, opciones);
-    return archivoComprimido;
+    return await imageCompression(archivo, opciones);
   } catch (error) {
     console.error("Error al comprimir imagen:", error);
-    return archivo; // Si falla, usar original
+    return archivo;
   }
 }
 
+// ─── Funciones públicas ──────────────────────────────────────────────────────
+
 /**
- * Sube una imagen al storage de reparaciones
+ * Sube una imagen de reparación a R2 vía API route
  */
 export async function subirImagenReparacion(
   archivo: File,
@@ -55,7 +46,6 @@ export async function subirImagenReparacion(
     | "finalizado"
 ): Promise<{ url: string; path: string } | null> {
   try {
-    // Validar tipo de archivo
     const tiposPermitidos = [
       "image/jpeg",
       "image/jpg",
@@ -67,50 +57,36 @@ export async function subirImagenReparacion(
         "Tipo de archivo no permitido. Solo se aceptan imágenes JPEG, PNG y WebP."
       );
     }
-
-    // Validar tamaño (10MB máximo - igual que el bucket)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (archivo.size > maxSize) {
+    if (archivo.size > 10 * 1024 * 1024) {
       throw new Error("El archivo es demasiado grande. Máximo 10MB.");
     }
 
-    // Comprimir imagen si es mayor a 2MB
+    // Comprimir si supera 2 MB
     let archivoFinal = archivo;
     if (archivo.size > 2 * 1024 * 1024) {
-      console.log("Comprimiendo imagen...");
       archivoFinal = await comprimirImagen(archivo);
-      console.log(
-        `Imagen comprimida: ${archivo.size} bytes → ${archivoFinal.size} bytes`
-      );
     }
 
-    // Generar nombre único
-    const extension = archivoFinal.name.split(".").pop() || "jpg";
-    const nombreArchivo = generarNombreArchivo(ordenId, tipoImagen, extension);
+    const form = new FormData();
+    form.append("archivo", archivoFinal);
+    form.append("carpeta", `reparaciones/${ordenId}/${tipoImagen}`);
 
-    // Subir archivo
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(nombreArchivo, archivoFinal, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: archivoFinal.type,
-      });
-
-    if (error) {
-      console.error("Error al subir imagen:", error);
-      throw error;
-    }
-
-    // Obtener URL pública (aunque el bucket sea privado, esta URL se puede firmar)
-    const { data: urlData } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(nombreArchivo);
-
-    return {
-      url: urlData.publicUrl,
-      path: nombreArchivo,
+    const resp = await fetch("/api/storage/upload", {
+      method: "POST",
+      body: form,
+    });
+    const json = (await resp.json()) as {
+      success: boolean;
+      url?: string;
+      path?: string;
+      message?: string;
     };
+
+    if (!resp.ok || !json.success) {
+      throw new Error(json.message ?? "Error al subir imagen");
+    }
+
+    return { url: json.url!, path: json.path! };
   } catch (error) {
     console.error("Error en subirImagenReparacion:", error);
     return null;
@@ -118,7 +94,7 @@ export async function subirImagenReparacion(
 }
 
 /**
- * Sube múltiples imágenes de forma paralela
+ * Sube múltiples imágenes en paralelo
  */
 export async function subirMultiplesImagenes(
   archivos: File[],
@@ -130,26 +106,26 @@ export async function subirMultiplesImagenes(
     | "diagnostico"
     | "finalizado"
 ): Promise<Array<{ url: string; path: string } | null>> {
-  const promesas = archivos.map((archivo) =>
-    subirImagenReparacion(archivo, ordenId, tipoImagen)
+  return Promise.all(
+    archivos.map((archivo) =>
+      subirImagenReparacion(archivo, ordenId, tipoImagen)
+    )
   );
-
-  return await Promise.all(promesas);
 }
 
 /**
- * Elimina una imagen del storage
+ * Elimina una imagen de reparación de R2 vía API route
  */
-export async function eliminarImagenReparacion(path: string): Promise<boolean> {
+export async function eliminarImagenReparacion(
+  path: string
+): Promise<boolean> {
   try {
-    const { error } = await supabase.storage.from(BUCKET_NAME).remove([path]);
-
-    if (error) {
-      console.error("Error al eliminar imagen:", error);
-      return false;
-    }
-
-    return true;
+    const resp = await fetch(
+      `/api/storage/delete?path=${encodeURIComponent(path)}`,
+      { method: "DELETE" }
+    );
+    const json = (await resp.json()) as { success: boolean };
+    return resp.ok && json.success;
   } catch (error) {
     console.error("Error en eliminarImagenReparacion:", error);
     return false;
@@ -157,62 +133,28 @@ export async function eliminarImagenReparacion(path: string): Promise<boolean> {
 }
 
 /**
- * Obtiene la URL firmada (privada) de una imagen
- * Válida por 1 hora por defecto
+ * Con R2 público no se necesitan URLs firmadas.
+ * Devuelve la URL pública directamente para mantener compatibilidad.
  */
 export async function obtenerUrlFirmadaImagen(
   path: string,
-  duracionSegundos: number = 3600
+  _duracionSegundos: number = 3600
 ): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(path, duracionSegundos);
-
-    if (error) {
-      console.error("Error al obtener URL firmada:", error);
-      return null;
-    }
-
-    return data.signedUrl;
-  } catch (error) {
-    console.error("Error en obtenerUrlFirmadaImagen:", error);
-    return null;
-  }
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  return `${R2_PUBLIC_URL}/${path}`;
 }
 
 /**
- * Lista todas las imágenes de una orden
+ * Lista imágenes de una orden (no disponible directo con R2;
+ * usar la tabla imagenes_reparacion en BD en su lugar)
  */
 export async function listarImagenesOrden(
-  ordenId: string
+  _ordenId: string
 ): Promise<
   Array<{ name: string; path: string; created_at: string; size: number }>
 > {
-  try {
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .list(ordenId, {
-        limit: 100,
-        offset: 0,
-        sortBy: { column: "created_at", order: "desc" },
-      });
-
-    if (error) {
-      console.error("Error al listar imágenes:", error);
-      return [];
-    }
-
-    return data.map((file) => ({
-      name: file.name,
-      path: `${ordenId}/${file.name}`,
-      created_at: file.created_at || "",
-      size: file.metadata?.size || 0,
-    }));
-  } catch (error) {
-    console.error("Error en listarImagenesOrden:", error);
-    return [];
-  }
+  return [];
 }
 
 /**
@@ -221,17 +163,22 @@ export async function listarImagenesOrden(
 export function generarTokenQR(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
-  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
-    ""
-  );
+  return Array.from(array, (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
 }
 
 /**
- * Valida que una URL de imagen sea del bucket de reparaciones
+ * Valida que una URL de imagen sea del bucket R2 o de Supabase
+ * (compatibilidad con fotos antiguas migradas)
  */
 export function esImagenReparacionValida(url: string): boolean {
   try {
     const urlObj = new URL(url);
+    // Acepta URLs de R2 configurado
+    const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "";
+    if (r2Base && url.startsWith(r2Base)) return true;
+    // Compatibilidad con URLs antiguas de Supabase
     return (
       urlObj.hostname.includes("supabase.co") &&
       urlObj.pathname.includes("/reparaciones/")

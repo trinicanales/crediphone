@@ -1,26 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext } from "@/lib/auth/server";
+import { r2Upload, r2GetPublicUrl } from "@/lib/r2";
 
-const BUCKET_NAME = "reparaciones";
-
-// Tipos aceptados por el bucket (debe coincidir con la configuración de Supabase)
 const TIPOS_PERMITIDOS = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-// Tipos comunes de iPhone/HEIC que el bucket NO acepta — avisar al usuario
 const TIPOS_NO_SOPORTADOS = ["image/heic", "image/heif", "image/tiff", "image/avif"];
 
-function generarNombreArchivo(ordenId: string, tipoImagen: string, extension: string = "jpg"): string {
+function generarPath(
+  ordenId: string,
+  tipoImagen: string,
+  extension: string = "jpg"
+): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
-  return `${ordenId}/${tipoImagen}/${timestamp}-${random}.${extension}`;
+  return `reparaciones/${ordenId}/${tipoImagen}/${timestamp}-${random}.${extension}`;
 }
 
 type ResultadoSubida =
   | { ok: true; url: string; path: string }
   | { ok: false; razon: string };
 
-async function subirArchivoAlStorage(
-  supabase: ReturnType<typeof createAdminClient>,
+async function subirArchivoAR2(
   archivo: File,
   ordenId: string,
   tipoImagen: string
@@ -28,53 +28,35 @@ async function subirArchivoAlStorage(
   try {
     const tipoNormalizado = archivo.type.toLowerCase();
 
-    // Detectar formatos no soportados (ej: HEIC de iPhone)
     if (TIPOS_NO_SOPORTADOS.includes(tipoNormalizado)) {
       return {
         ok: false,
-        razon: `Formato "${archivo.type}" no soportado. Convierte a JPEG, PNG o WebP antes de subir. En iPhone: ve a Ajustes > Cámara > Formatos y selecciona "Más compatible".`,
+        razon: `Formato "${archivo.type}" no soportado. Convierte a JPEG, PNG o WebP. En iPhone: Ajustes > Cámara > Formatos > "Más compatible".`,
       };
     }
 
-    // Verificar tipo permitido
     if (!TIPOS_PERMITIDOS.includes(tipoNormalizado)) {
       return {
         ok: false,
-        razon: `Formato "${archivo.type}" no aceptado. Solo se permiten: JPEG, PNG y WebP.`,
+        razon: `Formato "${archivo.type}" no aceptado. Solo JPEG, PNG y WebP.`,
       };
     }
 
-    // Verificar tamaño (10MB máximo)
     if (archivo.size > 10 * 1024 * 1024) {
       return {
         ok: false,
-        razon: `El archivo "${archivo.name}" pesa ${(archivo.size / 1024 / 1024).toFixed(1)} MB. El límite es 10 MB.`,
+        razon: `"${archivo.name}" pesa ${(archivo.size / 1024 / 1024).toFixed(1)} MB. Límite: 10 MB.`,
       };
     }
 
-    const extension = archivo.name.split(".").pop()?.toLowerCase() || "jpg";
-    const nombreArchivo = generarNombreArchivo(ordenId, tipoImagen, extension);
+    const extension = archivo.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = generarPath(ordenId, tipoImagen, extension);
     const arrayBuffer = await archivo.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
-    const { error: storageError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(nombreArchivo, buffer, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: archivo.type,
-      });
+    await r2Upload(path, arrayBuffer, archivo.type);
+    const url = r2GetPublicUrl(path);
 
-    if (storageError) {
-      console.error(`[fotos] Error al subir "${archivo.name}" al storage:`, storageError);
-      return {
-        ok: false,
-        razon: `Error de almacenamiento: ${storageError.message}`,
-      };
-    }
-
-    const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(nombreArchivo);
-    return { ok: true, url: urlData.publicUrl, path: nombreArchivo };
+    return { ok: true, url, path };
   } catch (error) {
     console.error(`[fotos] Excepción al subir "${archivo.name}":`, error);
     return {
@@ -124,7 +106,6 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Verificar que la orden existe
     const { data: orden, error: ordenError } = await supabase
       .from("ordenes_reparacion")
       .select("id")
@@ -157,7 +138,7 @@ export async function POST(request: NextRequest) {
     const errores: string[] = [];
 
     for (const archivo of archivos) {
-      const resultado = await subirArchivoAlStorage(supabase, archivo, ordenId, tipoImagen);
+      const resultado = await subirArchivoAR2(archivo, ordenId, tipoImagen);
 
       if (!resultado.ok) {
         console.error(`[fotos] Fallo en "${archivo.name}": ${resultado.razon}`);

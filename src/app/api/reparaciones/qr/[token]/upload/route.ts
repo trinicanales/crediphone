@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const BUCKET_NAME = "reparaciones";
+import { r2Upload, r2GetPublicUrl } from "@/lib/r2";
 
 async function subirArchivoQR(
   archivo: File,
-  // ordenId puede ser null cuando se sube antes de crear la orden; en ese caso se usa sessionToken para el path
   ordenId: string | null,
   tipoImagen: string,
   sessionToken: string
@@ -15,32 +13,22 @@ async function subirArchivoQR(
     if (!tiposPermitidos.includes(archivo.type)) return null;
     if (archivo.size > 10 * 1024 * 1024) return null;
 
-    const supabase = createAdminClient();
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    const extension = archivo.name.split(".").pop() || "jpg";
+    const extension = archivo.name.split(".").pop()?.toLowerCase() ?? "jpg";
 
     // Si hay orden: guardar bajo el ID de la orden
     // Si no hay orden (creación): guardar bajo "temp/{token}" para poder ligar después
-    const carpeta = ordenId ? ordenId : `temp/${sessionToken}`;
-    const nombreArchivo = `${carpeta}/${tipoImagen}/${timestamp}-${random}.${extension}`;
-    const buffer = Buffer.from(await archivo.arrayBuffer());
+    const carpeta = ordenId
+      ? `reparaciones/${ordenId}`
+      : `reparaciones/temp/${sessionToken}`;
+    const path = `${carpeta}/${tipoImagen}/${timestamp}-${random}.${extension}`;
+    const arrayBuffer = await archivo.arrayBuffer();
 
-    const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(nombreArchivo, buffer, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: archivo.type,
-      });
+    await r2Upload(path, arrayBuffer, archivo.type);
+    const url = r2GetPublicUrl(path);
 
-    if (error) {
-      console.error("Error al subir imagen QR al storage:", error);
-      return null;
-    }
-
-    const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(nombreArchivo);
-    return { url: urlData.publicUrl, path: nombreArchivo };
+    return { url, path };
   } catch (error) {
     console.error("Error en subirArchivoQR:", error);
     return null;

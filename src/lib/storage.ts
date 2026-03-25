@@ -1,73 +1,72 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-// Cliente de Supabase para el navegador
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-const BUCKET_NAME = "productos";
-
 /**
- * Genera un nombre de archivo único con timestamp
+ * Storage de imágenes de productos — Cloudflare R2
+ *
+ * Las operaciones de subida/eliminación se delegan a API routes
+ * (server-side → R2 binding). Las URLs usan NEXT_PUBLIC_R2_PUBLIC_URL.
  */
-function generarNombreArchivo(nombreOriginal: string, categoria: string = "otros"): string {
+
+const R2_PUBLIC_URL = (
+  process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? ""
+).replace(/\/$/, "");
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function generarNombreArchivo(
+  nombreOriginal: string,
+  categoria: string = "otros"
+): string {
   const timestamp = Date.now();
-  const extension = nombreOriginal.split(".").pop();
+  const random = Math.random().toString(36).substring(2, 8);
+  const extension = nombreOriginal.split(".").pop()?.toLowerCase() ?? "jpg";
   const nombreLimpio = nombreOriginal
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "-")
     .replace(/-+/g, "-")
-    .replace(/\.[^/.]+$/, ""); // Quitar extensión
-
-  return `${categoria}/${nombreLimpio}-${timestamp}.${extension}`;
+    .replace(/\.[^/.]+$/, "");
+  return `productos/${categoria}/${nombreLimpio}-${timestamp}-${random}.${extension}`;
 }
 
+// ─── Funciones públicas ──────────────────────────────────────────────────────
+
 /**
- * Sube una imagen al storage de Supabase
+ * Sube una imagen de producto a R2 vía API route
  */
 export async function subirImagen(
   archivo: File,
   categoria: string = "otros"
 ): Promise<{ url: string; path: string } | null> {
   try {
-    // Validar tipo de archivo
-    const tiposPermitidos = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+    const tiposPermitidos = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
     if (!tiposPermitidos.includes(archivo.type)) {
-      throw new Error("Tipo de archivo no permitido. Solo se aceptan imágenes JPEG, PNG, WebP y GIF.");
+      throw new Error(
+        "Tipo de archivo no permitido. Solo se aceptan imágenes JPEG, PNG, WebP y GIF."
+      );
     }
-
-    // Validar tamaño (5MB máximo)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (archivo.size > maxSize) {
+    if (archivo.size > 5 * 1024 * 1024) {
       throw new Error("El archivo es demasiado grande. Máximo 5MB.");
     }
 
-    // Generar nombre único
-    const nombreArchivo = generarNombreArchivo(archivo.name, categoria);
+    const form = new FormData();
+    form.append("archivo", archivo);
+    form.append("carpeta", `productos/${categoria}`);
 
-    // Subir archivo
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(nombreArchivo, archivo, {
-        cacheControl: "3600",
-        upsert: false,
-      });
+    const resp = await fetch("/api/storage/upload", {
+      method: "POST",
+      body: form,
+    });
+    const json = (await resp.json()) as { success: boolean; url?: string; path?: string; message?: string };
 
-    if (error) {
-      console.error("Error al subir imagen:", error);
-      throw error;
+    if (!resp.ok || !json.success) {
+      throw new Error(json.message ?? "Error al subir imagen");
     }
 
-    // Obtener URL pública
-    const { data: urlData } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(nombreArchivo);
-
-    return {
-      url: urlData.publicUrl,
-      path: nombreArchivo,
-    };
+    return { url: json.url!, path: json.path! };
   } catch (error) {
     console.error("Error en subirImagen:", error);
     return null;
@@ -75,18 +74,16 @@ export async function subirImagen(
 }
 
 /**
- * Elimina una imagen del storage
+ * Elimina una imagen de R2 vía API route
  */
 export async function eliminarImagen(path: string): Promise<boolean> {
   try {
-    const { error } = await supabase.storage.from(BUCKET_NAME).remove([path]);
-
-    if (error) {
-      console.error("Error al eliminar imagen:", error);
-      return false;
-    }
-
-    return true;
+    const resp = await fetch(
+      `/api/storage/delete?path=${encodeURIComponent(path)}`,
+      { method: "DELETE" }
+    );
+    const json = (await resp.json()) as { success: boolean };
+    return resp.ok && json.success;
   } catch (error) {
     console.error("Error en eliminarImagen:", error);
     return false;
@@ -94,49 +91,29 @@ export async function eliminarImagen(path: string): Promise<boolean> {
 }
 
 /**
- * Obtiene la URL pública de una imagen
+ * Devuelve la URL pública de una imagen dado su path en R2
  */
-export function obtenerUrlImagen(path: string | null | undefined): string | null {
+export function obtenerUrlImagen(
+  path: string | null | undefined
+): string | null {
   if (!path) return null;
-
-  // Si ya es una URL completa, devolverla tal cual
+  // Si ya es URL completa (migración desde Supabase o URL externa), devolver tal cual
   if (path.startsWith("http")) return path;
-
-  // Generar URL pública
-  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
-
-  return data.publicUrl;
+  return `${R2_PUBLIC_URL}/${path}`;
 }
 
 /**
- * Lista todas las imágenes de una categoría
+ * Lista imágenes de una categoría (no disponible directamente con R2 binding;
+ * se mantiene por compatibilidad — devuelve vacío)
  */
-export async function listarImagenes(categoria?: string): Promise<string[]> {
-  try {
-    const path = categoria || "";
-
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .list(path, {
-        limit: 100,
-        offset: 0,
-        sortBy: { column: "created_at", order: "desc" },
-      });
-
-    if (error) {
-      console.error("Error al listar imágenes:", error);
-      return [];
-    }
-
-    return data.map((file) => `${path}${path ? "/" : ""}${file.name}`);
-  } catch (error) {
-    console.error("Error en listarImagenes:", error);
-    return [];
-  }
+export async function listarImagenes(
+  _categoria?: string
+): Promise<string[]> {
+  return [];
 }
 
 /**
- * Actualiza la imagen de un producto (elimina la anterior y sube la nueva)
+ * Actualiza la imagen de un producto: elimina la anterior y sube la nueva
  */
 export async function actualizarImagenProducto(
   imagenAnterior: string | null,
@@ -144,12 +121,9 @@ export async function actualizarImagenProducto(
   categoria: string = "otros"
 ): Promise<{ url: string; path: string } | null> {
   try {
-    // Eliminar imagen anterior si existe
     if (imagenAnterior) {
       await eliminarImagen(imagenAnterior);
     }
-
-    // Subir nueva imagen
     return await subirImagen(nuevaImagen, categoria);
   } catch (error) {
     console.error("Error en actualizarImagenProducto:", error);
@@ -157,9 +131,8 @@ export async function actualizarImagenProducto(
   }
 }
 
-/**
- * Categorías disponibles para organizar imágenes
- */
+// ─── Constantes ─────────────────────────────────────────────────────────────
+
 export const CATEGORIAS_IMAGENES = {
   PRODUCTOS: "productos",
   CELULARES: "celulares",
@@ -171,4 +144,5 @@ export const CATEGORIAS_IMAGENES = {
   OTROS: "otros",
 } as const;
 
-export type CategoriaImagen = (typeof CATEGORIAS_IMAGENES)[keyof typeof CATEGORIAS_IMAGENES];
+export type CategoriaImagen =
+  (typeof CATEGORIAS_IMAGENES)[keyof typeof CATEGORIAS_IMAGENES];

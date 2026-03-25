@@ -13,6 +13,14 @@
     "binding": "ASSETS"
   },
 
+  // Cloudflare R2 — Storage de imágenes (productos y reparaciones)
+  "r2_buckets": [
+    {
+      "binding": "R2_BUCKET",
+      "bucket_name": "crediphone-storage"
+    }
+  ],
+
   // Variables de entorno — configurar en Cloudflare Dashboard > Workers & Pages > crediphone > Settings > Variables
   // NEXT_PUBLIC_SUPABASE_URL
   // NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -20,6 +28,11 @@
   // PAYJOY_API_KEY (si aplica)
   // PAYJOY_WEBHOOK_SECRET (si aplica)
   // NEXT_PUBLIC_APP_URL = https://crediphone.com.mx
+  //
+  // R2 Storage (REQUERIDO para fotos):
+  // NEXT_PUBLIC_R2_PUBLIC_URL = https://pub-XXXX.r2.dev
+  //   → Habilitar en: Cloudflare Dashboard > R2 > crediphone-storage > Settings > Public Access
+  //   → O usar dominio propio: https://storage.crediphone.com.mx
 
   "observability": {
     "enabled": true
