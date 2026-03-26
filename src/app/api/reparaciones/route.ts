@@ -175,6 +175,8 @@ export async function POST(request: Request) {
         // Fase 8C - Presupuesto simplificado
         presupuestoTotal: body.presupuestoTotal || undefined,
         anticiposData: body.anticiposData || undefined,
+        // FASE 54-B - Catálogo de servicios de reparación
+        catalogoServicioId: body.catalogoServicioId || undefined,
       },
       userId,                             // ← userId real del usuario autenticado
       filterDistribuidorId,               // ← distribuidor del usuario
