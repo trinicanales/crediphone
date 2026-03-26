@@ -52,6 +52,22 @@ export async function POST() {
       // No es crítico — el folio ya fue generado correctamente
     }
 
+    // Limpiar folios reservados de más de 2 horas (sesiones de browser abandonadas)
+    const dosHorasAtras = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { error: cleanupError } = await supabase
+      .from("folios_reparacion")
+      .update({
+        estado: "expirado",
+        cancelado_at: new Date().toISOString(),
+      })
+      .eq("estado", "reservado")
+      .lt("created_at", dosHorasAtras);
+
+    if (cleanupError) {
+      // No bloquear la respuesta si falla la limpieza
+      console.warn("No se pudieron limpiar folios expirados:", cleanupError.message);
+    }
+
     return NextResponse.json({ success: true, folio });
   } catch (error) {
     console.error("Error en POST /api/reparaciones/reservar-folio:", error);

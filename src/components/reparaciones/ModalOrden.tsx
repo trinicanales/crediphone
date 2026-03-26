@@ -183,6 +183,36 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  // Cancelar folio si el usuario cierra la pestaña o navega fuera con el modal abierto
+  useEffect(() => {
+    if (!isOpen || !folioReservado) return;
+
+    const cancelarConBeacon = () => {
+      if (!folioReservado) return;
+      // sendBeacon funciona incluso en beforeunload/visibilitychange
+      navigator.sendBeacon(
+        "/api/reparaciones/cancelar-folio",
+        new Blob(
+          [JSON.stringify({ folio: folioReservado })],
+          { type: "application/json" }
+        )
+      );
+    };
+
+    const handleBeforeUnload = () => cancelarConBeacon();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") cancelarConBeacon();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isOpen, folioReservado]);
+
   // Auto-poblar "Problema Reportado" con las fallas del checklist
   // Solo si el usuario no ha escrito nada manualmente
   useEffect(() => {
