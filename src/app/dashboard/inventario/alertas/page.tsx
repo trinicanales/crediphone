@@ -33,7 +33,7 @@ function formatDate(d: string | Date) {
 // ── página principal ───────────────────────────────────────────────────────────
 
 export default function AlertasPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const [tab, setTab] = useState<"stock" | "demanda" | "nuevos">("stock");
@@ -51,6 +51,7 @@ export default function AlertasPage() {
   const [filterAlertas, setFilterAlertas] = useState<"pending" | "all">("pending");
 
   useEffect(() => {
+    if (authLoading) return; // esperar a que termine la autenticación
     if (!user?.role || !["admin", "super_admin"].includes(user.role)) {
       router.push("/dashboard");
       return;
@@ -58,7 +59,7 @@ export default function AlertasPage() {
     fetchProductos();
     fetchAlertas();
     fetchStats();
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     fetchAlertas();

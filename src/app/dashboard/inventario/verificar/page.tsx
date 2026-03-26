@@ -342,15 +342,7 @@ export default function VerificarInventarioPage() {
     }
   };
 
-  if (!user || !["admin", "vendedor", "super_admin"].includes(user.role)) return null;
-
-  const isAdmin = ["admin", "super_admin"].includes(user.role);
-  const conDiferencia = diferencias.filter((d) => d.diferencia !== 0);
-  const stockPositivo = conDiferencia.filter((d) => d.diferencia > 0);
-  const stockNegativo = conDiferencia.filter((d) => d.diferencia < 0);
-
-  // ── Agrupación de faltantes por ubicación física ──────────────────────────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // ── useMemo DEBE estar antes de cualquier early return (regla de hooks) ────
   const faltantesPorUbicacion = useMemo(() => {
     const groups = new Map<string, Producto[]>();
     for (const p of faltantes) {
@@ -358,13 +350,19 @@ export default function VerificarInventarioPage() {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(p);
     }
-    // Ubicaciones con nombre primero (orden alfabético), "Sin ubicación" al final
     return Array.from(groups.entries()).sort(([a], [b]) => {
       if (a === "Sin ubicación asignada") return 1;
       if (b === "Sin ubicación asignada") return -1;
       return a.localeCompare(b, "es");
     });
   }, [faltantes]);
+
+  if (!user || !["admin", "vendedor", "super_admin"].includes(user.role)) return null;
+
+  const isAdmin = ["admin", "super_admin"].includes(user.role);
+  const conDiferencia = diferencias.filter((d) => d.diferencia !== 0);
+  const stockPositivo = conDiferencia.filter((d) => d.diferencia > 0);
+  const stockNegativo = conDiferencia.filter((d) => d.diferencia < 0);
 
   // Progreso de la sesión
   const totalProductos = items.length + faltantes.length;
