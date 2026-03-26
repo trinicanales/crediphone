@@ -50,6 +50,7 @@ export default function ReparacionesPage() {
     total: 0,
     activas: 0,
     diagnostico: 0,
+    esperandoPiezas: 0,
     enReparacion: 0,
     listasEntrega: 0,
     garantiasActivas: 0,
@@ -112,6 +113,7 @@ export default function ReparacionesPage() {
       (o) => !["entregado", "cancelado", "no_reparable"].includes(o.estado)
     ).length;
     const diagnostico = ordenes.filter((o) => o.estado === "diagnostico").length;
+    const esperandoPiezas = ordenes.filter((o) => o.estado === "esperando_piezas").length;
     const enReparacion = ordenes.filter((o) => o.estado === "en_reparacion").length;
     const listasEntrega = ordenes.filter((o) => o.estado === "listo_entrega").length;
     const garantiasActivas = ordenes.filter(
@@ -122,6 +124,7 @@ export default function ReparacionesPage() {
       total,
       activas,
       diagnostico,
+      esperandoPiezas,
       enReparacion,
       listasEntrega,
       garantiasActivas,
@@ -259,11 +262,12 @@ export default function ReparacionesPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
         {[
           { label: "Total", value: stats.total, bg: "var(--color-bg-surface)", color: "var(--color-text-primary)" },
           { label: "Activas", value: stats.activas, bg: "var(--color-info-bg)", color: "var(--color-info-text)" },
           { label: "Diagnóstico", value: stats.diagnostico, bg: "var(--color-warning-bg)", color: "var(--color-warning-text)" },
+          { label: "Esp. Piezas", value: stats.esperandoPiezas, bg: "var(--color-warning-bg)", color: "var(--color-warning-text)" },
           { label: "En Reparación", value: stats.enReparacion, bg: "var(--color-accent-light)", color: "var(--color-accent)" },
           { label: "Listas Entrega", value: stats.listasEntrega, bg: "var(--color-success-bg)", color: "var(--color-success-text)" },
           { label: "Garantías", value: stats.garantiasActivas, bg: "var(--color-warning-bg)", color: "var(--color-warning-text)" },

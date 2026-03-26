@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   X, ExternalLink, Edit, Loader2, Wrench, Clock, AlertCircle,
   MessageSquare, Package, Timer, FileText, Image as ImageIcon,
-  DollarSign, Phone, CheckCircle
+  DollarSign, Phone, CheckCircle, GitBranch
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { PresupuestoSummary } from "@/components/reparaciones/detail/PresupuestoSummary";
@@ -14,6 +14,7 @@ import { GaleriaFotosOrden } from "@/components/reparaciones/GaleriaFotosOrden";
 import { HistorialNotificaciones } from "@/components/reparaciones/HistorialNotificaciones";
 import { ModalEditarOrden } from "@/components/reparaciones/ModalEditarOrden";
 import { ModalEditarPresupuesto } from "@/components/reparaciones/ModalEditarPresupuesto";
+import { ModalCambiarEstado } from "@/components/reparaciones/ModalCambiarEstado";
 import { PiezasInventarioPanel } from "@/components/reparaciones/PiezasInventarioPanel";
 import { AnticipoCajaPanel } from "@/components/reparaciones/anticipos/AnticipoCajaPanel";
 import { CentroMensajesPanel } from "@/components/reparaciones/mensajeria/CentroMensajesPanel";
@@ -68,6 +69,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
   const [modalPresupuestoOpen, setModalPresupuestoOpen] = useState(false);
+  const [modalCambiarEstadoOpen, setModalCambiarEstadoOpen] = useState(false);
 
   const isOpen = !!ordenId;
 
@@ -523,6 +525,19 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                 <Edit className="w-4 h-4" />
               </button>
             )}
+            {orden && !["entregado", "cancelado", "no_reparable"].includes(orden.estado) && (
+              <button
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+                style={{ color: "var(--color-primary)", background: "var(--color-primary-light)", border: "1px solid transparent" }}
+                onMouseEnter={(e) => (e.currentTarget.style.border = "1px solid var(--color-primary)")}
+                onMouseLeave={(e) => (e.currentTarget.style.border = "1px solid transparent")}
+                onClick={() => setModalCambiarEstadoOpen(true)}
+                title="Cambiar estado de la orden"
+              >
+                <GitBranch className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline ml-1">Estado</span>
+              </button>
+            )}
             {orden && (
               <button
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
@@ -717,6 +732,14 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
             isOpen={modalPresupuestoOpen}
             onClose={() => setModalPresupuestoOpen(false)}
             orden={orden}
+            onSuccess={handleSuccess}
+          />
+          <ModalCambiarEstado
+            isOpen={modalCambiarEstadoOpen}
+            onClose={() => setModalCambiarEstadoOpen(false)}
+            ordenId={orden.id}
+            folio={orden.folio}
+            estadoActual={orden.estado}
             onSuccess={handleSuccess}
           />
         </>

@@ -46,6 +46,7 @@ import {
   Barcode,          // Series por lote (FASE 62)
   Upload,           // Importar Excel (Plantilla masiva)
   TrendingUp,       // Rentabilidad por categoría (FASE 63)
+  Smartphone,       // Reporte de equipos
 } from "lucide-react";
 
 /* ── Tipos de navegación ────────────────────────────────────── */
@@ -186,6 +187,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/dashboard/reportes",            label: "Reportes",      icon: FileBarChart,    roles: ["admin", "super_admin"],  moduleKey: "reportes" },
       { href: "/dashboard/reportes/comisiones",   label: "Comisiones",    icon: BadgeDollarSign, roles: ["admin", "super_admin"],  moduleKey: "reportes" },
+      { href: "/dashboard/reportes/equipos",      label: "Equipos",       icon: Smartphone,      roles: ["admin", "super_admin"],  moduleKey: "reportes" },
       { href: "/dashboard/reportes/rentabilidad", label: "Rentabilidad",  icon: TrendingUp,      roles: ["admin", "super_admin"],  moduleKey: "reportes" },
       { href: "/dashboard/facturacion",         label: "Facturación",   icon: Receipt,         roles: ["admin", "super_admin"],  moduleKey: "reportes" },
       { href: "/dashboard/promociones",         label: "Promociones",   icon: Tag,             roles: ["admin", "super_admin"],  moduleKey: "reportes" },
