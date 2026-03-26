@@ -512,15 +512,17 @@ export function Sidebar({ isOpen, onClose, userRole, userName, onLogout }: Sideb
   };
 
   const filterNavItem = (item: NavItem): boolean => {
-    if (item.roles && (!userRole || !item.roles.includes(userRole))) return false;
+    // super_admin ve todo sin excepción — esta verificación debe ir ANTES del filtro de roles
     if (userRole === "super_admin") return true;
+    if (item.roles && (!userRole || !item.roles.includes(userRole))) return false;
     if (item.moduleKey && !isModuleEnabled(item.moduleKey)) return false;
     return true;
   };
 
   const filterAccordion = (accordion: NavAccordion): boolean => {
-    if (accordion.roles && (!userRole || !accordion.roles.includes(userRole))) return false;
+    // super_admin ve todo sin excepción
     if (userRole === "super_admin") return true;
+    if (accordion.roles && (!userRole || !accordion.roles.includes(userRole))) return false;
     if (accordion.moduleKey && !isModuleEnabled(accordion.moduleKey)) return false;
     // Mostrar si al menos un sub-ítem es visible
     return accordion.subItems.some(filterNavItem);

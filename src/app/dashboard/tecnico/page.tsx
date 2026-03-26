@@ -54,9 +54,12 @@ export default function PanelTecnicoPage() {
     if (!user) return;
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/reparaciones?tecnico_id=${user.id}&detalladas=true`
-      );
+      // super_admin ve TODAS las órdenes; técnico solo ve las suyas
+      const url =
+        user.role === "super_admin"
+          ? "/api/reparaciones?detalladas=true"
+          : `/api/reparaciones?tecnico_id=${user.id}&detalladas=true`;
+      const response = await fetch(url);
       const data = await response.json();
       if (data.success) {
         setOrdenes(data.data);
@@ -169,10 +172,12 @@ export default function PanelTecnicoPage() {
             className="text-3xl font-bold tracking-tight"
             style={{ color: "var(--color-text-primary)" }}
           >
-            Mi Panel de Reparaciones
+            {user?.role === "super_admin" ? "Panel de Reparaciones — Todos" : "Mi Panel de Reparaciones"}
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--color-text-secondary)" }}>
-            Órdenes de servicio asignadas a tu perfil
+            {user?.role === "super_admin"
+              ? "Vista global de todas las órdenes activas"
+              : "Órdenes de servicio asignadas a tu perfil"}
           </p>
         </div>
       </div>

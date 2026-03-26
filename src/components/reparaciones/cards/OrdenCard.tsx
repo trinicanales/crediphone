@@ -249,8 +249,14 @@ export function OrdenCard({
     e.stopPropagation();
     if (orden.estado === "recibido" || orden.estado === "diagnostico") {
       onDiagnostico(orden);
+    } else if (orden.estado === "en_reparacion") {
+      // Marcar directamente como completada sin pasar por el drawer
+      onCambiarEstado(orden, "completado");
+    } else if (orden.estado === "completado") {
+      // Avanzar a listo_entrega directamente
+      onCambiarEstado(orden, "listo_entrega");
     } else {
-      // Para otros estados: abrir drawer directo en tab correspondiente
+      // Para otros estados: abrir drawer
       onOpenDrawer(orden);
     }
   }
