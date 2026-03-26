@@ -471,11 +471,11 @@ export async function createOrdenReparacion(
     if (ordenData.tipoFirma) insertData.tipo_firma = ordenData.tipoFirma;
     if (ordenData.fechaFirma) insertData.fecha_firma = ordenData.fechaFirma;
 
-    // Fase 8C - Presupuesto total
+    // Fase 8C - Presupuesto total con desglose mano de obra / piezas
     if (ordenData.presupuestoTotal !== undefined) {
       insertData.precio_total = ordenData.presupuestoTotal;
-      insertData.precio_mano_obra = ordenData.presupuestoTotal;
-      insertData.precio_piezas = 0;
+      insertData.precio_mano_obra = ordenData.presupuestoManoDeObra ?? ordenData.presupuestoTotal;
+      insertData.precio_piezas = ordenData.presupuestoPiezas ?? 0;
     }
 
     // FASE 54-B: Referencia al catálogo de servicios (opcional)

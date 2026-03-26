@@ -174,6 +174,8 @@ export async function POST(request: Request) {
         imagenesIds: body.imagenesIds || undefined,
         // Fase 8C - Presupuesto simplificado
         presupuestoTotal: body.presupuestoTotal || undefined,
+        presupuestoManoDeObra: body.presupuestoManoDeObra || undefined,
+        presupuestoPiezas: body.presupuestoPiezas || undefined,
         anticiposData: body.anticiposData || undefined,
         // FASE 54-B - Catálogo de servicios de reparación
         catalogoServicioId: body.catalogoServicioId || undefined,

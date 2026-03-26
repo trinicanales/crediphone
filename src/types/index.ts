@@ -524,7 +524,13 @@ export interface OrdenReparacion {
   fechaFirma?: Date;
   imagenesIds?: string[];
   presupuestoTotal?: number;
+  /** Mano de obra ingresada en el formulario (desglose de presupuestoTotal) */
+  presupuestoManoDeObra?: number;
+  /** Costo de piezas calculado automáticamente (desglose de presupuestoTotal) */
+  presupuestoPiezas?: number;
   anticiposData?: any[];
+  /** ID del servicio del catálogo de reparaciones (FASE 54-B) */
+  catalogoServicioId?: string;
 
   // Auditoría
   creadoPor?: string;

@@ -127,6 +127,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
 
   // Presupuesto
   const [presupuestoTotal, setPresupuestoTotal] = useState<number>(0);
+  const [presupuestoManoDeObra, setPresupuestoManoDeObra] = useState<number>(0);
+  const [presupuestoPiezas, setPresupuestoPiezas] = useState<number>(0);
   const [anticipos, setAnticipos] = useState<any[]>([]);
   const [piezasCotizacion, setPiezasCotizacion] = useState<any[]>([]);
 
@@ -394,8 +396,10 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
         fechaFirma: new Date().toISOString(),
         imagenesIds: imagenes.map((img) => img.id),
 
-        // Fase 8C - Presupuesto + Piezas de cotización
+        // Fase 8C - Presupuesto + desglose mano de obra / piezas
         presupuestoTotal,
+        presupuestoManoDeObra,
+        presupuestoPiezas,
         anticiposData: anticipos,
         piezasCotizacion: piezasCotizacion,
 
@@ -538,6 +542,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
       observacionesFisicas: "",
     });
     setPresupuestoTotal(0);
+    setPresupuestoManoDeObra(0);
+    setPresupuestoPiezas(0);
     setAnticipos([]);
     setPiezasCotizacion([]);
     setPatronDesbloqueo("");
@@ -1043,6 +1049,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                 defaultManoDeObra={catalogoPrecioSugerido}
                 onChange={(data) => {
                   setPresupuestoTotal(data.presupuestoTotal);
+                  setPresupuestoManoDeObra(data.manoDeObra);
+                  setPresupuestoPiezas(data.precioPiezas);
                   setAnticipos(data.anticipos);
                   if (data.piezasCotizacion) setPiezasCotizacion(data.piezasCotizacion);
                 }}

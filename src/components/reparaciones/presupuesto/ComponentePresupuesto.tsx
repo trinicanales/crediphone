@@ -33,6 +33,8 @@ interface ComponentePresupuestoProps {
   defaultManoDeObra?: number;
   onChange: (data: {
     presupuestoTotal: number;
+    manoDeObra: number;
+    precioPiezas: number;
     anticipos: Anticipo[];
     piezasCotizacion?: PiezaCotizacion[];
   }) => void;
@@ -58,10 +60,9 @@ export function ComponentePresupuesto({
   useEffect(() => {
     if (!manoDeObraManual && defaultManoDeObra !== undefined) {
       setManoDeObra(defaultManoDeObra);
-      const nuevoTotal =
-        piezas.reduce((s: number, p: PiezaCotizacion) => s + p.precioTotal, 0) +
-        defaultManoDeObra;
-      onChange({ presupuestoTotal: nuevoTotal, anticipos, piezasCotizacion: piezas });
+      const totalP = piezas.reduce((s: number, p: PiezaCotizacion) => s + p.precioTotal, 0);
+      const nuevoTotal = totalP + defaultManoDeObra;
+      onChange({ presupuestoTotal: nuevoTotal, manoDeObra: defaultManoDeObra, precioPiezas: totalP, anticipos, piezasCotizacion: piezas });
     }
     // Solo reaccionar cuando cambia defaultManoDeObra
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -79,11 +80,12 @@ export function ComponentePresupuesto({
   // Cuando cambian las piezas o mano de obra: auto-actualizar total (si no es manual)
   const handlePiezasChange = (nuevasPiezas: PiezaCotizacion[]) => {
     setPiezas(nuevasPiezas);
-    const nuevoTotal = nuevasPiezas.reduce((s, p) => s + p.precioTotal, 0) + manoDeObra;
+    const nuevoTotalPiezas = nuevasPiezas.reduce((s, p) => s + p.precioTotal, 0);
+    const nuevoTotal = nuevoTotalPiezas + manoDeObra;
     if (!modoManual) {
-      onChange({ presupuestoTotal: nuevoTotal, anticipos, piezasCotizacion: nuevasPiezas });
+      onChange({ presupuestoTotal: nuevoTotal, manoDeObra, precioPiezas: nuevoTotalPiezas, anticipos, piezasCotizacion: nuevasPiezas });
     } else {
-      onChange({ presupuestoTotal, anticipos, piezasCotizacion: nuevasPiezas });
+      onChange({ presupuestoTotal, manoDeObra, precioPiezas: nuevoTotalPiezas, anticipos, piezasCotizacion: nuevasPiezas });
     }
   };
 
@@ -92,9 +94,9 @@ export function ComponentePresupuesto({
     setManoDeObraManual(true); // El usuario tocó el campo → no sobrescribir con catálogo
     const nuevoTotal = totalPiezas + valor;
     if (!modoManual) {
-      onChange({ presupuestoTotal: nuevoTotal, anticipos, piezasCotizacion: piezas });
+      onChange({ presupuestoTotal: nuevoTotal, manoDeObra: valor, precioPiezas: totalPiezas, anticipos, piezasCotizacion: piezas });
     } else {
-      onChange({ presupuestoTotal, anticipos, piezasCotizacion: piezas });
+      onChange({ presupuestoTotal, manoDeObra: valor, precioPiezas: totalPiezas, anticipos, piezasCotizacion: piezas });
     }
   };
 
@@ -102,6 +104,8 @@ export function ComponentePresupuesto({
     setModoManual(true);
     onChange({
       presupuestoTotal: value,
+      manoDeObra,
+      precioPiezas: totalPiezas,
       anticipos,
       piezasCotizacion: piezas,
     });
@@ -109,7 +113,7 @@ export function ComponentePresupuesto({
 
   const usarTotalCalculado = () => {
     setModoManual(false);
-    onChange({ presupuestoTotal: totalCalculado, anticipos, piezasCotizacion: piezas });
+    onChange({ presupuestoTotal: totalCalculado, manoDeObra, precioPiezas: totalPiezas, anticipos, piezasCotizacion: piezas });
   };
 
   const agregarAnticipo = () => {
@@ -136,7 +140,10 @@ export function ComponentePresupuesto({
 
     onChange({
       presupuestoTotal,
+      manoDeObra,
+      precioPiezas: totalPiezas,
       anticipos: [...anticipos, anticipo],
+      piezasCotizacion: piezas,
     });
 
     setNuevoAnticipo({ tipoPago: "efectivo", monto: 0 });
@@ -146,7 +153,10 @@ export function ComponentePresupuesto({
   const eliminarAnticipo = (id: string) => {
     onChange({
       presupuestoTotal,
+      manoDeObra,
+      precioPiezas: totalPiezas,
       anticipos: anticipos.filter((a) => a.id !== id),
+      piezasCotizacion: piezas,
     });
   };
 
