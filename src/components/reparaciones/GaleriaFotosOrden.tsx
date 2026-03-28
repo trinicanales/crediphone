@@ -29,6 +29,7 @@ function mapImagenFromDB(db: any): ImagenReparacion {
 export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
   const [imagenes, setImagenes] = useState<ImagenReparacion[]>([]);
   const [loadingFotos, setLoadingFotos] = useState(true);
+  const [errorFotos, setErrorFotos] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [eliminando, setEliminando] = useState<string | null>(null);
   const [imagenSeleccionada, setImagenSeleccionada] = useState<string | null>(null);
@@ -38,13 +39,17 @@ export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
   const fetchFotos = async () => {
     try {
       setLoadingFotos(true);
+      setErrorFotos(false);
       const res = await fetch(`/api/reparaciones/fotos?ordenId=${orden.id}`);
       const data = await res.json();
       if (data.success) {
         setImagenes((data.imagenes || []).map(mapImagenFromDB));
+      } else {
+        setErrorFotos(true);
       }
     } catch (err) {
       console.error("Error al cargar fotos:", err);
+      setErrorFotos(true);
     } finally {
       setLoadingFotos(false);
     }
@@ -217,6 +222,19 @@ export function GaleriaFotosOrden({ orden, onUpdate }: GaleriaFotosOrdenProps) {
           <div className="text-center py-10">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" style={{ color: "var(--color-accent)" }} />
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Cargando fotos…</p>
+          </div>
+        ) : errorFotos ? (
+          <div className="text-center py-10">
+            <p className="text-sm mb-3" style={{ color: "var(--color-danger-text)" }}>
+              No se pudieron cargar las fotos.
+            </p>
+            <button
+              onClick={() => fetchFotos()}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium"
+              style={{ background: "var(--color-accent)", color: "#fff" }}
+            >
+              Reintentar
+            </button>
           </div>
         ) : imagenes.length === 0 ? (
           <div className="text-center py-12">

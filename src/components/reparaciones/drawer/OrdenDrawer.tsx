@@ -66,6 +66,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const isMobile = useIsMobile();
   const [orden, setOrden] = useState<OrdenReparacionDetallada | null>(null);
   const [loading, setLoading] = useState(false);
+  const [drawerError, setDrawerError] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
   const [modalPresupuestoOpen, setModalPresupuestoOpen] = useState(false);
@@ -84,11 +85,17 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
     if (!ordenId) return;
     try {
       setLoading(true);
+      setDrawerError(false);
       const res = await fetch(`/api/reparaciones/${ordenId}`);
       const data = await res.json();
-      if (data.success) setOrden(data.data);
+      if (data.success) {
+        setOrden(data.data);
+      } else {
+        setDrawerError(true);
+      }
     } catch (err) {
       console.error("Error cargando orden en drawer:", err);
+      setDrawerError(true);
     } finally {
       setLoading(false);
     }
@@ -726,14 +733,28 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
             WebkitOverflowScrolling: "touch",
           } as React.CSSProperties}
         >
-          {loading || (!!ordenId && !orden) ? (
+          {loading ? (
             <div className="flex items-center justify-center h-40">
               <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--color-accent)" }} />
+            </div>
+          ) : drawerError ? (
+            <div className="flex flex-col items-center justify-center h-40 gap-3 p-6">
+              <Wrench className="w-10 h-10" style={{ color: "var(--color-danger)" }} />
+              <p className="text-sm text-center" style={{ color: "var(--color-text-secondary)" }}>
+                No se pudo cargar la orden.
+              </p>
+              <button
+                onClick={() => fetchOrden()}
+                className="px-4 py-2 rounded-lg text-sm font-medium"
+                style={{ background: "var(--color-accent)", color: "#fff" }}
+              >
+                Reintentar
+              </button>
             </div>
           ) : !orden ? (
             <div className="flex flex-col items-center justify-center h-40 gap-2">
               <Wrench className="w-10 h-10" style={{ color: "var(--color-border-strong)" }} />
-              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>No se pudo cargar la orden</p>
+              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>No se encontró la orden</p>
             </div>
           ) : (
             renderTab()

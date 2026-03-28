@@ -47,6 +47,7 @@ export default function PagosPage() {
   const [selectedPago, setSelectedPago] = useState<Pago | null>(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
   const [pagoToDelete, setPagoToDelete] = useState<Pago | null>(null);
+  const [fetchError, setFetchError] = useState(false);
 
   // SEGURIDAD: técnico no tiene acceso a pagos/créditos
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function PagosPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setFetchError(false);
       const [pagosRes, creditosRes, clientesRes] = await Promise.all([
         fetch("/api/pagos"),
         fetch("/api/creditos"),
@@ -100,9 +102,12 @@ export default function PagosPage() {
         setFilteredPagos(pagosConDetalles);
         setCreditos(creditosData.data);
         setClientes(clientesData.data);
+      } else {
+        setFetchError(true);
       }
     } catch (error) {
       console.error("Error al cargar datos:", error);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -116,8 +121,18 @@ export default function PagosPage() {
     if (!pagoToDelete) return;
     try {
       const response = await fetch(`/api/pagos/${pagoToDelete.id}`, { method: "DELETE" });
-      if (response.ok) { await fetchData(); setDeleteConfirmModal(false); setPagoToDelete(null); }
-    } catch (error) { console.error("Error al eliminar pago:", error); }
+      if (response.ok) {
+        await fetchData();
+        setDeleteConfirmModal(false);
+        setPagoToDelete(null);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        alert(data.error || "Error al eliminar el pago. Intenta de nuevo.");
+      }
+    } catch (error) {
+      console.error("Error al eliminar pago:", error);
+      alert("Error de conexión al eliminar el pago. Verifica tu internet e intenta de nuevo.");
+    }
   };
 
   const handleModalClose = () => { setIsModalOpen(false); setSelectedPago(null); };
@@ -140,6 +155,31 @@ export default function PagosPage() {
   const pagosHoy = pagos.filter((p) => new Date(p.fechaPago).toISOString().split("T")[0] === today);
   const totalCobradoHoy = pagosHoy.reduce((sum, p) => sum + Number(p.monto), 0);
   const totalCobradoGeneral = pagos.reduce((sum, p) => sum + Number(p.monto), 0);
+
+  if (fetchError) {
+    return (
+      <div className="p-6 lg:p-8 flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div
+          className="rounded-xl p-6 text-center max-w-sm"
+          style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}
+        >
+          <p className="font-semibold mb-1" style={{ color: "var(--color-danger-text)" }}>
+            Error al cargar los pagos
+          </p>
+          <p className="text-sm mb-4" style={{ color: "var(--color-danger-text)" }}>
+            No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.
+          </p>
+          <button
+            onClick={() => fetchData()}
+            className="px-4 py-2 rounded-lg text-sm font-medium"
+            style={{ background: "var(--color-danger)", color: "#fff" }}
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8">

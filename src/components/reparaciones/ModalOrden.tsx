@@ -472,9 +472,15 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             fotosForm.append("tipoImagen", "dispositivo");
             fotosForm.append("subidoDesde", "web");
             archivosPendientes.forEach((file, i) => fotosForm.append(`imagen${i}`, file));
-            await fetch("/api/reparaciones/fotos", { method: "POST", body: fotosForm });
+            const fotosRes = await fetch("/api/reparaciones/fotos", { method: "POST", body: fotosForm });
+            const fotosData = await fotosRes.json().catch(() => ({ success: false }));
+            if (!fotosData.success) {
+              console.error("Error al subir fotos pendientes:", fotosData);
+              alert(`⚠️ La orden fue creada pero las fotos no se pudieron subir.\n\nPuedes agregarlas desde el tab "Fotos" en la orden.`);
+            }
           } catch (fotoError) {
             console.error("Error al subir fotos pendientes:", fotoError);
+            alert(`⚠️ La orden fue creada pero hubo un error de conexión al subir las fotos.\n\nPuedes agregarlas desde el tab "Fotos" en la orden.`);
           }
         }
 
