@@ -91,15 +91,25 @@ export async function eliminarImagen(path: string): Promise<boolean> {
 }
 
 /**
- * Devuelve la URL pública de una imagen dado su path en R2
+ * Devuelve la URL pública de una imagen dado su path.
+ *
+ * Casos:
+ *  1. URL completa (nuevas subidas a R2)  → devolver tal cual
+ *  2. Path relativo (imágenes antiguas en Supabase Storage) → construir URL de Supabase
+ *     El bucket "productos" en Supabase guarda los objetos con el path tal cual está en BD.
+ *     Ej. path="productos/crop-abc.jpg" → .../public/productos/productos/crop-abc.jpg
  */
+const SUPABASE_STORAGE_URL =
+  "https://ihvjjfsefnvcrczrcmhp.supabase.co/storage/v1/object/public/productos";
+
 export function obtenerUrlImagen(
   path: string | null | undefined
 ): string | null {
   if (!path) return null;
-  // Si ya es URL completa (migración desde Supabase o URL externa), devolver tal cual
+  // Nuevas subidas a R2 → URL completa almacenada directamente en BD
   if (path.startsWith("http")) return path;
-  return `${R2_PUBLIC_URL}/${path}`;
+  // Imágenes antiguas en Supabase Storage
+  return `${SUPABASE_STORAGE_URL}/${path}`;
 }
 
 /**
