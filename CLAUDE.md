@@ -38,6 +38,7 @@ npm run deploy:cf   # requiere wrangler autenticado localmente
 - **R2 URL pública:** `https://pub-89451411d31c49d9959b166475cda47a.r2.dev`
 - **PROBLEMA:** `wrangler login` no persiste entre sesiones de Cowork VM. Usar `CLOUDFLARE_API_TOKEN` explícito.
 - **VARIABLES `NEXT_PUBLIC_*`** se inyectan en **build time** desde `.env.local`. No se pueden sobreescribir en runtime desde `wrangler.jsonc [vars]`. Si cambian → rebuildar.
+- **`.env.local` actualizado 2026-03-28:** `NEXT_PUBLIC_BASE_URL` y `NEXT_PUBLIC_APP_URL` corregidos a `https://crediphone.com.mx` (antes apuntaban a `localhost:3000`, lo que rompía links de WhatsApp/tracking).
 
 ---
 
