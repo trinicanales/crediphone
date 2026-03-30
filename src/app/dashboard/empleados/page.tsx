@@ -67,10 +67,15 @@ export default function EmpleadosPage() {
     distribuidorId: "", password: "",
   });
 
+  // PAGES-002: Esperar a que el user esté cargado y tenga permisos antes de hacer fetch
+  // (evita requests 403 durante la carga inicial de auth)
   useEffect(() => {
+    if (!user) return;
+    if (!["admin", "super_admin"].includes(user.role)) return;
     fetchEmpleados();
     fetchStats();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Cargar distribuidores solo para super_admin
   useEffect(() => {

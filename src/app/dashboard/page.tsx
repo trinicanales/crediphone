@@ -115,13 +115,16 @@ export default function DashboardPage() {
   const [ordenesPendientes, setOrdenesPendientes] = useState<OrdenReparacionDetallada[]>([]);
   const [loadingPendientes, setLoadingPendientes] = useState(false);
 
+  // PAGES-002: Esperar a que user esté cargado antes de hacer fetch (evita 401/403 en carga inicial)
   useEffect(() => {
+    if (!user) return;
     fetchStats();
     fetchRepStats();
     fetchOrdenesPendientes();
-    if (user && ["admin", "vendedor", "super_admin"].includes(user.role)) {
+    if (["admin", "vendedor", "super_admin"].includes(user.role)) {
       fetchCajaStatus();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchOrdenesPendientes = async () => {
