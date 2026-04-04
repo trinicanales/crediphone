@@ -278,6 +278,16 @@ export function OrdenCard({
           {(orden.prioridad === "alta" || orden.prioridad === "urgente") && (
             <PrioridadBadge prioridad={orden.prioridad} />
           )}
+          {/* BUG-003: badge de tienda — visible solo cuando super_admin ve múltiples distribuidores */}
+          {orden.distribuidorNombre && (
+            <span
+              className="text-xs font-medium px-1.5 py-0.5 rounded"
+              style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+              title={`Tienda: ${orden.distribuidorNombre}`}
+            >
+              {orden.distribuidorNombre}
+            </span>
+          )}
         </div>
 
         {/* Estado con dropdown inline */}

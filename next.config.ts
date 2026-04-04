@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Disable webpack persistent cache to avoid filling disk during build in CI/VM
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  webpack: (config: any) => {
+    config.cache = false;
+    return config;
+  },
   images: {
     remotePatterns: [
       // Cloudflare R2 — público (pub-*.r2.dev y dominio propio)

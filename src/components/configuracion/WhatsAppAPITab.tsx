@@ -297,8 +297,8 @@ export function WhatsAppAPITab({ distribuidorId }: WhatsAppAPITabProps) {
             <Info size={16} className="shrink-0 mt-0.5" style={{ color: "var(--color-info)" }} />
             <div className="text-xs space-y-1" style={{ color: "var(--color-info-text)" }}>
               <p className="font-semibold">¿Cómo obtener las credenciales?</p>
-              <p>1. Crea una app en <strong>developers.facebook.com</strong> → tipo "Business"</p>
-              <p>2. Agrega el producto "WhatsApp" → Business API</p>
+              <p>1. Crea una app en <strong>developers.facebook.com</strong> → tipo &quot;Business&quot;</p>
+              <p>2. Agrega el producto &quot;WhatsApp&quot; → Business API</p>
               <p>3. Copia el <strong>Phone Number ID</strong> y genera un <strong>Access Token permanente</strong></p>
               <p>4. Registra este URL como webhook: <code className="px-1 rounded" style={{ background: "rgba(0,0,0,0.08)" }}>{webhookUrl}</code></p>
             </div>
@@ -598,7 +598,7 @@ export function WhatsAppAPITab({ distribuidorId }: WhatsAppAPITabProps) {
                 Sin mensajes registrados
               </p>
               <p className="text-xs text-center" style={{ color: "var(--color-text-muted)" }}>
-                Activa "Guardar log de mensajes" para ver el historial
+                Activa &quot;Guardar log de mensajes&quot; para ver el historial
               </p>
             </div>
           ) : (

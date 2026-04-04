@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 import {
   Building2, Plus, Pencil, ToggleLeft, ToggleRight, RefreshCw, Users, Eye,
   Store, Network, Unlink, BanknoteIcon, CreditCard, ArrowLeftRight, Banknote,
@@ -13,6 +15,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import type { Distribuidor, FranquiciaConfig, ModoOperacion, TipoAcceso, PagosHabilitados } from "@/types";
+import { useDistribuidor } from "@/components/DistribuidorProvider";
 
 interface FormState {
   nombre: string;
@@ -401,12 +404,14 @@ function DistRow({
   onToggle,
   onEdit,
   onFranquicia,
+  onEntrar,
 }: {
   dist: Distribuidor;
   togglingIds: Set<string>;
   onToggle: (d: Distribuidor) => void;
   onEdit: (d: Distribuidor) => void;
   onFranquicia: (d: Distribuidor) => void;
+  onEntrar: (d: Distribuidor) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -484,6 +489,17 @@ function DistRow({
       </td>
       <td className="px-6 py-4 text-right">
         <div className="flex items-center justify-end gap-2">
+          {/* FASE 72: Entrar al contexto de esta tienda */}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onEntrar(dist)}
+            title="Cambiar al contexto de esta tienda — el sidebar y los datos se filtran a este distribuidor"
+            disabled={!dist.activo}
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />
+            Entrar
+          </Button>
           <Link href={`/dashboard/admin/distribuidores/${dist.id}`}>
             <Button variant="ghost" size="sm">
               <Eye className="w-3.5 h-3.5 mr-1" />
@@ -511,6 +527,17 @@ function DistRow({
 }
 
 export default function DistribuidoresPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { setDistribuidorActivo } = useDistribuidor();
+
+  // Solo super_admin puede acceder a esta página
+  useEffect(() => {
+    if (user && user.role !== "super_admin") {
+      router.push("/dashboard");
+    }
+  }, [user, router]);
+
   const [distribuidores, setDistribuidores] = useState<Distribuidor[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -607,6 +634,12 @@ export default function DistribuidoresPage() {
       } else { setError(data.error || "Error al guardar"); }
     } catch { setError("Error de conexión"); }
     finally { setSaving(false); }
+  };
+
+  // FASE 72: Entrar al contexto de una tienda específica
+  const handleEntrar = (dist: Distribuidor) => {
+    setDistribuidorActivo({ id: dist.id, nombre: dist.nombre, slug: dist.slug, activo: dist.activo });
+    router.push("/dashboard");
   };
 
   const activos   = distribuidores.filter((d) => d.activo).length;
@@ -729,6 +762,7 @@ export default function DistribuidoresPage() {
                     onToggle={handleToggleActivo}
                     onEdit={openEdit}
                     onFranquicia={setFranquiciaTarget}
+                    onEntrar={handleEntrar}
                   />
                 ))}
               </tbody>

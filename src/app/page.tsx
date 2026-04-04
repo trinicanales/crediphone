@@ -8,20 +8,17 @@ import { obtenerUrlImagen } from "@/lib/storage";
 import { CreditCard, Wrench, Smartphone } from "lucide-react";
 import type { Producto } from "@/types";
 
-// Número de WhatsApp — se usa solo en el cliente para evitar
-// que extensiones del navegador modifiquen el href antes de que React hidrate
+// Número de WhatsApp — href siempre "#"; la navegación ocurre en onClick
+// con window.open para que extensiones del navegador nunca puedan
+// modificar el href en el DOM SSR y causar hydration mismatch.
 const WA_NUMERO = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE ?? "526181245391";
+
+function abrirWhatsApp() {
+  window.open(`https://wa.me/${WA_NUMERO}`, "_blank", "noopener,noreferrer");
+}
 
 export default function Home() {
   const [productos, setProductos] = useState<Producto[]>([]);
-  // mounted controla que los links wa.me NO se rendericen en el servidor.
-  // Esto evita la hydration mismatch causada por extensiones de Chrome que
-  // reemplazan URLs wa.me en el DOM antes de que React cargue.
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     async function fetchProductos() {
@@ -75,8 +72,8 @@ export default function Home() {
                 Ver Catalogo
               </Link>
               <a
-                href={mounted ? `https://wa.me/${WA_NUMERO}` : "#"}
-                target={mounted ? "_blank" : undefined}
+                href="#"
+                onClick={(e) => { e.preventDefault(); abrirWhatsApp(); }}
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors shadow-lg"
               >
@@ -215,8 +212,8 @@ export default function Home() {
             reparacion. Respuesta inmediata.
           </p>
           <a
-            href={mounted ? `https://wa.me/${WA_NUMERO}` : "#"}
-            target={mounted ? "_blank" : undefined}
+            href="#"
+            onClick={(e) => { e.preventDefault(); abrirWhatsApp(); }}
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-4 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors shadow-lg text-lg"
           >

@@ -118,7 +118,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/dashboard/creditos",                label: "Créditos",       icon: CreditCard,  roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "creditos" },
       { href: "/dashboard/pagos",                   label: "Cobros y Pagos", icon: Wallet,      roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "pagos" },
-      { href: "/dashboard/creditos/cartera-vencida",label: "Cartera Vencida",icon: CalendarX2,  roles: ["admin", "cobrador", "vendedor", "super_admin"], moduleKey: "creditos" },
+      { href: "/dashboard/creditos/cartera-vencida",label: "Cartera Vencida",icon: CalendarX2,  roles: ["admin", "cobrador", "super_admin"], moduleKey: "creditos" },
       { href: "/dashboard/recordatorios",           label: "Recordatorios",  icon: BellRing,    roles: ["admin", "vendedor", "cobrador", "super_admin"], moduleKey: "recordatorios" },
     ],
   },
@@ -202,6 +202,9 @@ const navGroups: NavGroup[] = [
       { href: "/dashboard/asistencia",                       label: "Asistencia",            icon: ClockIcon,         roles: ["admin", "super_admin"] },
       { href: "/dashboard/admin/catalogo-reparaciones",      label: "Catálogo Reparaciones", icon: Wrench,            roles: ["admin", "super_admin"],  moduleKey: "reparaciones" },
       { href: "/dashboard/admin/distribuidores",             label: "Distribuidores",        icon: Building2,         roles: ["super_admin"] },
+      { href: "/dashboard/admin/suscripciones",             label: "Suscripciones",         icon: CreditCard,        roles: ["super_admin"] },
+      { href: "/dashboard/admin/consignaciones",            label: "Consignaciones",        icon: Package,           roles: ["admin", "super_admin"] },
+      { href: "/dashboard/admin/contratos",               label: "Contratos",             icon: Receipt,           roles: ["admin", "super_admin"] },
       { href: "/dashboard/configuracion",                    label: "Configuración",         icon: SlidersHorizontal, roles: ["admin", "super_admin"] },
     ],
   },

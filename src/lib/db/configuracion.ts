@@ -161,6 +161,71 @@ export async function updateConfiguracion(
 }
 
 /**
+ * Configuración hardcodeada para super_admin.
+ * BUG-001 FIX: super_admin tiene distribuidorId=null → no debe traer una fila random de la tabla.
+ * Devuelve config con todos los módulos activos y branding de CREDIPHONE.
+ */
+export function getSuperAdminConfig(): Configuracion {
+  return {
+    id: "super_admin_config",
+    distribuidorId: undefined,
+    nombreEmpresa: "CREDIPHONE — Red Completa",
+    rfc: "",
+    direccionEmpresa: "",
+    telefonoEmpresa: "",
+    whatsappNumero: "",
+    emailEmpresa: "",
+    regimenFiscal: "",
+    comisionVendedorDefault: 5,
+    comisionCobradorDefault: 0,
+    tasaMoraDiaria: 50,
+    diasGracia: 3,
+    diasGarantiaDefault: 90,
+    notificacionesActivas: true,
+    modulosHabilitados: {
+      dashboard: true,
+      clientes: true,
+      creditos: true,
+      pagos: true,
+      productos: true,
+      empleados: true,
+      reparaciones: true,
+      "dashboard-reparaciones": true,
+      reportes: true,
+      recordatorios: true,
+      tecnico: true,
+      pos: true,
+      inventario_avanzado: true,
+      payjoy: true,
+    },
+    payjoyEnabled: false,
+    payjoyAutoSyncPayments: true,
+    comisionTipo: "porcentaje",
+    comisionMontoFijo: 100,
+    comisionPorcentajeVenta: 1,
+    tasaInteresDefault: 0,
+    plazoMaximoSemanas: 52,
+    engancheMinimoPct: 10,
+    frecuenciaPagoDefault: "semanal",
+    montoMaximoCredito: 0,
+    permitirVentasSinCliente: true,
+    descuentoMaximoPct: 100,
+    diasMaxDevolucion: 30,
+    diasAnticipacionRecordatorio: 3,
+    mensajeRecordatorio:
+      "Hola {nombre}, te recordamos que tienes un pago de {monto} con vencimiento el {fecha}. ¡Evita cargos por mora!",
+    updatedAt: new Date(),
+    fondoCaja: 500,
+    toleranciaDescuadre: 0,
+    waEnabled: false,
+    waApiVersion: "v20.0",
+    waLogMensajes: true,
+    waAccessTokenConfigured: false,
+    waAccessToken: undefined,
+  };
+}
+
+/**
  * Mapea los datos de la base de datos (snake_case) a la interfaz TypeScript (camelCase)
  */
 function mapConfigFromDB(db: any): Configuracion {

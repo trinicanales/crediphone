@@ -189,8 +189,8 @@ export function TimelineEstados({ historial }: TimelineEstadosProps) {
               {evento.comentario && (
                 <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
                   <p className="text-sm italic" style={{ color: "var(--color-text-secondary)" }}>
-                    <span className="font-semibold not-italic">💬 Comentario:</span> "
-                    {evento.comentario}"
+                    <span className="font-semibold not-italic">💬 Comentario:</span> &quot;
+                    {evento.comentario}&quot;
                   </p>
                 </div>
               )}

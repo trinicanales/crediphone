@@ -305,7 +305,7 @@ export function SelectorPiezasCotizacion({
                 className="px-4 py-6 text-center text-xs"
                 style={{ color: "var(--color-text-muted)" }}
               >
-                Sin resultados — usa "Agregar libre" para cotizar
+                Sin resultados — usa &quot;Agregar libre&quot; para cotizar
               </div>
             )}
           </div>

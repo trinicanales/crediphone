@@ -114,7 +114,7 @@ export function ComponenteDeslindes({
           <div className="mb-2 text-2xl">📝</div>
           <p>No hay deslindes generados todavía.</p>
           <p className="mt-1">
-            Completa el <strong>"Problema Reportado"</strong> y marca las
+            Completa el <strong>&quot;Problema Reportado&quot;</strong> y marca las
             condiciones del dispositivo para generarlos automáticamente.
           </p>
         </div>

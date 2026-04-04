@@ -4,8 +4,10 @@
 export type UserRole = "super_admin" | "admin" | "vendedor" | "cobrador" | "tecnico";
 
 // Módulo Franquicia — configuración independiente por distribuidor
-export type ModoOperacion = "red" | "franquicia";
+// red = tienda propia de Trini | franquicia = tienda franquiciada | arrendatario = renta el sistema | consignatario = recibe equipos en consignación (10% comisión)
+export type ModoOperacion = "red" | "franquicia" | "arrendatario" | "consignatario";
 export type TipoAcceso = "incluido" | "renta";
+export type SuscripcionEstado = "trial" | "activa" | "vencida" | "suspendida" | "cancelada";
 
 export interface PagosHabilitados {
   efectivo: boolean;
@@ -33,6 +35,19 @@ export interface Distribuidor {
   configuracion?: Record<string, any>;
   // Módulo Franquicia
   franquicia?: FranquiciaConfig;
+  // FASE 70: Datos del negocio
+  direccion?: string;
+  telefonoNegocio?: string;
+  rfcNegocio?: string;
+  // FASE 73: Suscripción
+  rentaMensual?: number;
+  diaPago?: number;
+  fechaInicioSvc?: Date;
+  fechaVencActual?: Date;
+  estadoSuscripcion?: SuscripcionEstado;
+  diasTrial?: number;
+  contratoFolio?: string;
+  contratoUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -151,6 +166,8 @@ export interface Credito {
   payjoyLastSyncAt?: Date; // Última sincronización con Payjoy
   createdAt: Date;
   updatedAt: Date;
+  /** BUG-003: nombre de la tienda — solo presente cuando super_admin ve datos de múltiples distribuidores */
+  distribuidorNombre?: string;
 }
 
 export interface DetallePagoMixto {
@@ -175,6 +192,8 @@ export interface Pago {
   payjoyCustomerName?: string; // Nombre del cliente desde webhook
   payjoyWebhookId?: string; // Referencia al webhook que creó este pago
   createdAt: Date;
+  /** BUG-003: nombre de la tienda — solo presente cuando super_admin ve datos de múltiples distribuidores */
+  distribuidorNombre?: string;
 }
 
 export interface Categoria {
@@ -566,6 +585,8 @@ export interface OrdenReparacionDetallada extends OrdenReparacion {
   clienteApellido?: string;
   clienteTelefono: string;
   tecnicoNombre: string;
+  /** BUG-003: nombre de la tienda — solo presente cuando super_admin ve datos de múltiples distribuidores */
+  distribuidorNombre?: string;
 }
 
 // ─── FASE 56: Multi-diagnóstico ─────────────────────────────────────────────
@@ -1847,6 +1868,74 @@ export interface WhatsAppMensaje {
   errorDetalle?: string;
   enviadoPorId?: string;
   enviadoPorNombre?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── FASE 74: Consignaciones ──────────────────────────────────────────────────
+
+export type ConsignacionEstado =
+  | "pendiente_envio"
+  | "en_consignacion"
+  | "vendido"
+  | "devuelto";
+
+export interface Consignacion {
+  id: string;
+  productoId?: string;
+  descripcionEquipo: string;
+  imei?: string;
+  distribuidorOrigenId: string;
+  distribuidorOrigenNombre?: string;
+  distribuidorDestinoId: string;
+  distribuidorDestinoNombre?: string;
+  estado: ConsignacionEstado;
+  precioCosto: number;
+  precioVenta?: number;
+  comisionPct: number;
+  comisionMonto?: number;
+  fechaEnvio?: Date;
+  fechaVenta?: Date;
+  fechaDevolucion?: Date;
+  notas?: string;
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── FASE 75: Contratos Digitales ─────────────────────────────────────────────
+
+export type ContratoEstado = "borrador" | "enviado" | "firmado" | "vencido" | "cancelado";
+export type ContratoTipo = "franquicia" | "arrendamiento" | "consignacion";
+
+export interface Contrato {
+  id: string;
+  folio: string;
+  distribuidorId: string;
+  distribuidorNombre?: string;
+  tipoContrato: ContratoTipo;
+  // Partes
+  nombreEmpresa?: string;
+  rfcEmpresa?: string;
+  direccionEmpresa?: string;
+  representanteLegal?: string;
+  // Vigencia
+  fechaInicio: Date;
+  fechaFin?: Date;
+  // Firma
+  estado: ContratoEstado;
+  firmadoEn?: Date;
+  firmaIp?: string;
+  firmaHash?: string;
+  firmaNombre?: string;
+  // Docs
+  pdfUrl?: string;
+  // Contenido
+  clausulas?: string[];
+  montoMensual?: number;
+  notas?: string;
+  // Auditoría
+  createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }

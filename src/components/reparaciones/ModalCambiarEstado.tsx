@@ -206,7 +206,7 @@ export function ModalCambiarEstado({
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--color-danger)" }} />
               <div>
                 <p className="text-sm font-medium mb-1" style={{ color: "var(--color-danger-text)" }}>
-                  ¿Está seguro de cambiar al estado "{estadosLabels[nuevoEstado as EstadoOrdenReparacion]}"?
+                  ¿Está seguro de cambiar al estado &quot;{estadosLabels[nuevoEstado as EstadoOrdenReparacion]}&quot;?
                 </p>
                 <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>
                   Esta acción es irreversible y marcará la orden como finalizada sin completar

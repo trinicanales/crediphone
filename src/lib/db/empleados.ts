@@ -49,14 +49,21 @@ export async function getEmpleadosActivos(distribuidorId?: string): Promise<Empl
 
 /**
  * Obtiene un empleado por ID
+ * @param distribuidorId - Si se proporciona, verifica que el empleado pertenezca a ese distribuidor (admin);
+ *                         si es undefined, devuelve el empleado sin importar distribuidor (super_admin)
  */
-export async function getEmpleadoById(id: string): Promise<Empleado | null> {
+export async function getEmpleadoById(id: string, distribuidorId?: string): Promise<Empleado | null> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("users")
     .select("*")
-    .eq("id", id)
-    .single();
+    .eq("id", id);
+
+  if (distribuidorId) {
+    query = query.eq("distribuidor_id", distribuidorId);
+  }
+
+  const { data, error } = await query.single();
 
   if (error) {
     if (error.code === "PGRST116") return null;
@@ -67,16 +74,23 @@ export async function getEmpleadoById(id: string): Promise<Empleado | null> {
 
 /**
  * Obtiene empleados por rol específico
+ * @param rol - Rol a filtrar
+ * @param distribuidorId - Si se proporciona, filtra por distribuidor (admin); si es undefined, devuelve todos (super_admin)
  */
-export async function getEmpleadosPorRol(rol: UserRole): Promise<Empleado[]> {
+export async function getEmpleadosPorRol(rol: UserRole, distribuidorId?: string): Promise<Empleado[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("users")
     .select("*")
     .eq("role", rol)
     .eq("activo", true)
     .order("name", { ascending: true });
 
+  if (distribuidorId) {
+    query = query.eq("distribuidor_id", distribuidorId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return mapEmpleadosFromDB(data);
 }

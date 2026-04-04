@@ -46,27 +46,39 @@ function mapMovimientoFromDB(row: any): MovimientoUbicacion {
 
 /**
  * Get all active locations
+ * @param distribuidorId - Si se proporciona, filtra por distribuidor (admin); si es undefined, devuelve todos (super_admin)
  */
-export async function getUbicaciones(): Promise<UbicacionInventario[]> {
-  const { data, error } = await createAdminClient()
+export async function getUbicaciones(distribuidorId?: string): Promise<UbicacionInventario[]> {
+  let query = createAdminClient()
     .from("ubicaciones_inventario")
     .select("*")
     .eq("activo", true)
     .order("codigo", { ascending: true });
 
+  if (distribuidorId) {
+    query = query.eq("distribuidor_id", distribuidorId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data.map(mapUbicacionFromDB);
 }
 
 /**
  * Get all locations including inactive
+ * @param distribuidorId - Si se proporciona, filtra por distribuidor (admin); si es undefined, devuelve todos (super_admin)
  */
-export async function getAllUbicaciones(): Promise<UbicacionInventario[]> {
-  const { data, error } = await createAdminClient()
+export async function getAllUbicaciones(distribuidorId?: string): Promise<UbicacionInventario[]> {
+  let query = createAdminClient()
     .from("ubicaciones_inventario")
     .select("*")
     .order("codigo", { ascending: true });
 
+  if (distribuidorId) {
+    query = query.eq("distribuidor_id", distribuidorId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data.map(mapUbicacionFromDB);
 }
@@ -254,11 +266,12 @@ export async function getProductosCountByUbicacion(
 
 /**
  * Get all locations with product counts
+ * @param distribuidorId - Si se proporciona, filtra por distribuidor (admin); si es undefined, devuelve todos (super_admin)
  */
-export async function getUbicacionesWithCounts(): Promise<
+export async function getUbicacionesWithCounts(distribuidorId?: string): Promise<
   Array<UbicacionInventario & { productosCount: number }>
 > {
-  const ubicaciones = await getUbicaciones();
+  const ubicaciones = await getUbicaciones(distribuidorId);
 
   const ubicacionesWithCounts = await Promise.all(
     ubicaciones.map(async (ubicacion) => {
@@ -393,8 +406,10 @@ export async function getMovimientosByUbicacion(
 
 /**
  * Get recent movements (last 50)
+ * @param distribuidorId - Reservado para futura implementación de filtro por distribuidor.
+ *                         Actualmente filtra por los productos del distribuidor en post-proceso.
  */
-export async function getMovimientosRecientes(): Promise<
+export async function getMovimientosRecientes(distribuidorId?: string): Promise<
   MovimientoUbicacionDetallado[]
 > {
   const { data, error } = await createAdminClient()
@@ -402,18 +417,23 @@ export async function getMovimientosRecientes(): Promise<
     .select(
       `
       *,
-      producto:productos(id, nombre, marca, modelo),
+      producto:productos(id, nombre, marca, modelo, distribuidor_id),
       ubicacion_origen:ubicacion_origen_id(id, nombre, codigo),
       ubicacion_destino:ubicacion_destino_id(id, nombre, codigo),
       usuario:usuarios(id, name, email)
     `
     )
     .order("fecha_movimiento", { ascending: false })
-    .limit(50);
+    .limit(100);
 
   if (error) throw error;
 
-  return data.map((row) => ({
+  // Filtro post-consulta por distribuidor (via producto)
+  const rows = distribuidorId
+    ? data.filter((row) => !row.producto || (row.producto as any).distribuidor_id === distribuidorId)
+    : data;
+
+  return rows.slice(0, 50).map((row) => ({
     ...mapMovimientoFromDB(row),
     producto: row.producto,
     ubicacionOrigen: row.ubicacion_origen

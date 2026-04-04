@@ -5,9 +5,10 @@ import { notFound } from "next/navigation";
 export default async function EditProveedorPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const proveedor = await getProveedorById(params.id);
+  const { id } = await params;
+  const proveedor = await getProveedorById(id);
 
   if (!proveedor) {
     notFound();

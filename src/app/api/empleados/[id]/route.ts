@@ -34,7 +34,9 @@ export async function GET(
       );
     }
 
-    const empleado = await getEmpleadoById(id);
+    // super_admin ve cualquier empleado; admin solo los de su distribuidor
+    const distribuidorFilter = auth.isSuperAdmin ? undefined : (auth.distribuidorId ?? undefined);
+    const empleado = await getEmpleadoById(id, distribuidorFilter);
 
     if (!empleado) {
       return NextResponse.json(
@@ -108,6 +110,16 @@ export async function PUT(
       }
     }
 
+    // Verificar que el empleado pertenece al distribuidor del admin antes de modificar
+    const distribuidorFilter = auth.isSuperAdmin ? undefined : (auth.distribuidorId ?? undefined);
+    const empleadoExistente = await getEmpleadoById(id, distribuidorFilter);
+    if (!empleadoExistente) {
+      return NextResponse.json(
+        { success: false, error: "Empleado no encontrado" },
+        { status: 404 }
+      );
+    }
+
     const empleadoActualizado = await updateEmpleado(id, body);
 
     return NextResponse.json({
@@ -153,6 +165,16 @@ export async function DELETE(
           message: "El ID proporcionado no es un UUID válido",
         },
         { status: 400 }
+      );
+    }
+
+    // Verificar que el empleado pertenece al distribuidor del admin antes de desactivar
+    const distribuidorFilter = auth.isSuperAdmin ? undefined : (auth.distribuidorId ?? undefined);
+    const empleadoExistente = await getEmpleadoById(id, distribuidorFilter);
+    if (!empleadoExistente) {
+      return NextResponse.json(
+        { success: false, error: "Empleado no encontrado" },
+        { status: 404 }
       );
     }
 

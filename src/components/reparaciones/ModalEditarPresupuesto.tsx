@@ -225,7 +225,7 @@ export function ModalEditarPresupuesto({
             {partes.length === 0 ? (
               <div className="text-center py-8 rounded-lg" style={{ background: "var(--color-bg-elevated)" }}>
                 <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-                  No hay partes agregadas. Haz clic en "Agregar Parte" para comenzar.
+                  No hay partes agregadas. Haz clic en &quot;Agregar Parte&quot; para comenzar.
                 </p>
               </div>
             ) : (

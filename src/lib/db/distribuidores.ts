@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { type Distribuidor, type FranquiciaConfig, type PagosHabilitados } from "@/types";
+import { type Distribuidor, type FranquiciaConfig, type PagosHabilitados, type SuscripcionEstado } from "@/types";
 
 const PAGOS_DEFAULT: PagosHabilitados = {
   efectivo: true,
@@ -173,6 +173,10 @@ function mapDistribuidorFromDB(db: any): Distribuidor {
         logoUrl: db.logo_url,
         activo: db.activo,
         configuracion: db.configuracion,
+        // Datos del negocio (FASE 70)
+        direccion: db.direccion ?? undefined,
+        telefonoNegocio: db.telefono_negocio ?? undefined,
+        rfcNegocio: db.rfc_negocio ?? undefined,
         franquicia: {
             modoOperacion: db.modo_operacion ?? "red",
             grupoInventario: db.grupo_inventario ?? undefined,
@@ -181,6 +185,15 @@ function mapDistribuidorFromDB(db: any): Distribuidor {
             pagosHabilitados: db.pagos_habilitados ?? PAGOS_DEFAULT,
             notasFranquicia: db.notas_franquicia ?? undefined,
         },
+        // Suscripción (FASE 73)
+        rentaMensual: db.renta_mensual != null ? parseFloat(db.renta_mensual) : undefined,
+        diaPago: db.dia_pago ?? undefined,
+        fechaInicioSvc: db.fecha_inicio_svc ? new Date(db.fecha_inicio_svc) : undefined,
+        fechaVencActual: db.fecha_venc_actual ? new Date(db.fecha_venc_actual) : undefined,
+        estadoSuscripcion: (db.estado_suscripcion as SuscripcionEstado) ?? undefined,
+        diasTrial: db.dias_trial ?? undefined,
+        contratoFolio: db.contrato_folio ?? undefined,
+        contratoUrl: db.contrato_url ?? undefined,
         createdAt: new Date(db.created_at),
         updatedAt: new Date(db.updated_at),
     };

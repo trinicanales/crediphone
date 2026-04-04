@@ -17,9 +17,10 @@ async function getCreditoIdsByDistribuidor(distribuidorId: string): Promise<stri
 export async function getPagos(distribuidorId?: string): Promise<Pago[]> {
   const supabase = createAdminClient();
 
+  // BUG-003: join credito→distribuidores para nombre de tienda en vista super_admin
   let query = supabase
     .from("pagos")
-    .select("*")
+    .select("*, credito:creditos(distribuidor_id, distribuidor:distribuidores(nombre))")
     .order("fecha_pago", { ascending: false });
 
   if (distribuidorId) {
@@ -30,7 +31,11 @@ export async function getPagos(distribuidorId?: string): Promise<Pago[]> {
 
   const { data, error } = await query;
   if (error) throw error;
-  return data as Pago[];
+  return (data || []).map((row: any) => ({
+    ...row,
+    distribuidorNombre: row.credito?.distribuidor?.nombre || undefined,
+    credito: undefined,
+  })) as Pago[];
 }
 
 export async function getPagosByCredito(creditoId: string): Promise<Pago[]> {

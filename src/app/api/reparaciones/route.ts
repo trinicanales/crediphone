@@ -61,6 +61,10 @@ export async function GET(request: Request) {
       ordenes = await searchOrdenes(query, filterDistribuidorId);
     } else if (garantias === "true") {
       ordenes = await getOrdenesGarantiaActivas(filterDistribuidorId);
+    } else if (tecnicoId && detalladas === "true") {
+      // BUGFIX: tecnico page pide detalladas=true + tecnico_id — necesita joins completos
+      const todas = await getOrdenesReparacionDetalladas(filterDistribuidorId);
+      ordenes = todas.filter((o) => o.tecnicoId === tecnicoId);
     } else if (tecnicoId) {
       ordenes = await getOrdenesByTecnico(tecnicoId, filterDistribuidorId);
     } else if (estado) {

@@ -39,7 +39,19 @@
       "Bash(git push origin master)",
       "Bash(vercel --prod)",
       "Bash(git add src/app/api/reparaciones/fotos/[imagenId]/route.ts src/app/api/reparaciones/qr/generar/route.ts src/components/reparaciones/GaleriaFotosOrden.tsx src/components/reparaciones/fotos/SistemaFotosOrden.tsx)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(vercel env ls)",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Vercel__get_runtime_logs",
+      "Bash(vercel env pull .env.vercel.tmp --yes)",
+      "Bash(rm .env.vercel.tmp)",
+      "mcp__claude_ai_Vercel__deploy_to_vercel",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "Bash(npx next:*)",
+      "Bash(npx eslint:*)",
+      "Bash(rm \"c:\\\\Users\\\\usuario 1\\\\crediphone\\\\.git\\\\HEAD.lock\")",
+      "Bash(rm \"c:\\\\Users\\\\usuario 1\\\\crediphone\\\\.git\\\\index.lock\")"
     ]
   }
 }

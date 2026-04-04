@@ -116,7 +116,7 @@ export default function PromocionesPage() {
           </p>
           <p className="text-xs mt-0.5" style={{ color: "var(--color-warning-text)" }}>
             Solo se envían a clientes que aceptaron recibir promociones. Máximo 20-30 mensajes por día.
-            Siempre incluye opción de baja con "STOP".
+            Siempre incluye opción de baja con &quot;STOP&quot;.
           </p>
         </div>
       </div>

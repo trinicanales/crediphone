@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Menu, LogOut } from "lucide-react";
+import { Sun, Moon, Menu, LogOut, Building2, X } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { CampanaNotificaciones } from "@/components/notificaciones/CampanaNotificaciones";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { ConfigProvider, useConfig } from "@/components/ConfigProvider";
-import { DistribuidorProvider } from "@/components/DistribuidorProvider";
+import { DistribuidorProvider, useDistribuidor } from "@/components/DistribuidorProvider";
 import { useNotificacionesRealtime } from "@/hooks/useNotificacionesRealtime";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -32,6 +32,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
   const { config } = useConfig();
+  const { distribuidorActivo, setDistribuidorActivo } = useDistribuidor();
   const router = useRouter();
 
   useEffect(() => {
@@ -190,6 +191,46 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </header>
+
+        {/* FASE 72 — Banner de contexto: visible cuando super_admin está en una tienda específica */}
+        {user?.role === "super_admin" && distribuidorActivo && (
+          <div
+            className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-2 text-sm"
+            style={{
+              background: "var(--color-primary)",
+              color: "var(--color-primary-text)",
+              borderBottom: "1px solid rgba(255,255,255,0.15)",
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 shrink-0 opacity-75" />
+              <span className="font-medium">Viendo tienda:</span>
+              <span
+                className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                style={{
+                  background: "rgba(255,255,255,0.18)",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                }}
+              >
+                {distribuidorActivo.nombre}
+              </span>
+              <span className="opacity-60 text-xs hidden sm:inline">
+                — Los datos y módulos se filtran a esta tienda
+              </span>
+            </div>
+            <button
+              onClick={() => { setDistribuidorActivo(null); router.push("/dashboard"); }}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all"
+              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.25)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
+              title="Volver a Vista Global — ver datos de todos los distribuidores"
+            >
+              <X className="w-3.5 h-3.5" />
+              Vista Global
+            </button>
+          </div>
+        )}
 
         {/* Content */}
         <main className="flex-1 overflow-auto">{children}</main>

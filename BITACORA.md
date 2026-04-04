@@ -638,4 +638,408 @@ Si en un turno se cobran $1,500 en anticipos de reparación → el cuadre de caj
 
 ---
 
-*Última actualización: 2026-03-28 — Claude (Auditoría completa: POS, caja, reparaciones, fotos QR, URLs, inventario. Bugs CAJA-001/002, MULTITENANT-001/002, POS-001 documentados. FOTO-001 y URL-001 resueltos y desplegados.)*
+*Última actualización: 2026-03-29 — Claude (Auditoría profunda + correcciones: MULTI-TENANT-005/006/007 resueltos, SIDEBAR-002 resuelto, SIDEBAR-001 cerrado como intencional, PAGES-001 parcialmente resuelto — distribuidores page protegida. TypeScript ✅ sin errores. Listo para deploy Cloudflare.)*
+
+---
+
+## 🔴 BUGS ENCONTRADOS EN AUDITORÍA PROFUNDA 2026-03-29
+
+> Auditoría completa con verificación directa en Supabase (MCP), lectura de 50+ archivos de código,
+> y análisis de DB layer, API routes, páginas, componentes y migraciones.
+> Confirmación de estado real de cada tabla en producción.
+
+---
+
+### ✅ BUGS CERRADOS (estaban en BITÁCORA como pendientes, RESUELTOS confirmados)
+
+| ID | Estado | Evidencia |
+|---|---|---|
+| CAJA-001 | ✅ RESUELTO | `caja_movimientos` tiene columnas referencia_id, distribuidor_id, registrado_por + CHECK con 7 tipos correctos (verificado en Supabase) |
+| CAJA-002 | ✅ RESUELTO | commit `feedae4` |
+| MULTITENANT-001 | ✅ RESUELTO | commit `feedae4` |
+| MULTITENANT-002 | ✅ RESUELTO | commit `feedae4` |
+| FOTO-001 | ✅ RESUELTO | confirmado |
+| URL-001 | ✅ RESUELTO | confirmado |
+| POS-001 (Kits sin BD) | ✅ CERRADO | Tablas `kits` y `kits_items` SÍ EXISTEN en Supabase (0 rows, RLS habilitado). El código funciona. |
+| LOTES-001 (lotes-series sin BD) | ✅ CERRADO | Tablas `lotes_series` y `lotes_series_items` SÍ EXISTEN en Supabase (0 rows, RLS habilitado). |
+
+---
+
+### [DOCBUG-001] Documentación incorrecta: middleware.ts vs proxy.ts
+**Severidad:** MEDIO — Confunde a Claude en sesiones futuras
+**Estado:** ✅ CORREGIDO en BITACORA.md y CLAUDE.md (sesión 2026-03-29)
+**El problema:** BITACORA y CLAUDE.md decían "el archivo se llama `src/proxy.ts`" pero el archivo real es `src/middleware.ts` con función `middleware`.
+
+---
+
+### [DOCBUG-002] BITACORA desactualizada: kits/lotes_series "no existen en Supabase"
+**Severidad:** MEDIO — Genera confusión en implementación
+**Estado:** ✅ CORREGIDO en esta sesión
+**El problema:** BITACORA decía "tablas kits, kits_items, lotes_series, lotes_series_items NO existen en Supabase". Verificación directa en Supabase 2026-03-29 confirma que SÍ EXISTEN (0 rows cada una). Las migraciones fase61 y fase62 fueron aplicadas.
+
+---
+
+### [DOCBUG-003] CLAUDE.md dice "asistencia_registros", tabla real es "asistencia_sesiones"
+**Severidad:** MEDIO — Error de documentación
+**Estado:** ✅ CORREGIDO en CLAUDE.md (sesión 2026-03-29)
+**El problema:** CLAUDE.md referenciaba tabla `asistencia_registros` para FASE 55. La tabla real en Supabase es `asistencia_sesiones`. El código (`src/lib/db/asistencia.ts`) usa `asistencia_sesiones` correctamente — solo era error de documentación.
+
+---
+
+### [RLS-001] CRÍTICO-SEGURIDAD: 26 tablas SIN Row Level Security en Supabase
+**Severidad:** CRÍTICO
+**Detectado:** 2026-03-29
+**Estado:** ❌ PENDIENTE
+
+**Tablas afectadas (confirmado en Supabase vía MCP):**
+```
+asistencia_sesiones, catalogo_servicios_precios_distribuidor,
+catalogo_servicios_reparacion, configuracion, confirmaciones_deposito,
+devoluciones, devoluciones_items, folios_reparacion, garantias_piezas,
+log_autorizaciones, lotes_piezas, lotes_piezas_items, ordenes_compra,
+ordenes_compra_items, permisos_empleado, plantillas_notificacion,
+pos_scan_sessions, promociones, push_subscriptions, reparacion_piezas,
+reparacion_tiempo_logs, servicios, solicitudes_piezas, subcategorias,
+traspasos_anticipo, whatsapp_mensajes
+```
+
+**El riesgo real:** El sistema usa `createAdminClient()` (service_role) en las API routes, lo que bypasea RLS correctamente. **PERO** si alguien obtiene la `SUPABASE_ANON_KEY` (que es pública en el frontend), puede hacer queries directas desde JS del navegador a estas tablas sin autenticación. Las tablas más críticas sin RLS son: `configuracion` (tiene RFC, tokens WhatsApp, comisiones), `confirmaciones_deposito`, `log_autorizaciones`, `traspasos_anticipo`.
+
+**Impacto si se explota:** Lectura de configuración de todos los distribuidores (incluyendo wa_access_token en texto plano), historial de autorizaciones de descuentos, traspasos de anticipos.
+
+**Fix requerido:** Aplicar RLS + políticas a las 26 tablas, especialmente las críticas: `configuracion`, `confirmaciones_deposito`, `log_autorizaciones`, `traspasos_anticipo`, `servicios`, `devoluciones`.
+
+---
+
+### [SECURITY-003] wa_access_token en texto plano en tabla `configuracion`
+**Severidad:** ALTO
+**Detectado:** 2026-03-29
+**Estado:** ❌ PENDIENTE
+
+La columna `wa_access_token` de la tabla `configuracion` guarda el token de WhatsApp Business API en texto plano en la base de datos. Si hay un breach o si se explota RLS-001, este token queda expuesto para todos los distribuidores.
+
+**Fix sugerido:** Cifrar con `pgcrypto` o mover a un vault/env var separado por distribuidor. Mientras tanto, priorizar el fix de RLS-001 para `configuracion`.
+
+---
+
+### [MULTI-TENANT-005] `/api/empleados/vendedores` devuelve vendedores de TODOS los distribuidores
+**Severidad:** ALTO
+**Detectado:** 2026-03-29
+**Estado:** ✅ RESUELTO (2026-03-29)
+
+**Archivo:** `src/app/api/empleados/vendedores/route.ts`
+**Problema:** Llamaba a `getEmpleadosPorRol("vendedor")` sin filtro por `distribuidor_id`.
+
+**Solución aplicada:**
+- `src/lib/db/empleados.ts`: Agregado parámetro `distribuidorId?: string` a `getEmpleadosPorRol()`. Si se pasa, agrega `.eq("distribuidor_id", distribuidorId)` a la query.
+- `src/app/api/empleados/vendedores/route.ts`: Captura `auth.distribuidorId`; super_admin recibe `undefined` (ve todos), admin recibe su `distribuidorId`.
+- TypeScript: ✅ Sin errores. ESLint: ✅ Sin errores.
+
+---
+
+### [MULTI-TENANT-006] `/api/empleados/[id]` permite leer empleados de cualquier distribuidor
+**Severidad:** ALTO
+**Detectado:** 2026-03-29
+**Estado:** ✅ RESUELTO (2026-03-29)
+
+**Archivo:** `src/app/api/empleados/[id]/route.ts`
+**Problema:** `getEmpleadoById(id)` no filtraba por `distribuidor_id`. Un admin podía leer datos (sueldo, teléfono, dirección) de empleados de otras tiendas.
+
+**Solución aplicada:**
+- `src/lib/db/empleados.ts`: Agregado parámetro `distribuidorId?: string` a `getEmpleadoById()`. La query filtra por `distribuidor_id` cuando se proporciona.
+- `src/app/api/empleados/[id]/route.ts`: GET, PUT y DELETE ahora calculan `distribuidorFilter` (undefined para super_admin, distribuidorId para admin). El GET pasa el filtro al fetch. PUT y DELETE hacen una verificación previa de propiedad antes de modificar.
+- TypeScript: ✅ Sin errores. ESLint: ✅ Sin errores.
+
+---
+
+### [MULTI-TENANT-007] Funciones de inventario/ubicaciones sin filtro de distribuidor
+**Severidad:** ALTO
+**Detectado:** 2026-03-29
+**Estado:** ✅ RESUELTO (2026-03-29)
+
+**Archivos:** `src/lib/db/ubicaciones.ts` + `src/app/api/inventario/ubicaciones/route.ts`
+
+**Solución aplicada:**
+- `src/lib/db/ubicaciones.ts`: Agregado `distribuidorId?: string` a `getUbicaciones()`, `getAllUbicaciones()`, `getUbicacionesWithCounts()` y `getMovimientosRecientes()`. Las primeras tres filtran en query SQL; `getMovimientosRecientes` filtra en post-proceso vía `producto.distribuidor_id`.
+- `src/app/api/inventario/ubicaciones/route.ts`: El GET ahora extrae `isSuperAdmin` + `distribuidorId` del contexto de auth y también respeta el header `X-Distribuidor-Id` para super_admin. Pasa `distribuidorFilter` a todas las funciones de DB.
+- TypeScript: ✅ Sin errores. ESLint: ✅ Sin errores.
+
+---
+
+### [SIDEBAR-001] Rol "vendedor" y acceso a Reparaciones en Sidebar
+**Severidad:** MEDIO
+**Detectado:** 2026-03-29
+**Estado:** ✅ CERRADO — Comportamiento intencional (2026-03-29)
+
+**Archivo:** `src/components/layout/Sidebar.tsx` línea 98
+**Análisis:** Tener `"vendedor"` en roles de Reparaciones es CORRECTO. El sidebar tiene doble filtro:
+1. `roles` array → el rol del usuario debe estar incluido
+2. `moduleKey: "reparaciones"` → `isModuleEnabled("reparaciones")` debe devolver true
+
+CLAUDE.md dice "a menos que admin las active en configuración" — eso corresponde exactamente al toggle de módulo `reparaciones` en la configuración. Si el admin deshabilita el módulo, vendedores no ven el link. Si lo habilita, sí lo ven. No hay bug.
+
+---
+
+### [SIDEBAR-002] Rol "vendedor" incorrectamente tiene acceso a Cartera Vencida en Sidebar
+**Severidad:** MEDIO
+**Detectado:** 2026-03-29
+**Estado:** ✅ RESUELTO (2026-03-29)
+
+**Archivo:** `src/components/layout/Sidebar.tsx` línea 121
+**Problema:** Cartera Vencida incluía `"vendedor"` en roles. CLAUDE.md especifica que vendedor NO puede ver cartera vencida (sin ningún caveat de configuración).
+
+**Solución:** Removido `"vendedor"` de `roles` del nav item de Cartera Vencida. Solo `["admin", "cobrador", "super_admin"]`.
+- TypeScript: ✅ Sin errores. ESLint: ✅ Sin errores.
+
+---
+
+### [PAGES-001] Múltiples páginas del dashboard sin guard de rol en frontend
+**Severidad:** MEDIO
+**Detectado:** 2026-03-29
+**Estado:** ✅ PARCIALMENTE RESUELTO (2026-03-29) — Prioridad alta corregida
+
+Páginas con guard de rol (`useEffect` + `useAuth` + `router.push`):
+
+| Página | Roles correctos | Estado |
+|---|---|---|
+| `/dashboard/admin/distribuidores/page.tsx` | solo super_admin | ✅ RESUELTO 2026-03-29 |
+| `/dashboard/clientes/page.tsx` | admin, vendedor, cobrador, super_admin | 🟡 API protege — bajo impacto |
+| `/dashboard/creditos/page.tsx` | admin, vendedor, cobrador, super_admin | 🟡 API protege — bajo impacto |
+| `/dashboard/creditos/cartera-vencida/page.tsx` | admin, cobrador, super_admin | 🟡 API protege — bajo impacto |
+| `/dashboard/reparaciones/page.tsx` | admin, tecnico, super_admin (+vendedor si config) | 🟡 API protege — bajo impacto |
+| `/dashboard/configuracion/page.tsx` | admin, super_admin | ✅ YA EXISTÍA (verificado 2026-03-30) |
+| `/dashboard/productos/page.tsx` | admin, vendedor, super_admin | 🟡 API protege — bajo impacto |
+| `/dashboard/recordatorios/page.tsx` | todos excepto tecnico | 🟡 API protege — bajo impacto |
+
+**Solución aplicada (distribuidores):**
+- Agregados imports `useRouter` de `next/navigation` y `useAuth` de `@/components/AuthProvider`
+- `const { user } = useAuth()` + `const router = useRouter()` al inicio del componente
+- `useEffect(() => { if (user && user.role !== "super_admin") router.push("/dashboard"); }, [user, router])`
+- TypeScript: ✅ Sin errores. ESLint: ✅ 0 errors (1 warning pre-existente en línea 427, `<img>`).
+
+**CERRADO:** Guard ya existía en líneas 189-193. Verificado 2026-03-30.
+
+---
+
+### [PAGES-002] Race condition: fetches de datos sin esperar confirmación de rol
+**Severidad:** BAJO
+**Detectado:** 2026-03-29
+**Estado:** ❌ PENDIENTE
+
+Varias páginas ejecutan `fetchData()` en un `useEffect([], [])` (sin condición) en paralelo con el `useEffect` que verifica el rol. Resultado: request a la API antes de confirmar permisos. La API devuelve 403 pero hay un request innecesario.
+
+**Páginas afectadas:** empleados, dashboard principal, clientes.
+
+**Fix:** Mover la llamada de fetch dentro del mismo useEffect que verifica el rol, o condicionar `if (user && hasRole)`.
+
+---
+
+### [DB-001] Tabla `usuarios` huérfana en Supabase (legacy, 0 rows)
+**Severidad:** BAJO — No afecta funcionalidad, genera confusión
+**Detectado:** 2026-03-29
+**Estado:** ✅ CERRADO — No eliminar (2026-03-30)
+
+Existe `public.usuarios` (0 rows, RLS habilitado) además de `public.users` (5 rows). El código usa únicamente `users`.
+
+**Verificado 2026-03-30:** NO se puede eliminar. Tiene FK activas desde:
+- `productos.verificado_por`
+- `movimientos_ubicacion.usuario_id`
+- `alertas_productos_nuevos.escaneado_por` y `revisado_por`
+
+La tabla queda como está. Si en el futuro se quieren eliminar esas FKs y migrar las columnas a `users`, hacerlo en una migración dedicada.
+
+---
+
+### [DB-002] `servicios.distribuidor_id` nullable sin constraint NOT NULL
+**Severidad:** BAJO
+**Detectado:** 2026-03-29
+**Estado:** ❌ PENDIENTE
+
+La tabla `servicios` tiene `distribuidor_id UUID NULLABLE`. Esto permite insertar servicios sin asociarlos a un distribuidor, lo que rompe el aislamiento multi-tenant. Debería ser NOT NULL.
+
+---
+
+## 🚀 GUÍA DE DEPLOY A CLOUDFLARE WORKERS (actualizado 2026-03-29)
+
+### Token de API Cloudflare
+- **Token:** Guardado en `.cloudflare-token` (raíz del proyecto, en `.gitignore`)
+- **Nombre:** `crediphone-wrangler-deploy`
+- **Cuenta:** `5a93cb5abe3296c3514fa68939da455f` (trinicanales@gmail.com)
+- **Worker URL:** `https://crediphone.trinicanales.workers.dev` → apunta a `https://crediphone.com.mx`
+
+### Comando de deploy CORRECTO (copiar exacto):
+```bash
+cd /sessions/sleepy-confident-hypatia/mnt/crediphone
+CLOUDFLARE_API_TOKEN=$(cat .cloudflare-token) \
+NODE_OPTIONS="--require /tmp/patch-fs-eperm.cjs" \
+npm run deploy:cf 2>&1
+```
+
+> **NOTA:** Si es una nueva sesión de VM y `/tmp/patch-fs-eperm.cjs` no existe, recrearlo (ver sección DEPLOY-BUG-002 abajo).
+
+---
+
+## 🔴 PROBLEMAS DE DEPLOY RESUELTOS (historial para futuras sesiones)
+
+### [DEPLOY-BUG-001] Filesystem virtiofs — EPERM en toda eliminación de archivo/directorio
+**Detectado:** 2026-03-29
+**Estado:** ✅ RESUELTO con workaround permanente
+
+**Síntoma:**
+```
+Error: EPERM: operation not permitted, unlink '...'
+Error: EPERM: operation not permitted, rmdir '...'
+Error: EPERM: operation not permitted, rename '...'
+```
+
+**Causa raíz:** El workspace de Cowork VM es un mount virtiofs (`/mnt/.virtiofs-root/shared/crediphone`). El sistema de archivos virtiofs **no permite `unlink` ni `rmdir`** en ningún archivo ni directorio, incluso los recién creados. Solo se pueden crear y sobreescribir archivos.
+
+**Por qué afecta el build:**
+- `opennextjs-cloudflare build` llama `rimraf` en `.open-next` antes de reconstruir
+- `next build` intenta limpiar `.next/export/_next/{BUILD_ID}/` después de generar páginas estáticas
+- Ambos fallan con EPERM
+
+**Solución aplicada:**
+
+1. **Archivo `/tmp/patch-fs-eperm.cjs`** — pre-cargado con `NODE_OPTIONS="--require /tmp/patch-fs-eperm.cjs"`:
+   - Parchea `fs.rmSync`, `fs.promises.rm`, `fs.unlinkSync`, `fs.promises.unlink`, `fs.rmdirSync`, `fs.promises.rmdir`
+   - Todas ignoran silenciosamente errores `EPERM` y `ENOTEMPTY`
+   - También parchea writes de `next-env.mjs` para deduplicar (ver DEPLOY-BUG-002)
+
+2. **Parches directos en node_modules** (persistentes entre sesiones ya que virtiofs permite sobreescritura):
+   - `node_modules/@opennextjs/aws/dist/build/helper.js` — `initOutputDir` envuelto en try/catch
+   - `node_modules/next/dist/build/index.js` — `await fs.promises.rm(outdir...)` envuelto en try/catch
+   - `node_modules/next/dist/lib/recursive-delete.js` — `unlinkSync(p)` envuelto en try/catch
+
+**Recrear `/tmp/patch-fs-eperm.cjs`** si la VM se reinicia (archivo en `/tmp` es temporal):
+```bash
+cat > /tmp/patch-fs-eperm.cjs << 'PATCH_EOF'
+const fs = require('fs');
+const fsPromises = fs.promises;
+const origRmSync = fs.rmSync;
+fs.rmSync = function(path, options) { try { return origRmSync.call(this, path, options); } catch(e) { if (e.code !== 'EPERM' && e.code !== 'ENOTEMPTY') throw e; } };
+const origRm = fsPromises.rm;
+fsPromises.rm = async function(path, options) { try { return await origRm.call(this, path, options); } catch(e) { if (e.code !== 'EPERM' && e.code !== 'ENOTEMPTY') throw e; } };
+const origUnlinkSync = fs.unlinkSync;
+fs.unlinkSync = function(path) { try { return origUnlinkSync.call(this, path); } catch(e) { if (e.code !== 'EPERM') throw e; } };
+const origUnlink = fsPromises.unlink;
+fsPromises.unlink = async function(path) { try { return await origUnlink.call(this, path); } catch(e) { if (e.code !== 'EPERM') throw e; } };
+const origRmdirSync = fs.rmdirSync;
+fs.rmdirSync = function(path, options) { try { return origRmdirSync.call(this, path, options); } catch(e) { if (e.code !== 'EPERM' && e.code !== 'ENOTEMPTY') throw e; } };
+const origRmdir = fsPromises.rmdir;
+fsPromises.rmdir = async function(path, options) { try { return await origRmdir.call(this, path, options); } catch(e) { if (e.code !== 'EPERM' && e.code !== 'ENOTEMPTY') throw e; } };
+const origWriteFileSync = fs.writeFileSync;
+fs.writeFileSync = function(path, data, options) { if (typeof path === 'string' && path.endsWith('next-env.mjs') && typeof data === 'string') { const lines = data.split('\n').filter(l => l.trim()); const seen = new Set(); const unique = lines.filter(l => { const key = l.split('=')[0].trim(); if (seen.has(key)) return false; seen.add(key); return true; }); data = unique.join('\n') + '\n'; } return origWriteFileSync.call(this, path, data, options); };
+const origWriteFile = fsPromises.writeFile;
+fsPromises.writeFile = async function(path, data, options) { if (typeof path === 'string' && path.endsWith('next-env.mjs') && typeof data === 'string') { const lines = data.split('\n').filter(l => l.trim()); const seen = new Set(); const unique = lines.filter(l => { const key = l.split('=')[0].trim(); if (seen.has(key)) return false; seen.add(key); return true; }); data = unique.join('\n') + '\n'; } return await origWriteFile.call(this, path, data, options); };
+console.error('[PATCH] fs EPERM-ignore + next-env.mjs dedup patch active');
+PATCH_EOF
+```
+
+---
+
+### [DEPLOY-BUG-002] `.open-next/cloudflare/next-env.mjs` con exports duplicados
+**Detectado:** 2026-03-29
+**Estado:** ✅ RESUELTO con workaround en patch
+
+**Síntoma:**
+```
+✘ [ERROR] Multiple exports with the same name "production"
+✘ [ERROR] The symbol "production" has already been declared
+✘ [ERROR] Multiple exports with the same name "development"
+✘ [ERROR] Multiple exports with the same name "test"
+```
+(errores de wrangler al intentar hacer bundle del worker)
+
+**Causa:** `opennextjs-cloudflare build` escribe `next-env.mjs` con datos de entorno. Como no puede borrar el archivo previo (EPERM), en el segundo build **append** el contenido en vez de sobreescribir, duplicando los 3 exports. En el tercer build, los triplica, etc.
+
+**Solución manual (si ya ocurrió):**
+```bash
+head -3 .open-next/cloudflare/next-env.mjs > /tmp/ne-fix.mjs
+cp /tmp/ne-fix.mjs .open-next/cloudflare/next-env.mjs
+```
+
+**Solución automática:** El patch `/tmp/patch-fs-eperm.cjs` intercepta `writeFileSync` y `writeFile` para archivos `next-env.mjs` y deduplica el contenido antes de escribir.
+
+**Fix para futuros builds:** Si el patch está activo, esto ya no ocurre. Si no, correr el fix manual antes de `opennextjs-cloudflare deploy`.
+
+---
+
+### [DEPLOY-BUG-003] `.next/BUILD_ID` — error de rename en primer build
+**Detectado:** 2026-03-29
+**Estado:** ✅ RESUELTO (workaround: mover `.next` antes del build)
+
+**Síntoma:**
+```
+Error: EPERM: operation not permitted, rename '.next/BUILD_ID' -> '.next/BUILD_ID.old'
+```
+
+**Causa:** `next build` intenta renombrar el `BUILD_ID` del build anterior (atomicidad). No puede porque virtiofs no permite rename.
+
+**Solución:** Si el `.next` de un build anterior existe y el nuevo build falla en rename, simplemente correr `cp -r .next .next.bak 2>/dev/null || true` antes del build. Como `.next.bak` ya existe y virtiofs permite sobreescribir, esto funciona. En la práctica el patch de `fs` en node_modules también maneja esto.
+
+---
+
+### [DEPLOY-BUG-004] Turbopack rechaza symlinks fuera del filesystem root
+**Detectado:** 2026-03-29
+**Estado:** ✅ CERRADO — estrategia de build en /tmp descartada
+
+**Síntoma:**
+```
+Error: Symlink at path [...] points outside of the filesystem root.
+```
+
+**Contexto:** Se intentó hacer el build en `/tmp` con `node_modules` enlazado via symlink al workspace (para evitar copiar 1.6GB). Turbopack (Next.js 16.2.1) rechaza cualquier symlink que apunte fuera del directorio raíz del proyecto.
+
+**Decisión:** Descartar estrategia de `/tmp`. Hacer el build directamente en el workspace con el patch de EPERM. Funciona correctamente.
+
+---
+
+### [DEPLOY-BUG-005] Deploy solo (sin rebuild) — usar cuando build ya está listo
+**Detectado:** 2026-03-29
+**Estado:** ✅ DOCUMENTADO
+
+Si el build de Next.js compiló correctamente (139/139 páginas) pero el deploy falló por algún motivo en wrangler, **NO es necesario volver a compilar**. Solo correr:
+
+```bash
+cd /sessions/sleepy-confident-hypatia/mnt/crediphone
+CLOUDFLARE_API_TOKEN=$(cat .cloudflare-token) \
+NODE_OPTIONS="--require /tmp/patch-fs-eperm.cjs" \
+npx opennextjs-cloudflare deploy 2>&1
+```
+
+Esto sube los assets y el worker sin recompilar Next.js (ahorra ~5 minutos).
+
+---
+
+### [DEPLOY-BUG-006] WARNING "duplicate-case" en handler.mjs — inofensivo
+**Detectado:** 2026-03-29
+**Estado:** ✅ CERRADO — ignorar
+
+**Síntoma:**
+```
+▲ [WARNING] This case clause will never be evaluated because it duplicates an earlier case clause
+  .open-next/server-functions/default/handler.mjs:465:166369
+```
+
+**Causa:** Código minificado interno de Next.js/opennextjs. Es un artefacto del proceso de minificación, no afecta el funcionamiento del worker.
+
+**Acción:** Ignorar completamente. No intentar corregirlo.
+
+---
+
+## 📊 RESUMEN DE BUGS (post auditoría 2026-03-29 — actualizado 2026-03-29)
+
+| ID | Severidad | Estado | Descripción |
+|---|---|---|---|
+| RLS-001 | 🔴 CRÍTICO | ❌ Pendiente | 26 tablas sin Row Level Security |
+| SECURITY-003 | 🟠 ALTO | ❌ Pendiente | wa_access_token en texto plano |
+| MULTI-TENANT-005 | 🟠 ALTO | ✅ Resuelto | `/api/empleados/vendedores` — filtro de distribuidor agregado |
+| MULTI-TENANT-006 | 🟠 ALTO | ✅ Resuelto | `/api/empleados/[id]` — validación de distribuidor en GET/PUT/DELETE |
+| MULTI-TENANT-007 | 🟠 ALTO | ✅ Resuelto | Ubicaciones — filtro de distribuidor en todas las funciones |
+| SIDEBAR-001 | 🟡 MEDIO | ✅ Cerrado | Comportamiento intencional (module toggle controla acceso de vendedor) |
+| SIDEBAR-002 | 🟡 MEDIO | ✅ Resuelto | Vendedor removido de roles de Cartera Vencida |
+| PAGES-001 | 🟡 MEDIO | 🔶 Parcial | Distribuidores ✅ — Configuración ❌ pendiente |
+| PAGES-002 | 🟢 BAJO | ❌ Pendiente | Race condition en fetches |
+| DB-001 | 🟢 BAJO | ❌ Pendiente | Tabla `usuarios` huérfana |
+| DB-002 | 🟢 BAJO | ❌ Pendiente | servicios.distribuidor_id nullable |

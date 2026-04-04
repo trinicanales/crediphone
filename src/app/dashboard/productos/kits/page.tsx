@@ -279,7 +279,7 @@ export default function KitsPage() {
           <p style={{ fontWeight: 600, color: "var(--color-text-secondary)" }}>
             {busqueda ? "Sin resultados" : "No hay kits creados"}
           </p>
-          {!busqueda && <p style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", marginTop: "0.375rem" }}>Crea tu primer kit con el botón "Nuevo Kit"</p>}
+          {!busqueda && <p style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", marginTop: "0.375rem" }}>Crea tu primer kit con el botón &quot;Nuevo Kit&quot;</p>}
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getConfiguracion, updateConfiguracion } from "@/lib/db/configuracion";
+import { getConfiguracion, getSuperAdminConfig, updateConfiguracion } from "@/lib/db/configuracion";
 import { getAuthContext } from "@/lib/auth/server";
 
 /**
@@ -10,13 +10,22 @@ import { getAuthContext } from "@/lib/auth/server";
  */
 export async function GET() {
   try {
-    // Intentar obtener distribuidorId — si falla (ej: sin sesión), continuar sin filtro
+    // Intentar obtener auth — si falla (ej: sin sesión), usar config por defecto
     let distribuidorId: string | null = null;
+    let isSuperAdmin = false;
     try {
       const auth = await getAuthContext();
       distribuidorId = auth.distribuidorId ?? null;
+      isSuperAdmin = auth.isSuperAdmin ?? false;
     } catch {
-      // Sin sesión o error de auth → usar config sin filtro de distribuidor
+      // Sin sesión o error de auth → usar config por defecto
+    }
+
+    // BUG-001 FIX: super_admin (distribuidorId=null) no debe traer una fila random.
+    // Se devuelve config especial con todos los módulos activos para super_admin.
+    if (isSuperAdmin) {
+      const config = getSuperAdminConfig();
+      return NextResponse.json({ success: true, data: config });
     }
 
     const config = await getConfiguracion(distribuidorId);

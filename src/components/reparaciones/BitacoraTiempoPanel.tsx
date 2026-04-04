@@ -435,7 +435,7 @@ export function BitacoraTiempoPanel({ ordenId }: Props) {
               Sin sesiones registradas
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-              Presiona "Iniciar trabajo" para comenzar a medir el tiempo
+              Presiona &quot;Iniciar trabajo&quot; para comenzar a medir el tiempo
             </p>
           </div>
         ) : (

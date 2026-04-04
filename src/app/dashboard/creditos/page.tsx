@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { CreditoFormMejorado } from "@/components/creditos/CreditoFormMejorado";
 import { PayjoyPanel } from "@/components/creditos/PayjoyPanel";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 import { Download, Zap, AlertTriangle, RefreshCw, Loader2, Eye } from "lucide-react";
 import type { Credito, Cliente } from "@/types";
 import { ExportButton } from "@/components/ui/ExportButton";
@@ -38,6 +39,8 @@ const COLUMNAS_CREDITOS_CSV: ColumnaExport<CreditoConDetalles>[] = [
 
 export default function CreditosPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "super_admin";
   const [creditos, setCreditos] = useState<CreditoConDetalles[]>([]);
   const [filteredCreditos, setFilteredCreditos] = useState<CreditoConDetalles[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -306,15 +309,19 @@ export default function CreditosPage() {
             <table className="w-full">
               <thead style={{ background: "var(--color-bg-elevated)", borderBottom: "1px solid var(--color-border)" }}>
                 <tr>
-                  {["Cliente", "Monto", "Plazo", "Pago Quincenal", "Fechas", "Estado", "Acciones"].map((h, i) => (
-                    <th
-                      key={h}
-                      className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${i === 6 ? "text-right" : i === 5 ? "text-center" : "text-left"}`}
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  {[...(isSuperAdmin ? ["Tienda"] : []), "Cliente", "Monto", "Plazo", "Pago Quincenal", "Fechas", "Estado", "Acciones"].map((h, i) => {
+                    const lastIdx = isSuperAdmin ? 7 : 6;
+                    const secondLastIdx = isSuperAdmin ? 6 : 5;
+                    return (
+                      <th
+                        key={h}
+                        className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${i === lastIdx ? "text-right" : i === secondLastIdx ? "text-center" : "text-left"}`}
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        {h}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -322,6 +329,7 @@ export default function CreditosPage() {
                   <Fragment key={credito.id}>
                     <TableRow
                       credito={credito}
+                      showTienda={isSuperAdmin}
                       formatPrice={formatPrice}
                       formatDate={formatDate}
                       getEstadoBadge={getEstadoBadge}
@@ -335,7 +343,7 @@ export default function CreditosPage() {
                     />
                     {payjoyExpandedId === credito.id && (
                       <tr>
-                        <td colSpan={7} className="px-6 py-3" style={{ background: "var(--color-bg-elevated)" }}>
+                        <td colSpan={isSuperAdmin ? 8 : 7} className="px-6 py-3" style={{ background: "var(--color-bg-elevated)" }}>
                           <PayjoyPanel credito={credito} onRefresh={fetchData} />
                         </td>
                       </tr>
@@ -375,10 +383,11 @@ export default function CreditosPage() {
 
 // Row component para evitar repetir onMouseEnter/Leave inline en cada fila
 function TableRow({
-  credito, formatPrice, formatDate, getEstadoBadge, downloadingPdf, payjoyExpandedId,
+  credito, showTienda, formatPrice, formatDate, getEstadoBadge, downloadingPdf, payjoyExpandedId,
   onView, onDownload, onEdit, onDelete, onPayjoyToggle,
 }: {
   credito: CreditoConDetalles;
+  showTienda: boolean;
   formatPrice: (n: number) => string;
   formatDate: (d: Date) => string;
   getEstadoBadge: (e: string) => "success" | "warning" | "danger" | "default";
@@ -400,6 +409,16 @@ function TableRow({
         borderBottom: "1px solid var(--color-border-subtle)",
       }}
     >
+      {showTienda && (
+        <td className="px-6 py-4 whitespace-nowrap">
+          <span
+            className="text-xs font-medium px-2 py-1 rounded"
+            style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+          >
+            {credito.distribuidorNombre ?? "—"}
+          </span>
+        </td>
+      )}
       <td className="px-6 py-4">
         <div className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
           {credito.clienteNombre}

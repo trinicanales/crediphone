@@ -35,6 +35,7 @@ const COLUMNAS_PAGOS_CSV: ColumnaExport<PagoConDetalles>[] = [
 
 export default function PagosPage() {
   const { user } = useAuth();
+  const isSuperAdmin = user?.role === "super_admin";
   const router = useRouter();
   const [pagos, setPagos] = useState<PagoConDetalles[]>([]);
   const [filteredPagos, setFilteredPagos] = useState<PagoConDetalles[]>([]);
@@ -258,15 +259,18 @@ export default function PagosPage() {
             <table className="w-full">
               <thead style={{ background: "var(--color-bg-elevated)", borderBottom: "1px solid var(--color-border)" }}>
                 <tr>
-                  {["Fecha", "Cliente", "Monto", "Método", "Detalle", "Acciones"].map((h, i) => (
-                    <th
-                      key={h}
-                      className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${i === 5 ? "text-right" : "text-left"}`}
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  {[...(isSuperAdmin ? ["Tienda"] : []), "Fecha", "Cliente", "Monto", "Método", "Detalle", "Acciones"].map((h, i) => {
+                    const lastIdx = isSuperAdmin ? 6 : 5;
+                    return (
+                      <th
+                        key={h}
+                        className={`px-6 py-3 text-xs font-medium uppercase tracking-wider ${i === lastIdx ? "text-right" : "text-left"}`}
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        {h}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -274,6 +278,7 @@ export default function PagosPage() {
                   <PagoRow
                     key={pago.id}
                     pago={pago}
+                    showTienda={isSuperAdmin}
                     formatPrice={formatPrice}
                     formatDate={formatDate}
                     getMetodoLabel={getMetodoLabel}
@@ -313,9 +318,10 @@ export default function PagosPage() {
 }
 
 function PagoRow({
-  pago, formatPrice, formatDate, getMetodoLabel, onEdit, onDelete,
+  pago, showTienda, formatPrice, formatDate, getMetodoLabel, onEdit, onDelete,
 }: {
   pago: PagoConDetalles;
+  showTienda: boolean;
   formatPrice: (n: number) => string;
   formatDate: (d: Date) => string;
   getMetodoLabel: (m: string) => string;
@@ -332,6 +338,16 @@ function PagoRow({
         borderBottom: "1px solid var(--color-border-subtle)",
       }}
     >
+      {showTienda && (
+        <td className="px-6 py-4 whitespace-nowrap">
+          <span
+            className="text-xs font-medium px-2 py-1 rounded"
+            style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+          >
+            {pago.distribuidorNombre ?? "—"}
+          </span>
+        </td>
+      )}
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
           {formatDate(pago.fechaPago)}

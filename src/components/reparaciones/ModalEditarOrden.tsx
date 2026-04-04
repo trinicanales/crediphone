@@ -350,7 +350,7 @@ export function ModalEditarOrden({
           </p>
           <ul className="text-sm space-y-1" style={{ color: "var(--color-text-secondary)" }}>
             <li>• Folio (generado automáticamente)</li>
-            <li>• Estado (usar botón "Cambiar Estado")</li>
+            <li>• Estado (usar botón &quot;Cambiar Estado&quot;)</li>
             <li>• Técnico Asignado (requiere función específica)</li>
             <li>• Diagnóstico y Costos (usar modal de Diagnóstico)</li>
             <li>• Firma del Cliente (inmutable)</li>

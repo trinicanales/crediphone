@@ -512,7 +512,7 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 
 #### Catálogo y asistencia (FASES 54a–55)
 - FASE 54a: Catálogo de Servicios de Reparación — tabla `catalogo_servicios_reparacion`, CRUD admin en `/dashboard/admin/catalogo-reparaciones`, precarga en órdenes (migraciones `fase54a-catalogo-servicios-reparacion.sql` + `fase54b-orden-catalogo-servicio.sql`)
-- FASE 55: Control de Asistencia / Reloj Checador — tabla `asistencia_registros`, check-in/out por QR o PIN, `WidgetChecador.tsx`, página `/dashboard/asistencia`, API `/api/asistencia/activa` + `/checkout` (migración `fase55-asistencia-checador.sql`)
+- FASE 55: Control de Asistencia / Reloj Checador — tabla `asistencia_sesiones` (⚠️ NO es `asistencia_registros`), check-in/out por QR o PIN, `WidgetChecador.tsx`, página `/dashboard/asistencia`, API `/api/asistencia/activa` + `/checkout` (migración `fase55-asistencia-checador.sql`)
 
 ---
 
@@ -521,9 +521,9 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 - FASE 56: WhatsApp Business API oficial (plantillas aprobadas Meta, historial, doble tick) — infraestructura parcial en `/api/whatsapp/` y `WhatsAppAPITab.tsx`, pendiente integración Meta completa
 - FASE 57: Links de pago (Clip, Conekta) — enviar link de cobro al cliente por WhatsApp
 
-### ⚠️ CÓDIGO SIN MIGRACIÓN BD (tablas no creadas — NO funcionan en producción):
-- **Kits** (FASE 61): `src/lib/db/kits.ts`, `src/app/api/kits/`, `src/app/dashboard/productos/kits/`, `KitsPOSPanel.tsx` — las tablas `kits` y `kits_items` NO existen en Supabase todavía
-- **Series por Lote** (FASE 62): `src/lib/db/lotesSeries.ts` — las tablas `lotes_series` y `lotes_series_items` NO existen en Supabase todavía
+### ✅ CÓDIGO CON MIGRACIÓN APLICADA (verificado en Supabase 2026-03-29):
+- **Kits** (FASE 61): Tablas `kits` y `kits_items` SÍ EXISTEN en Supabase (0 rows, RLS habilitado). El tab de Kits en POS y la página `/dashboard/productos/kits` están funcionales. Migraciones `fase61_kits_bundles.sql` aplicadas.
+- **Series por Lote** (FASE 62): Tablas `lotes_series` y `lotes_series_items` SÍ EXISTEN en Supabase (0 rows, RLS habilitado). Migraciones `fase62_lotes_series_imei.sql` aplicadas.
 
 ---
 
@@ -599,7 +599,7 @@ PAYJOY_WEBHOOK_SECRET=
 6. **Módulos del sidebar** se filtran por rol Y por configuración habilitada del distribuidor
 7. **Todas las tablas** deben tener `distribuidor_id` para multi-tenant (excepto `distribuidores` misma)
 8. **La tabla `configuracion`** puede tener múltiples filas (una por distribuidor) — no es un singleton global
-9. **middleware.ts fue renombrado a `src/proxy.ts`** y la función a `proxy` (convención Next.js 16)
+9. **El middleware vive en `src/middleware.ts`** con función `middleware` (Edge Runtime, compatible Cloudflare Workers). NO existe `src/proxy.ts` — ese nombre fue una decisión revertida. Archivo estándar Next.js.
 10. **Storage de imágenes — lógica de `obtenerUrlImagen()` (src/lib/storage.ts):**
     - `path.startsWith("http")` → URL completa de R2 (guardada directamente en BD en uploads nuevos) → devolver tal cual
     - path con **2 segmentos** y primer segmento = `"productos"` (ej. `productos/archivo.jpg`) → **Supabase Storage** legacy (imágenes anteriores a Mar 25, 2026)
@@ -662,7 +662,7 @@ refactor: migra Sidebar.tsx a tokens CSS
 
 ### Archivos que NO se deben tocar sin revisión previa
 
-- `src/proxy.ts` — afecta auth global (era `src/middleware.ts`, ya fue renombrado)
+- `src/middleware.ts` — afecta auth global (protección de rutas /dashboard)
 - `src/app/layout.tsx` — afecta fuentes y tema global
 - `src/app/globals.css` — afecta todo el sistema visual
 - `src/lib/auth/server.ts` — afecta todos los roles/permisos
