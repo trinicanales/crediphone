@@ -52,6 +52,7 @@ export default function ProductosPage() {
   const [filteredProductos, setFilteredProductos] = useState<Producto[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  const [filtroStock, setFiltroStock] = useState<"todos" | "en_stock" | "bajo" | "agotado">("todos");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
@@ -79,8 +80,15 @@ export default function ProductosPage() {
       );
     }
     if (filtroTipo !== "todos") result = result.filter((p) => p.tipo === filtroTipo);
+    if (filtroStock === "en_stock") {
+      result = result.filter((p) => p.stock > 0 && !(p.stockMinimo !== undefined && p.stock <= p.stockMinimo));
+    } else if (filtroStock === "bajo") {
+      result = result.filter((p) => p.stockMinimo !== undefined && p.stock <= p.stockMinimo && p.stock > 0);
+    } else if (filtroStock === "agotado") {
+      result = result.filter((p) => p.stock === 0);
+    }
     setFilteredProductos(result);
-  }, [searchQuery, filtroTipo, productos]);
+  }, [searchQuery, filtroTipo, filtroStock, productos]);
 
   const fetchProductos = async () => {
     try {
@@ -157,6 +165,8 @@ export default function ProductosPage() {
           iconColor="var(--color-info)"
           iconBg="var(--color-info-bg)"
           valColor="var(--color-info)"
+          active={filtroStock === "todos"}
+          onClick={() => setFiltroStock("todos")}
         />
         <StatCard
           icon={<PackageCheck className="w-5 h-5" />}
@@ -166,15 +176,19 @@ export default function ProductosPage() {
           iconColor="var(--color-success)"
           iconBg="var(--color-success-bg)"
           valColor="var(--color-success)"
+          active={filtroStock === "en_stock"}
+          onClick={() => setFiltroStock(filtroStock === "en_stock" ? "todos" : "en_stock")}
         />
         <StatCard
           icon={<AlertTriangle className="w-5 h-5" />}
           label="Stock Bajo"
           value={stockBajoList.length}
-          alert={stockBajoList.length > 0}
+          alert={stockBajoList.length > 0 && filtroStock !== "bajo"}
           iconColor={stockBajoList.length > 0 ? "var(--color-warning)" : "var(--color-text-muted)"}
           iconBg={stockBajoList.length > 0 ? "var(--color-warning-bg)" : "var(--color-bg-elevated)"}
           valColor={stockBajoList.length > 0 ? "var(--color-warning)" : "var(--color-text-muted)"}
+          active={filtroStock === "bajo"}
+          onClick={() => setFiltroStock(filtroStock === "bajo" ? "todos" : "bajo")}
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5" />}
@@ -232,6 +246,25 @@ export default function ProductosPage() {
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Filtro por nivel de stock */}
+        <div className="flex gap-2 flex-wrap items-center">
+          <Warehouse className="w-4 h-4 flex-shrink-0" style={{ color: "var(--color-text-muted)" }} />
+          {([
+            { value: "todos",    label: "Todo el stock",  count: productos.length },
+            { value: "en_stock", label: "En stock",       count: productos.filter((p) => p.stock > 0 && !(p.stockMinimo !== undefined && p.stock <= p.stockMinimo)).length },
+            { value: "bajo",     label: "Stock bajo",     count: productos.filter((p) => p.stockMinimo !== undefined && p.stock <= p.stockMinimo && p.stock > 0).length },
+            { value: "agotado",  label: "Agotado",        count: productos.filter((p) => p.stock === 0).length },
+          ] as { value: "todos" | "en_stock" | "bajo" | "agotado"; label: string; count: number }[]).map((s) => (
+            <FilterBtn
+              key={s.value}
+              label={s.label}
+              active={filtroStock === s.value}
+              count={s.value !== "todos" ? s.count : undefined}
+              onClick={() => setFiltroStock(s.value)}
+            />
+          ))}
         </div>
       </div>
 
@@ -430,7 +463,7 @@ function FilterBtn({ label, active, count, onClick }: { label: string; active: b
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 
 function StatCard({
-  icon, label, value, sub, alert, isText, iconColor, iconBg, valColor,
+  icon, label, value, sub, alert, isText, iconColor, iconBg, valColor, onClick, active,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -441,19 +474,40 @@ function StatCard({
   iconColor: string;
   iconBg: string;
   valColor: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const isClickable = !!onClick;
   return (
     <div
       className="rounded-2xl p-4"
+      onClick={onClick}
+      onMouseEnter={() => isClickable && setHovered(true)}
+      onMouseLeave={() => isClickable && setHovered(false)}
       style={{
         background: "var(--color-bg-surface)",
-        border: `1px solid ${alert ? "var(--color-warning)" : "var(--color-border-subtle)"}`,
-        boxShadow: "var(--shadow-sm)",
+        border: active
+          ? "2px solid var(--color-accent)"
+          : alert
+          ? `1px solid var(--color-warning)`
+          : "1px solid var(--color-border-subtle)",
+        boxShadow: hovered ? "var(--shadow-md)" : "var(--shadow-sm)",
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+        transition: "all 200ms var(--ease-spring)",
+        cursor: isClickable ? "pointer" : "default",
       }}
     >
       <div className="flex items-start justify-between">
         <div className="p-2 rounded-xl" style={{ background: iconBg, color: iconColor }}>{icon}</div>
-        {alert && <AlertTriangle size={14} style={{ color: "var(--color-warning)" }} />}
+        <div className="flex items-center gap-1">
+          {alert && <AlertTriangle size={14} style={{ color: "var(--color-warning)" }} />}
+          {active && isClickable && (
+            <span className="text-xs font-medium px-1.5 py-0.5 rounded-full" style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}>
+              Activo
+            </span>
+          )}
+        </div>
       </div>
       <div
         className={`mt-3 font-bold ${isText ? "text-lg" : "text-3xl"}`}
@@ -463,6 +517,11 @@ function StatCard({
       </div>
       <div className="text-xs font-medium mt-0.5" style={{ color: "var(--color-text-muted)" }}>{label}</div>
       {sub && <div className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{sub}</div>}
+      {isClickable && !active && (
+        <div className="text-xs mt-1" style={{ color: "var(--color-accent)", opacity: 0.7 }}>
+          Clic para filtrar
+        </div>
+      )}
     </div>
   );
 }
@@ -1110,12 +1169,25 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
         </div>
         <div>
           <label className="block text-sm font-medium mb-1" style={labelStyle}>Categoría</label>
-          <select name="categoriaId" value={formData.categoriaId} onChange={handleChange} className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none" style={selectStyle}>
+          <select name="categoriaId" value={formData.categoriaId} onChange={handleChange} className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none" style={selectStyle} disabled={categorias.length === 0 && !distribuidorActivo}>
             <option value="">— Sin categoría —</option>
             {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>
       </div>
+
+      {/* Aviso para super_admin en Vista Global sin distribuidor activo */}
+      {!distribuidorActivo && categorias.length === 0 && (
+        <div
+          className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm"
+          style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)", color: "var(--color-warning-text)" }}
+        >
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--color-warning)" }} />
+          <span>
+            Estás en <strong>Vista Global</strong>. Para ver categorías y proveedores, selecciona un distribuidor desde el selector del sidebar.
+          </span>
+        </div>
+      )}
 
       {/* FASE 57: Subcategoría — visible solo si la categoría tiene subcategorías cargadas */}
       {formData.categoriaId && subcategorias.length > 0 && (
@@ -1130,7 +1202,7 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
 
       <div>
         <label className="block text-sm font-medium mb-1" style={labelStyle}>Proveedor</label>
-        <select name="proveedorId" value={formData.proveedorId} onChange={handleChange} className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none" style={selectStyle}>
+        <select name="proveedorId" value={formData.proveedorId} onChange={handleChange} className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none" style={selectStyle} disabled={proveedores.length === 0 && !distribuidorActivo}>
           <option value="">— Sin proveedor —</option>
           {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </select>
