@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/components/AuthProvider";
+import { BannerInventarioSemanal } from "@/components/inventario/BannerInventarioSemanal";
 
 interface VentaStats {
   totalCobradoHoy: number;
@@ -100,6 +101,9 @@ export function VendedorDashboard() {
 
   return (
     <div className="p-6 lg:p-8 pb-24">
+      {/* Recordatorio inventario semanal (mié-sáb) */}
+      <BannerInventarioSemanal />
+
       {/* Header */}
       <div className="mb-8 flex items-start justify-between flex-wrap gap-4">
         <div>

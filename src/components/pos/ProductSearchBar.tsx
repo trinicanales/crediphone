@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, QrCode, X, Smartphone } from "lucide-react";
 import Image from "next/image";
 import { Input } from "@/components/ui/Input";
@@ -28,6 +28,14 @@ export function ProductSearchBar({ onSelectProduct, focusTrigger, topProductIds 
   const [showQRBridge, setShowQRBridge] = useState(false);
   const [scanMsg, setScanMsg] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Ref siempre actualizado para acceso sin stale-closure en listeners globales
+  const productosRef = useRef<Producto[]>([]);
+  useEffect(() => { productosRef.current = productos; }, [productos]);
+
+  // Buffer para escáner de código de barras físico (USB / Bluetooth HID)
+  const barcodeBufferRef = useRef<string>("");
+  const barcodeTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchProductos = async () => {
     try {
@@ -92,7 +100,7 @@ export function ProductSearchBar({ onSelectProduct, focusTrigger, topProductIds 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelect = (producto: Producto) => {
+  const handleSelect = useCallback((producto: Producto) => {
     onSelectProduct(producto);
     setSearchTerm("");
     setShowResults(false);
@@ -103,7 +111,7 @@ export function ProductSearchBar({ onSelectProduct, focusTrigger, topProductIds 
       input?.focus();
       input?.select();
     }, 0);
-  };
+  }, [onSelectProduct]);
 
   // FASE 29: productos de acceso rápido (top vendidos)
   const topProductos = topProductIds
@@ -112,11 +120,15 @@ export function ProductSearchBar({ onSelectProduct, focusTrigger, topProductIds 
         .filter((p): p is Producto => !!p && p.stock > 0)
     : [];
 
-  // Cuando se escanea un código de barras
-  const handleBarcodeScan = (codigo: string) => {
+  // Cuando se escanea un código de barras (cámara, QR Bridge o escáner físico)
+  // Usa productosRef para evitar stale-closure en listeners globales
+  const handleBarcodeScan = useCallback((codigo: string) => {
     setScanMsg("");
-    const term = codigo.toLowerCase();
-    const matches = productos.filter(
+    const term = codigo.toLowerCase().trim();
+    if (!term) return;
+
+    const lista = productosRef.current;
+    const matches = lista.filter(
       (p) =>
         (p as any).codigo_barras?.toLowerCase() === term ||
         p.codigoBarras?.toLowerCase() === term ||
@@ -135,7 +147,7 @@ export function ProductSearchBar({ onSelectProduct, focusTrigger, topProductIds 
       // Sin coincidencia exacta por código, buscar por nombre/marca
       setSearchTerm(codigo);
       setShowScanner(false);
-      const fuzzy = productos.filter(
+      const fuzzy = lista.filter(
         (p) =>
           p.nombre.toLowerCase().includes(term) ||
           p.marca.toLowerCase().includes(term) ||
@@ -145,31 +157,96 @@ export function ProductSearchBar({ onSelectProduct, focusTrigger, topProductIds 
         setScanMsg(`No se encontró producto con código: ${codigo}`);
       }
     }
-  };
+  }, [handleSelect]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showResults || filteredProductos.length === 0) return;
-
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedIndex((prev) =>
         prev < filteredProductos.length - 1 ? prev + 1 : prev
       );
-    } else if (e.key === "ArrowUp") {
+      return;
+    }
+    if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
-    } else if (e.key === "Enter") {
+      return;
+    }
+    if (e.key === "Escape") {
+      setShowResults(false);
+      setShowScanner(false);
+      return;
+    }
+    if (e.key === "Enter") {
       e.preventDefault();
+      const term = searchTerm.toLowerCase().trim();
+
+      // ── Prioridad 1: coincidencia exacta de código de barras / SKU ──────────
+      // Esto resuelve la condición de carrera del escáner físico: los caracteres
+      // llegan tan rápido que filteredProductos (estado async) aún puede estar vacío
+      // cuando Enter se dispara. Buscamos directamente en productos (sincrono via ref).
+      if (term.length >= 3) {
+        const exactos = productosRef.current.filter(
+          (p) =>
+            (p as any).codigo_barras?.toLowerCase() === term ||
+            p.codigoBarras?.toLowerCase() === term ||
+            (p as any).sku?.toLowerCase() === term
+        );
+        if (exactos.length === 1) {
+          handleSelect(exactos[0]);
+          return;
+        }
+      }
+
+      // ── Prioridad 2: selección por posición en dropdown ─────────────────────
       if (selectedIndex >= 0 && selectedIndex < filteredProductos.length) {
         handleSelect(filteredProductos[selectedIndex]);
       } else if (filteredProductos.length > 0) {
         handleSelect(filteredProductos[0]);
       }
-    } else if (e.key === "Escape") {
-      setShowResults(false);
-      setShowScanner(false);
     }
   };
+
+  // ── Escáner físico global (USB / Bluetooth HID) ──────────────────────────────
+  // Los escáneres de hardware actúan como teclado: escriben el código muy rápido
+  // y envían Enter. Esta lógica los intercepta cuando el foco NO está en un input,
+  // para agregar el producto al carrito sin que el vendedor tenga que enfocarse en
+  // la barra de búsqueda primero.
+  useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const inInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
+      if (e.key === "Enter") {
+        const code = barcodeBufferRef.current.trim();
+        barcodeBufferRef.current = "";
+        if (barcodeTimerRef.current) {
+          clearTimeout(barcodeTimerRef.current);
+          barcodeTimerRef.current = null;
+        }
+        // Solo actuar cuando el foco NO está en un input
+        // (si está en el search input, handleKeyDown del input se encarga)
+        if (code.length >= 3 && !inInput) {
+          e.preventDefault();
+          handleBarcodeScan(code);
+        }
+        return;
+      }
+
+      // Acumular caracteres imprimibles cuando el foco NO está en un input
+      if (!inInput && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        barcodeBufferRef.current += e.key;
+        // Limpiar buffer si no hay más input en 120ms (tiempo de pausa entre escaneos)
+        if (barcodeTimerRef.current) clearTimeout(barcodeTimerRef.current);
+        barcodeTimerRef.current = setTimeout(() => {
+          barcodeBufferRef.current = "";
+        }, 120);
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKey);
+    return () => window.removeEventListener("keydown", handleGlobalKey);
+  }, [handleBarcodeScan]);
 
   return (
     <div ref={searchRef} className="relative">

@@ -9,6 +9,7 @@ import {
   UserX, LogOut, RotateCcw,
 } from "lucide-react";
 import type { AsistenciaSesion, EstadisticasAsistencia } from "@/types";
+import { BannerInventarioSemanal } from "@/components/inventario/BannerInventarioSemanal";
 
 const MXH = (h: number) => `${h}h`;
 
@@ -158,6 +159,8 @@ export default function AsistenciaPage() {
 
   return (
     <div className="space-y-6 p-6">
+      {/* Recordatorio inventario semanal */}
+      <BannerInventarioSemanal />
 
       {/* Encabezado */}
       <div className="flex items-center justify-between">
