@@ -512,7 +512,7 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 
 #### Catálogo y asistencia (FASES 54a–55)
 - FASE 54a: Catálogo de Servicios de Reparación — tabla `catalogo_servicios_reparacion`, CRUD admin en `/dashboard/admin/catalogo-reparaciones`, precarga en órdenes (migraciones `fase54a-catalogo-servicios-reparacion.sql` + `fase54b-orden-catalogo-servicio.sql`)
-- FASE 55: Control de Asistencia / Reloj Checador — tabla `asistencia_registros`, check-in/out por QR o PIN, `WidgetChecador.tsx`, página `/dashboard/asistencia`, API `/api/asistencia/activa` + `/checkout` (migración `fase55-asistencia-checador.sql`)
+- FASE 55: Control de Asistencia / Reloj Checador — tabla `asistencia_sesiones` (⚠️ NO es `asistencia_registros`), check-in/out por QR o PIN, `WidgetChecador.tsx`, página `/dashboard/asistencia`, API `/api/asistencia/activa` + `/checkout` (migración `fase55-asistencia-checador.sql`)
 
 ---
 
@@ -521,11 +521,16 @@ await supabase.from("users").insert({ id: userId, ...datos, distribuidor_id });
 - FASE 56: WhatsApp Business API oficial (plantillas aprobadas Meta, historial, doble tick) — infraestructura parcial en `/api/whatsapp/` y `WhatsAppAPITab.tsx`, pendiente integración Meta completa
 - FASE 57: Links de pago (Clip, Conekta) — enviar link de cobro al cliente por WhatsApp
 
-### ⚠️ CÓDIGO SIN MIGRACIÓN BD (tablas no creadas — NO funcionan en producción):
-- **Kits** (FASE 61): `src/lib/db/kits.ts`, `src/app/api/kits/`, `src/app/dashboard/productos/kits/`, `KitsPOSPanel.tsx` — las tablas `kits` y `kits_items` NO existen en Supabase todavía
-- **Series por Lote** (FASE 62): `src/lib/db/lotesSeries.ts` — las tablas `lotes_series` y `lotes_series_items` NO existen en Supabase todavía
+### ✅ CÓDIGO CON MIGRACIÓN APLICADA (verificado en Supabase 2026-03-29):
+- **Kits** (FASE 61): Tablas `kits` y `kits_items` SÍ EXISTEN en Supabase (0 rows, RLS habilitado). El tab de Kits en POS y la página `/dashboard/productos/kits` están funcionales. Migraciones `fase61_kits_bundles.sql` aplicadas.
+- **Series por Lote** (FASE 62): Tablas `lotes_series` y `lotes_series_items` SÍ EXISTEN en Supabase (0 rows, RLS habilitado). Migraciones `fase62_lotes_series_imei.sql` aplicadas.
 
 ---
+
+### Bugfixes críticos aplicados (2026-04-04):
+- **React error #301 corregido** — `ModalWhatsAppEstado.tsx`: `handleClose()` se llamaba durante render cuando `nuevoEstado="recibido"`. Movido a `useEffect`. Ver notas 14 y 15.
+- **OrdenDrawer tabs corregidos** — `TabResumen/TabDiagnostico/TabPresupuesto` eran componentes definidos dentro del body, causando desmontaje en cada render. Convertidos a funciones directas (`tabResumen()` etc.).
+- Commit: `8530a69`
 
 ### Funcionalidades destacadas recientes:
 - QR/barcode scan en POS para agregar productos rápido
@@ -599,7 +604,7 @@ PAYJOY_WEBHOOK_SECRET=
 6. **Módulos del sidebar** se filtran por rol Y por configuración habilitada del distribuidor
 7. **Todas las tablas** deben tener `distribuidor_id` para multi-tenant (excepto `distribuidores` misma)
 8. **La tabla `configuracion`** puede tener múltiples filas (una por distribuidor) — no es un singleton global
-9. **middleware.ts fue renombrado a `src/proxy.ts`** y la función a `proxy` (convención Next.js 16)
+9. **El middleware vive en `src/middleware.ts`** con función `middleware` (Edge Runtime, compatible Cloudflare Workers). NO existe `src/proxy.ts` — ese nombre fue una decisión revertida. Archivo estándar Next.js.
 10. **Storage de imágenes — lógica de `obtenerUrlImagen()` (src/lib/storage.ts):**
     - `path.startsWith("http")` → URL completa de R2 (guardada directamente en BD en uploads nuevos) → devolver tal cual
     - path con **2 segmentos** y primer segmento = `"productos"` (ej. `productos/archivo.jpg`) → **Supabase Storage** legacy (imágenes anteriores a Mar 25, 2026)
@@ -607,6 +612,17 @@ PAYJOY_WEBHOOK_SECRET=
     - **Al guardar imágenes en BD:** usar siempre la `url` (no el `path`) del resultado de `subirImagen()` para que quede como URL completa y no haya ambigüedad.
     - **6 productos tienen imágenes perdidas** (no existen en Supabase ni R2 — subidas durante transición Mar 25). Re-subir desde el panel de edición de productos.
 11. **URLs dinámicas en API routes** (QR, tracking): usar `new URL(request.url)` para extraer `protocol+host`, NUNCA `process.env.NEXT_PUBLIC_BASE_URL` (que queda `localhost:3000` si el .env.local no se actualizó para producción).
+12. **OrdenDrawer — SIEMPRE renderizar condicionalmente**: `{drawerOrdenId && <OrdenDrawer ordenId={drawerOrdenId} .../>}`. NUNCA montar OrdenDrawer con `ordenId={null}` — causa React error #301 "Too many re-renders" que rompe la página completa. El patrón correcto solo monta el drawer cuando hay una orden seleccionada (como hace DashboardEjecutivo).
+13. **Error boundaries en dashboard**: existe `src/app/dashboard/error.tsx` que captura cualquier error y muestra UI amigable con botón "Reintentar". Si una nueva sección del dashboard no tiene su propio `error.tsx`, el error de esa página sube hasta este boundary de `/dashboard/`.
+14. **NUNCA llamar setState (ni funciones que lo llamen) durante el render** — causa React error #301 "Too many re-renders". Regla crítica:
+    - ❌ MAL: `if (!condicion) { handleClose(); return null; }` donde `handleClose` llama `setState`
+    - ✅ BIEN: `if (!condicion) return null;` y mover el side-effect a `useEffect(() => { if (!condicion) onClose(); }, [condicion])`
+    - El archivo `ModalWhatsAppEstado.tsx` fue el caso real (2026-04-04): `handleClose()` se llamaba en render cuando `nuevoEstado="recibido"` no tiene plantilla WA.
+15. **NUNCA definir componentes React dentro del body de otro componente** — React los desmonta/remonta en cada render porque la referencia cambia. Regla:
+    - ❌ MAL: `function MiComponente() { function TabResumen() { ... }; return <TabResumen />; }`
+    - ✅ BIEN (opción A): definir `function TabResumen()` a nivel de módulo, fuera del componente padre, pasando dependencias como props.
+    - ✅ BIEN (opción B): si usa muchas closures del padre, convertirlo a llamada directa: `function tabResumen() { ... }` (minúscula) y llamar `{tabResumen()}` en lugar de `<TabResumen />`.
+    - El archivo `OrdenDrawer.tsx` tenía este problema con `TabResumen`, `TabDiagnostico`, `TabPresupuesto` (corregido 2026-04-04).
 
 ---
 
@@ -662,7 +678,7 @@ refactor: migra Sidebar.tsx a tokens CSS
 
 ### Archivos que NO se deben tocar sin revisión previa
 
-- `src/proxy.ts` — afecta auth global (era `src/middleware.ts`, ya fue renombrado)
+- `src/middleware.ts` — afecta auth global (protección de rutas /dashboard)
 - `src/app/layout.tsx` — afecta fuentes y tema global
 - `src/app/globals.css` — afecta todo el sistema visual
 - `src/lib/auth/server.ts` — afecta todos los roles/permisos
