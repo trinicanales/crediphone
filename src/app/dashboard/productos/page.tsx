@@ -53,6 +53,7 @@ export default function ProductosPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
   const [filtroStock, setFiltroStock] = useState<"todos" | "en_stock" | "bajo" | "agotado">("todos");
+  const [sortStock, setSortStock] = useState<"none" | "asc" | "desc">("none");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
@@ -87,8 +88,13 @@ export default function ProductosPage() {
     } else if (filtroStock === "agotado") {
       result = result.filter((p) => p.stock === 0);
     }
+    if (sortStock === "asc") {
+      result = [...result].sort((a, b) => a.stock - b.stock);
+    } else if (sortStock === "desc") {
+      result = [...result].sort((a, b) => b.stock - a.stock);
+    }
     setFilteredProductos(result);
-  }, [searchQuery, filtroTipo, filtroStock, productos]);
+  }, [searchQuery, filtroTipo, filtroStock, sortStock, productos]);
 
   const fetchProductos = async () => {
     try {
@@ -283,26 +289,74 @@ export default function ProductosPage() {
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Cargando inventario...</p>
           </div>
         ) : filteredProductos.length === 0 ? (
-          <EmptyState query={searchQuery} tipo={filtroTipo} onNew={canCrearProducto ? handleCreate : undefined} onImport={() => setImportRemisionOpen(true)} />
+          <EmptyState query={searchQuery} tipo={filtroTipo} stock={filtroStock} onNew={canCrearProducto ? handleCreate : undefined} onImport={() => setImportRemisionOpen(true)} onClearStock={() => setFiltroStock("todos")} />
         ) : (
           <>
+            {/* Banner de filtro activo */}
+            {filtroStock !== "todos" && (
+              <div
+                className="flex items-center justify-between px-4 py-2.5 text-sm font-medium"
+                style={{
+                  background: filtroStock === "agotado" ? "var(--color-danger-bg)"
+                    : filtroStock === "bajo" ? "var(--color-warning-bg)"
+                    : "var(--color-success-bg)",
+                  borderBottom: `1px solid ${
+                    filtroStock === "agotado" ? "var(--color-danger)"
+                    : filtroStock === "bajo" ? "var(--color-warning)"
+                    : "var(--color-success)"
+                  }`,
+                  color: filtroStock === "agotado" ? "var(--color-danger-text)"
+                    : filtroStock === "bajo" ? "var(--color-warning-text)"
+                    : "var(--color-success-text)",
+                }}
+              >
+                <span>
+                  {filtroStock === "bajo" && `⚠ Mostrando ${filteredProductos.length} producto${filteredProductos.length !== 1 ? "s" : ""} con stock bajo — revisa y haz pedido si es necesario`}
+                  {filtroStock === "agotado" && `🔴 Mostrando ${filteredProductos.length} producto${filteredProductos.length !== 1 ? "s" : ""} agotados — requieren reabastecimiento`}
+                  {filtroStock === "en_stock" && `✓ Mostrando ${filteredProductos.length} producto${filteredProductos.length !== 1 ? "s" : ""} con stock disponible`}
+                </span>
+                <button
+                  onClick={() => setFiltroStock("todos")}
+                  className="text-xs px-2 py-0.5 rounded-lg font-medium hover:opacity-80 transition-opacity"
+                  style={{
+                    background: filtroStock === "agotado" ? "var(--color-danger)" : filtroStock === "bajo" ? "var(--color-warning)" : "var(--color-success)",
+                    color: "#fff",
+                  }}
+                >
+                  ✕ Limpiar filtro
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ background: "var(--color-bg-elevated)", borderBottom: "1px solid var(--color-border)" }}>
-                    {["Img", "Producto", "Tipo", "Precio / Costo", "Stock", "Acciones"].map((h, i) => (
+                    {[
+                      { label: "Img",          align: "left",   w: "w-16",   sortable: false },
+                      { label: "Producto",     align: "left",   w: "",       sortable: false },
+                      { label: "Tipo",         align: "left",   w: "",       sortable: false },
+                      { label: "Precio / Costo", align: "right", w: "",      sortable: false },
+                      { label: "Stock",        align: "center", w: "",       sortable: true  },
+                      { label: "Acciones",     align: "right",  w: "",       sortable: false },
+                    ].map(({ label, align, w, sortable }) => (
                       <th
-                        key={h}
-                        className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${
-                          i === 0 ? "text-left w-16"
-                          : i === 3 ? "text-right"
-                          : i === 4 ? "text-center"
-                          : i === 5 ? "text-right"
-                          : "text-left"
-                        }`}
-                        style={{ color: "var(--color-text-muted)" }}
+                        key={label}
+                        className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-${align} ${w}`}
+                        style={{
+                          color: "var(--color-text-muted)",
+                          cursor: sortable ? "pointer" : "default",
+                          userSelect: sortable ? "none" : undefined,
+                        }}
+                        onClick={sortable ? () => setSortStock((s) => s === "asc" ? "desc" : "asc") : undefined}
+                        title={sortable ? (sortStock === "asc" ? "Ordenar mayor a menor" : "Ordenar menor a mayor") : undefined}
                       >
-                        {h}
+                        {label}
+                        {sortable && (
+                          <span className="ml-1 inline-flex flex-col leading-none" style={{ verticalAlign: "middle" }}>
+                            <span style={{ opacity: sortStock === "asc" ? 1 : 0.3, fontSize: "8px", lineHeight: 1 }}>▲</span>
+                            <span style={{ opacity: sortStock === "desc" ? 1 : 0.3, fontSize: "8px", lineHeight: 1 }}>▼</span>
+                          </span>
+                        )}
                       </th>
                     ))}
                   </tr>
@@ -655,28 +709,43 @@ function ProductoRow({ producto, fmt, onEdit, onDelete, onPrint, seleccionado, o
 
       {/* Stock */}
       <td className="px-4 py-3 whitespace-nowrap text-center">
-        <span
-          className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded-lg text-sm font-bold"
-          style={
-            agotado
-              ? { background: "var(--color-danger-bg)", color: "var(--color-danger-text)" }
-              : bajo
-              ? { background: "var(--color-warning-bg)", color: "var(--color-warning-text)" }
-              : { background: "var(--color-success-bg)", color: "var(--color-success-text)" }
-          }
-        >
-          {producto.stock}
-        </span>
-        {bajo && (
-          <div className="text-[10px] font-medium mt-0.5" style={{ color: "var(--color-warning)" }}>
-            mín {producto.stockMinimo}
-          </div>
-        )}
-        {agotado && (
-          <div className="text-[10px] font-medium mt-0.5" style={{ color: "var(--color-danger)" }}>
-            Agotado
-          </div>
-        )}
+        <div className="inline-flex flex-col items-center gap-1">
+          <span
+            className="inline-flex items-center justify-center min-w-[2.5rem] px-2.5 py-1 rounded-lg text-sm font-bold"
+            style={
+              agotado
+                ? { background: "var(--color-danger-bg)", color: "var(--color-danger-text)", border: "1px solid var(--color-danger)" }
+                : bajo
+                ? { background: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "1px solid var(--color-warning)" }
+                : { background: "var(--color-success-bg)", color: "var(--color-success-text)", border: "1px solid var(--color-success)" }
+            }
+          >
+            {agotado && <span className="mr-1 text-xs">!</span>}
+            {producto.stock}
+          </span>
+          {/* Mini barra de nivel de stock */}
+          {producto.stockMinimo !== undefined && producto.stockMinimo > 0 && (
+            <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--color-bg-elevated)" }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(100, Math.round((producto.stock / (producto.stockMinimo * 3)) * 100))}%`,
+                  background: agotado ? "var(--color-danger)" : bajo ? "var(--color-warning)" : "var(--color-success)",
+                }}
+              />
+            </div>
+          )}
+          {bajo && (
+            <div className="text-[10px] font-medium" style={{ color: "var(--color-warning)" }}>
+              mín {producto.stockMinimo}
+            </div>
+          )}
+          {agotado && (
+            <div className="text-[10px] font-semibold" style={{ color: "var(--color-danger)" }}>
+              AGOTADO
+            </div>
+          )}
+        </div>
       </td>
 
       {/* Acciones */}
@@ -720,10 +789,13 @@ function ProductoRow({ producto, fmt, onEdit, onDelete, onPrint, seleccionado, o
 
 // ─── Empty State ───────────────────────────────────────────────────────────────
 
-function EmptyState({ query, tipo, onNew, onImport }: {
-  query: string; tipo: string; onNew?: () => void; onImport: () => void;
+function EmptyState({ query, tipo, stock, onNew, onImport, onClearStock }: {
+  query: string; tipo: string; stock: string; onNew?: () => void; onImport: () => void; onClearStock: () => void;
 }) {
-  const filtered = query || tipo !== "todos";
+  const stockFiltered = stock !== "todos";
+  const anyFiltered = query || tipo !== "todos" || stockFiltered;
+  const stockLabel = stock === "bajo" ? "stock bajo" : stock === "agotado" ? "productos agotados" : stock === "en_stock" ? "productos en stock" : "";
+
   return (
     <div className="py-20 flex flex-col items-center gap-4 text-center px-6">
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--color-bg-elevated)" }}>
@@ -731,15 +803,24 @@ function EmptyState({ query, tipo, onNew, onImport }: {
       </div>
       <div>
         <p className="font-semibold" style={{ color: "var(--color-text-secondary)" }}>
-          {filtered ? "Sin resultados" : "Sin productos"}
+          {stockFiltered && !query
+            ? `No hay ${stockLabel}`
+            : anyFiltered ? "Sin resultados" : "Sin productos"}
         </p>
         <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
-          {filtered
+          {stockFiltered && !query
+            ? `Ningún producto coincide con el filtro de ${stockLabel}.`
+            : anyFiltered
             ? "Prueba con otro filtro o búsqueda"
             : "Agrega tu primer producto o importa un ticket de remisión"}
         </p>
       </div>
-      {!filtered && (
+      {stockFiltered && (
+        <Button variant="secondary" onClick={onClearStock}>
+          Ver todos los productos
+        </Button>
+      )}
+      {!anyFiltered && (
         <div className="flex gap-2 mt-2">
           <Button variant="secondary" onClick={onImport}>
             <Upload className="w-4 h-4 mr-2" />
