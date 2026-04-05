@@ -1,4 +1,4 @@
-name: Deploy a Cloudflare Workers
+name: Deploy to Cloudflare Workers
 
 on:
   push:
@@ -16,6 +16,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
@@ -23,9 +24,28 @@ jobs:
       - name: Build (OpenNext + Cloudflare)
         run: npm run build:cf
         env:
+          # Supabase
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # App URLs (hardcoded — siempre producción en este workflow)
           NEXT_PUBLIC_APP_URL: https://crediphone.com.mx
+          NEXT_PUBLIC_BASE_URL: https://crediphone.com.mx
+          # R2 Storage
+          NEXT_PUBLIC_R2_PUBLIC_URL: https://pub-89451411d31c49d9959b166475cda47a.r2.dev
+          # Web Push (VAPID)
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_EMAIL: mailto:admin@crediphone.mx
+          # Payjoy
+          PAYJOY_ENABLED: "true"
+          PAYJOY_API_KEY: ${{ secrets.PAYJOY_API_KEY }}
+          PAYJOY_BASE_URL: https://partner.payjoy.com/v1
+          PAYJOY_WEBHOOK_SECRET: ${{ secrets.PAYJOY_WEBHOOK_SECRET }}
+          PAYJOY_AUTO_SYNC: "true"
+          # WhatsApp soporte
+          NEXT_PUBLIC_WHATSAPP_SOPORTE: "526181245391"
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
