@@ -4,29 +4,32 @@
 
 ---
 
-## 🔴 RLS-001 — 26 tablas sin Row Level Security
-**Severidad:** CRÍTICO — Riesgo de seguridad en producción
-**Estado:** ❌ Pendiente
+## ✅ RLS-001 — Políticas RLS cross-tenant corregidas
+**Severidad:** CRÍTICO → **RESUELTO 2026-04-06**
 
-Si alguien obtiene la `SUPABASE_ANON_KEY` (pública en el frontend), puede leer estas tablas directamente desde el navegador sin autenticación.
+Todas las tablas tenían RLS habilitado, pero 17 políticas permitían acceso cross-tenant
+(un empleado de Tienda A podía leer datos de Tienda B) o acceso anónimo a datos sensibles.
 
-**Tablas críticas sin RLS:**
-`configuracion` (tiene RFC, wa_access_token, comisiones), `confirmaciones_deposito`, `log_autorizaciones`, `traspasos_anticipo`, `servicios`, `devoluciones`
-
-**Tablas completas afectadas (26):**
-asistencia_sesiones, catalogo_servicios_precios_distribuidor, catalogo_servicios_reparacion, configuracion, confirmaciones_deposito, devoluciones, devoluciones_items, folios_reparacion, garantias_piezas, log_autorizaciones, lotes_piezas, lotes_piezas_items, ordenes_compra, ordenes_compra_items, permisos_empleado, plantillas_notificacion, pos_scan_sessions, promociones, push_subscriptions, reparacion_piezas, reparacion_tiempo_logs, servicios, solicitudes_piezas, subcategorias, traspasos_anticipo, whatsapp_mensajes
-
-**Para resolver:** Auditoría Área 1 de Seguridad.
+**Corregido en:** `supabase/migrations/fix-rls-cross-tenant-policies.sql`
+- 3 tablas con acceso anónimo eliminado: `tracking_tokens`, `scoring_clientes`, `historial_scoring`
+- 14 tablas con cross-tenant corregido: `ordenes_reparacion`, `clientes`, `creditos`, `productos`,
+  `notificaciones`, `anticipos_reparacion`, `historial_estado_orden`, `imagenes_reparacion`,
+  `referencias_laborales`, `referencias_personales`, `sesiones_fotos_qr`, `garantias_reparacion`,
+  `movimientos_ubicacion`, `notificacion_preferencias`
 
 ---
 
-## 🟠 SECURITY-003 — wa_access_token en texto plano
-**Severidad:** ALTO
-**Estado:** ❌ Pendiente
+## 🟡 SECURITY-003 — wa_access_token en texto plano
+**Severidad:** MEDIO (mitigado)
+**Estado:** ⚠️ Parcialmente resuelto
 
-La columna `wa_access_token` de la tabla `configuracion` guarda el token de WhatsApp Business API en texto plano. Si se explota RLS-001, este token queda expuesto.
+La columna `wa_access_token` de `configuracion` está en texto plano, PERO:
+- La app nunca lo expone al frontend (`configuracion.ts:231` retorna `undefined`)
+- La tabla tiene `distribuidor_isolation` — empleados de otra tienda no pueden leerlo
+- Solo es un riesgo si la BD se compromete directamente (fuera de la app)
 
-**Fix sugerido:** Priorizar fix de RLS-001 para `configuracion`. A largo plazo: cifrar con `pgcrypto` o mover a variable de entorno por distribuidor.
+**Fix a largo plazo (baja urgencia):** Mover a variable de entorno Cloudflare por distribuidor,
+o cifrar con `pgcrypto`. No es urgente mientras la app funcione correctamente.
 
 ---
 
