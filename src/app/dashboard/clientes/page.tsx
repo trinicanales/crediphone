@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -32,6 +33,7 @@ const COLUMNAS_CLIENTES_CSV: ColumnaExport<Cliente>[] = [
 ];
 
 export default function ClientesPage() {
+  const { user } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,10 +47,11 @@ export default function ClientesPage() {
   const [clienteScoring, setClienteScoring] = useState<Cliente | null>(null);
   const [importPayjoyModal, setImportPayjoyModal] = useState(false);
 
-  // Cargar clientes
+  // Cargar clientes — espera a que auth resuelva para evitar request innecesario
   useEffect(() => {
+    if (!user) return;
     fetchClientes();
-  }, []);
+  }, [user]);
 
   // Filtrar clientes cuando cambia la búsqueda
   useEffect(() => {
