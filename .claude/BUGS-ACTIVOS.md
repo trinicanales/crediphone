@@ -33,26 +33,20 @@ o cifrar con `pgcrypto`. No es urgente mientras la app funcione correctamente.
 
 ---
 
-## 🟢 PAGES-002 — Race condition en fetches
-**Severidad:** BAJO
-**Estado:** ❌ Pendiente
+## ✅ PAGES-002 — Race condition en fetches
+**Severidad:** BAJO → **RESUELTO 2026-04-06**
 
-Varias páginas ejecutan `fetchData()` sin esperar confirmación de rol del usuario. La API devuelve 403 pero hay un request innecesario antes de que el guard de rol corra.
-
-**Páginas afectadas:** empleados, dashboard principal, clientes.
-
-**Fix:** Condicionar fetch dentro del useEffect que verifica rol: `if (user && hasRole) fetchData()`
+5 páginas corregidas con `if (!user) return;` en el useEffect de fetch:
+`clientes`, `creditos`, `pagos`, `promociones`, `compras`
 
 ---
 
-## 🟢 DB-002 — servicios.distribuidor_id nullable
-**Severidad:** BAJO
-**Estado:** ❌ Pendiente
+## ✅ DB-002 — servicios.distribuidor_id nullable
+**Severidad:** BAJO → **RESUELTO 2026-04-06**
 
-La tabla `servicios` tiene `distribuidor_id UUID NULLABLE`. Permite insertar servicios sin distribuidor, rompiendo el aislamiento multi-tenant.
-
-**Fix:** Migración SQL: `ALTER TABLE servicios ALTER COLUMN distribuidor_id SET NOT NULL;`
-Verificar que no haya filas con NULL antes de aplicar.
+`ALTER TABLE servicios ALTER COLUMN distribuidor_id SET NOT NULL` aplicado.
+Verificado: 0 filas con NULL antes de aplicar.
+Migración: `supabase/migrations/fix-servicios-distribuidor-id-not-null.sql`
 
 ---
 

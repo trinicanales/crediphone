@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Fragment } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -37,6 +38,7 @@ const COLUMNAS_CREDITOS_CSV: ColumnaExport<CreditoConDetalles>[] = [
 ];
 
 export default function CreditosPage() {
+  const { user } = useAuth();
   const router = useRouter();
   const [creditos, setCreditos] = useState<CreditoConDetalles[]>([]);
   const [filteredCreditos, setFilteredCreditos] = useState<CreditoConDetalles[]>([]);
@@ -54,9 +56,11 @@ export default function CreditosPage() {
   const [recalculando, setRecalculando] = useState(false);
   const [recalculoMsg, setRecalculoMsg] = useState<string | null>(null);
 
+  // Espera a que auth resuelva para evitar requests innecesarios (PAGES-002)
   useEffect(() => {
+    if (!user) return;
     fetchData();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     let filtered = creditos;

@@ -56,7 +56,11 @@ export default function PagosPage() {
     }
   }, [user, router]);
 
-  useEffect(() => { fetchData(); }, []);
+  // Espera a que auth resuelva para evitar requests innecesarios (PAGES-002)
+  useEffect(() => {
+    if (!user) return;
+    fetchData();
+  }, [user]);
 
   useEffect(() => {
     if (searchDate === "") {

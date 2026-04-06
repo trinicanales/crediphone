@@ -104,7 +104,11 @@ export default function OrdenesCompraPage() {
     }
   }, [filtroEstado]);
 
-  useEffect(() => { fetchOrdenes(); }, [fetchOrdenes]);
+  // Espera rol confirmado antes de fetch (PAGES-002)
+  useEffect(() => {
+    if (!user) return;
+    fetchOrdenes();
+  }, [fetchOrdenes, user]);
 
   const ordenesFiltradas = ordenes.filter((o) => {
     const q = busqueda.toLowerCase();

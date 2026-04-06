@@ -3,24 +3,23 @@
 ## Estado: COMPLETADA ✅
 
 ## Última sesión — 2026-04-06
-Auditoría de seguridad — Área 1 (RLS y políticas de acceso).
+Área 1 (Seguridad RLS) + Área 2 (Integridad de datos).
 
 ## Completado
-- ✅ RLS-001 CERRADO: Todas las tablas ya tenían RLS. Problema eran políticas mal diseñadas.
-- ✅ 17 políticas corregidas en 14 tablas (cross-tenant + acceso anónimo a datos sensibles)
-- ✅ SECURITY-003 actualizado: riesgo real bajo, wa_access_token nunca se expone al frontend
-- ✅ Migración aplicada en Supabase: `fix_rls_cross_tenant_policies`
-- ✅ Archivo local: `supabase/migrations/fix-rls-cross-tenant-policies.sql`
+- ✅ RLS-001 CERRADO: 17 políticas cross-tenant/anónimas corregidas
+- ✅ SECURITY-003 actualizado a 🟡 MEDIO (riesgo real bajo)
+- ✅ DB-002 CERRADO: servicios.distribuidor_id = NOT NULL aplicado
+- ✅ PAGES-002 CERRADO: 5 páginas con race condition corregidas
+- ✅ Migraciones en supabase/migrations/
 - ✅ BUGS-ACTIVOS.md actualizado
 
-## Sin pendientes
+## Sin pendientes de bugs activos
+Todos los bugs de BUGS-ACTIVOS.md están resueltos (excepto SECURITY-003 que es baja urgencia).
 
 ## Próxima sesión sugerida
-Área 2 — Integridad de datos:
-- PAGES-002: race condition en fetches antes de verificar rol
-- DB-002: `servicios.distribuidor_id` debería ser NOT NULL
-
-O bien: Área 3 — Visual/UI (auditoría de páginas con Tailwind directo en vez de CSS tokens)
+Área 3 — Visual/UI:
+- Auditoría de páginas que usan clases Tailwind de color directas en lugar de `var(--color-...)`
+- Buscar: `bg-blue-`, `bg-red-`, `text-green-`, etc. en componentes
 
 ---
 ## INSTRUCCIONES DE USO PARA CLAUDE

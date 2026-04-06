@@ -32,7 +32,12 @@ export default function PromocionesPage() {
     }
   };
 
-  useEffect(() => { fetchPromos(); }, []);
+  // Espera rol confirmado antes de fetch — solo admin/super_admin pueden ver esto (PAGES-002)
+  useEffect(() => {
+    if (!user) return;
+    if (!["admin", "super_admin"].includes(user.role)) return;
+    fetchPromos();
+  }, [user]);
 
   const handleToggle = async (id: string, activa: boolean) => {
     await fetch(`/api/promociones/${id}`, {
