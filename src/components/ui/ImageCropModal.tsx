@@ -7,6 +7,9 @@
  *  - Arrastrar el área de recorte
  *  - Redimensionar con slider
  *  - Proporción siempre 1:1
+ *
+ * fix: drag se mueve a nivel document para que no se pierda si el mouse
+ *      sale del canvas — evita el bug de pantalla negra al arrastrar.
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -28,8 +31,8 @@ interface CropArea {
 }
 
 export function ImageCropModal({ imageUrl, onCrop, onCancel }: ImageCropModalProps) {
-  const canvasRef   = useRef<HTMLCanvasElement>(null);
-  const imageRef    = useRef<HTMLImageElement | null>(null);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const imageRef     = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Dimensiones del canvas de preview (pantalla)
@@ -42,7 +45,19 @@ export function ImageCropModal({ imageUrl, onCrop, onCancel }: ImageCropModalPro
   const [cropPercent, setCropPercent] = useState(80);
 
   const [isDragging, setIsDragging] = useState(false);
-  const dragStart   = useRef<{ mx: number; my: number; cx: number; cy: number } | null>(null);
+  // Ref para acceso inmediato en event listeners de document (sin stale closures)
+  const dragRef = useRef<{
+    active: boolean;
+    mx: number;
+    my: number;
+    cx: number;
+    cy: number;
+    scale: number;
+    cropSize: number;
+    imgW: number;
+    imgH: number;
+  } | null>(null);
+
   const [imgLoaded, setImgLoaded] = useState(false);
 
   // Cargar imagen
@@ -139,76 +154,114 @@ export function ImageCropModal({ imageUrl, onCrop, onCancel }: ImageCropModalPro
 
   }, [crop, canvasSize, imgLoaded, scale]);
 
-  // Drag handlers — en coordenadas de CANVAS → convertir a imagen
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
+  // ─── Event listeners de document para el drag ────────────────────────────────
+  // Se adjuntan al document cuando inicia el drag para que funcionen aunque el
+  // mouse/touch salga del canvas. Se limpian al soltar.
+
+  const stopDrag = useCallback(() => {
+    dragRef.current = null;
+    setIsDragging(false);
+  }, []);
+
+  const onDocMouseMove = useCallback((e: MouseEvent) => {
+    const d = dragRef.current;
+    if (!d || !d.active || !canvasRef.current || !imageRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    // Verificar si el cursor está dentro del crop
+    const dx = (mx - d.mx) / d.scale;
+    const dy = (my - d.my) / d.scale;
+    const maxX = d.imgW - d.cropSize;
+    const maxY = d.imgH - d.cropSize;
+    setCrop((prev) => ({
+      ...prev,
+      x: Math.max(0, Math.min(d.cx + dx, maxX)),
+      y: Math.max(0, Math.min(d.cy + dy, maxY)),
+    }));
+  }, []);
+
+  const onDocMouseUp = useCallback(() => {
+    stopDrag();
+    document.removeEventListener("mousemove", onDocMouseMove);
+    document.removeEventListener("mouseup", onDocMouseUp);
+  }, [stopDrag, onDocMouseMove]);
+
+  // Mouse down en canvas: inicia drag y adjunta listeners al document
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!imageRef.current || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
     const cx = crop.x * scale;
     const cy = crop.y * scale;
     const cs = crop.size * scale;
     if (mx >= cx && mx <= cx + cs && my >= cy && my <= cy + cs) {
+      dragRef.current = {
+        active: true,
+        mx, my,
+        cx: crop.x, cy: crop.y,
+        scale,
+        cropSize: crop.size,
+        imgW: imageRef.current.naturalWidth,
+        imgH: imageRef.current.naturalHeight,
+      };
       setIsDragging(true);
-      dragStart.current = { mx, my, cx: crop.x, cy: crop.y };
+      // Mover eventos al document para que el drag no se pierda fuera del canvas
+      document.addEventListener("mousemove", onDocMouseMove);
+      document.addEventListener("mouseup", onDocMouseUp);
     }
-  }, [crop, scale]);
+  }, [crop, scale, onDocMouseMove, onDocMouseUp]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging || !dragStart.current || !imageRef.current) return;
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const dx = (mx - dragStart.current.mx) / scale;
-    const dy = (my - dragStart.current.my) / scale;
-    const img = imageRef.current;
-    const maxX = img.naturalWidth - crop.size;
-    const maxY = img.naturalHeight - crop.size;
-    setCrop((prev) => ({
-      ...prev,
-      x: Math.max(0, Math.min(dragStart.current!.cx + dx, maxX)),
-      y: Math.max(0, Math.min(dragStart.current!.cy + dy, maxY)),
-    }));
-  }, [isDragging, scale, crop.size]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-    dragStart.current = null;
-  }, []);
-
-  // Touch support
+  // Touch support — el browser ya captura touchmove/touchend en el elemento original
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!imageRef.current || !canvasRef.current) return;
     const touch = e.touches[0];
-    const rect = canvasRef.current!.getBoundingClientRect();
+    const rect = canvasRef.current.getBoundingClientRect();
     const mx = touch.clientX - rect.left;
     const my = touch.clientY - rect.top;
     const cx = crop.x * scale;
     const cy = crop.y * scale;
     const cs = crop.size * scale;
     if (mx >= cx && mx <= cx + cs && my >= cy && my <= cy + cs) {
+      dragRef.current = {
+        active: true,
+        mx, my,
+        cx: crop.x, cy: crop.y,
+        scale,
+        cropSize: crop.size,
+        imgW: imageRef.current.naturalWidth,
+        imgH: imageRef.current.naturalHeight,
+      };
       setIsDragging(true);
-      dragStart.current = { mx, my, cx: crop.x, cy: crop.y };
     }
   }, [crop, scale]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDragging || !dragStart.current || !imageRef.current) return;
+    const d = dragRef.current;
+    if (!d || !d.active || !imageRef.current || !canvasRef.current) return;
     e.preventDefault();
     const touch = e.touches[0];
-    const rect = canvasRef.current!.getBoundingClientRect();
+    const rect = canvasRef.current.getBoundingClientRect();
     const mx = touch.clientX - rect.left;
     const my = touch.clientY - rect.top;
-    const dx = (mx - dragStart.current.mx) / scale;
-    const dy = (my - dragStart.current.my) / scale;
-    const img = imageRef.current;
-    const maxX = img.naturalWidth - crop.size;
-    const maxY = img.naturalHeight - crop.size;
+    const dx = (mx - d.mx) / d.scale;
+    const dy = (my - d.my) / d.scale;
+    const maxX = d.imgW - d.cropSize;
+    const maxY = d.imgH - d.cropSize;
     setCrop((prev) => ({
       ...prev,
-      x: Math.max(0, Math.min(dragStart.current!.cx + dx, maxX)),
-      y: Math.max(0, Math.min(dragStart.current!.cy + dy, maxY)),
+      x: Math.max(0, Math.min(d.cx + dx, maxX)),
+      y: Math.max(0, Math.min(d.cy + dy, maxY)),
     }));
-  }, [isDragging, scale, crop.size]);
+  }, []);
+
+  // Limpiar listeners si el componente se desmonta mientras está arrastrando
+  useEffect(() => {
+    return () => {
+      document.removeEventListener("mousemove", onDocMouseMove);
+      document.removeEventListener("mouseup", onDocMouseUp);
+    };
+  }, [onDocMouseMove, onDocMouseUp]);
 
   // Aplicar recorte → produce un File cuadrado
   const handleApply = useCallback(() => {
@@ -227,12 +280,18 @@ export function ImageCropModal({ imageUrl, onCrop, onCancel }: ImageCropModalPro
     }, "image/jpeg", 0.92);
   }, [crop, onCrop]);
 
+  // Backdrop click: solo cerrar si NO se está arrastrando
+  const handleBackdropClick = useCallback(() => {
+    if (dragRef.current?.active) return;
+    onCancel();
+  }, [onCancel]);
+
   return (
     // Overlay
     <div
       className="fixed inset-0 z-[10001] flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.75)" }}
-      onClick={onCancel}
+      onClick={handleBackdropClick}
     >
       {/* Modal */}
       <div
@@ -277,16 +336,14 @@ export function ImageCropModal({ imageUrl, onCrop, onCancel }: ImageCropModalPro
                 width={canvasSize.w}
                 height={canvasSize.h}
                 onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
-                onTouchEnd={handleMouseUp}
+                onTouchEnd={stopDrag}
                 style={{
                   cursor: isDragging ? "grabbing" : "grab",
                   touchAction: "none",
                   maxWidth: "100%",
+                  display: "block",
                 }}
               />
             ) : (
@@ -305,7 +362,7 @@ export function ImageCropModal({ imageUrl, onCrop, onCancel }: ImageCropModalPro
               max={100}
               value={cropPercent}
               onChange={(e) => setCropPercent(Number(e.target.value))}
-              className="flex-1 accent-[var(--color-accent)]"
+              className="flex-1"
               style={{ accentColor: "var(--color-accent)" }}
             />
             <ZoomIn className="w-4 h-4 shrink-0" style={{ color: "var(--color-text-muted)" }} />
