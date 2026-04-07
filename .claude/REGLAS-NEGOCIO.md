@@ -29,6 +29,18 @@ Los anticipos sin sesión activa se marcan con `registradoEnCaja: false`.
 El admin los revisa en el reporte de "anticipos sin sesión asignada".
 **NO eliminar ni ocultar este estado.**
 
+### Regla actualizada — Anticipo sin caja abierta (confirmado por Trini 2026-04-07)
+Si se recibe un anticipo y la caja del vendedor está cerrada:
+- El anticipo se registra asignado al vendedor que tenga sesión iniciada en ese momento
+- Se muestra mensaje: "Este anticipo se agregará a la caja de [Vendedor X] cuando la abra"
+- Al abrir caja, esos anticipos pendientes se suman automáticamente
+- **NO se bloquea el registro del anticipo** — se deja fluir pero queda pendiente de asignar
+
+### Regla — Técnico recibe efectivo
+El efectivo que recibe el técnico entra DIRECTO a caja (no via "traspaso pendiente").
+Solo se envía una notificación al vendedor: "Técnico [Nombre] recibió $X del cliente [Y] — Orden #FOLIO"
+El flujo de "traspaso_anticipo" que crea un pendiente es DEMASIADO COMPLEJO y se reemplaza por esto.
+
 ---
 
 ## 🔔 SISTEMA DE ALERTAS DE DESCUADRE (Implementado en FASE 40)
@@ -54,11 +66,48 @@ Si al cierre de sesión el monto declarado ≠ monto calculado:
 
 ---
 
+## 💰 CANCELACIÓN DE REPARACIÓN — Reglas confirmadas (Trini 2026-04-07)
+
+- **Quién puede cancelar:** El vendedor desde el POS (sin necesitar técnico ni admin)
+- **Cuándo se puede cancelar:** Solo si las piezas NO están instaladas aún
+  - Si ya están instaladas (estado en_reparacion avanzado o completado) → requiere admin
+- **Cargo de cancelación:** ~$100 MXN (costo de diagnóstico/envío)
+  - Se configura al CREAR la orden (campo en el modal de creación de la orden)
+  - Aparece en el PDF/documento generado de la orden
+  - Al cancelar: anticipo acumulado - cargo de cancelación = devolución al cliente
+- **Cómo busca el vendedor la orden en POS:** por folio, nombre del cliente o teléfono
+- **Al cancelar:** se devuelve el anticipo menos el cargo, queda registrado en caja
+
+---
+
+## 📄 DOCUMENTO PDF — Campos obligatorios (Trini 2026-04-07)
+
+El PDF es un documento legal bajo la LFPC (Ley Federal de Protección al Consumidor).
+**Campos que DEBEN estar en el PDF** (algunos faltan — ver BLOQUE 2 del plan):
+  1. Folio de la orden ✅ ya existe
+  2. Fecha de recepción ✅ ya existe
+  3. Datos del cliente ✅ ya existe
+  4. Datos del dispositivo (marca, modelo, IMEI) ✅ ya existe
+  5. Diagnóstico técnico ❌ FALTA
+  6. Técnico responsable asignado ❌ FALTA
+  7. Piezas usadas (listado con precios) ❌ FALTA
+  8. Presupuesto desglosado (mano de obra + piezas) ❌ FALTA
+  9. Anticipos pagados (tabla con fechas y métodos) ❌ FALTA
+  10. Saldo final a cobrar ❌ FALTA
+  11. Cargo de cancelación (el configurado al crear) ❌ FALTA
+  12. Firma del cliente (se captura pero no se renderiza) ❌ FALTA
+  13. Días de garantía ❌ FALTA
+  14. QR de seguimiento ✅ ya existe
+  15. Términos y condiciones ✅ ya existe
+
+---
+
 ## ❓ Preguntas abiertas para Trini
 
 1. **Fotos post-entrega:** ¿Cuánto tiempo conservar después de entregar la reparación? ¿6 meses, 12, indefinido?
 2. **Reporte Z:** ¿Quieres cobros de reparación como sección separada de ventas POS, o todo junto?
 3. **Anticipo para pieza:** Cuando el técnico usa dinero del anticipo para comprar pieza, ¿cómo registrarlo?
+4. **Órdenes en "listo_entrega" sin entregarse:** ¿Después de cuántos días hay alerta? ¿Qué pasa si el cliente no aparece en 30 días?
 
 ---
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getOrdenReparacionById,
   cambiarEstadoOrden,
@@ -36,9 +37,10 @@ export async function POST(
       );
     }
 
-    if (!role || !["admin", "super_admin"].includes(role)) {
+    // vendedor puede cancelar desde POS (con cargo de cancelación)
+    if (!role || !["admin", "super_admin", "vendedor"].includes(role)) {
       return NextResponse.json(
-        { success: false, error: "Solo admin puede cancelar órdenes" },
+        { success: false, error: "Solo admin o vendedor puede cancelar órdenes" },
         { status: 403 }
       );
     }
@@ -58,6 +60,9 @@ export async function POST(
     const motivo: string = body.motivo?.trim() || "Sin motivo especificado";
     const devolverAnticipos: boolean = body.devolverAnticipos ?? true;
     const sesionCajaId: string | undefined = body.sesionCajaId || undefined;
+    // Cargo de cancelación: monto retenido antes de devolver anticipos al cliente
+    const cargoCancelacion: number =
+      typeof body.cargoCancelacion === "number" ? Math.max(0, body.cargoCancelacion) : 0;
 
     // Obtener la orden para validar que existe y no esté ya cancelada
     const orden = await getOrdenReparacionById(id);
@@ -92,14 +97,68 @@ export async function POST(
 
     // ── 3. Devolver anticipos (opcional) ─────────────────────────────────
     let totalDevuelto = 0;
+    let cargoAplicado = 0;
+
     if (devolverAnticipos) {
-      totalDevuelto = await devolverAnticiposOrden(
-        id,
-        orden.folio,
-        motivo,
-        sesionCajaId,
-        userId
-      );
+      if (cargoCancelacion > 0) {
+        // Devolución parcial: totalAnticipos - cargoCancelacion
+        const supabase = createAdminClient();
+        const ahora = new Date().toISOString();
+
+        const { data: anticiposPendientes } = await supabase
+          .from("anticipos_reparacion")
+          .select("id, monto")
+          .eq("orden_id", id)
+          .eq("estado", "pendiente");
+
+        const totalAnticipos = (anticiposPendientes ?? []).reduce(
+          (sum: number, a: any) => sum + parseFloat(a.monto),
+          0
+        );
+
+        if (totalAnticipos > 0) {
+          cargoAplicado = Math.min(cargoCancelacion, totalAnticipos);
+          totalDevuelto = Math.max(0, totalAnticipos - cargoAplicado);
+
+          // Marcar anticipos como devueltos
+          await supabase
+            .from("anticipos_reparacion")
+            .update({ estado: "devuelto", fecha_devuelto: ahora, motivo_devolucion: motivo })
+            .eq("orden_id", id)
+            .eq("estado", "pendiente");
+
+          // Registrar devolución neta en caja
+          if (sesionCajaId && totalDevuelto > 0) {
+            await supabase.from("caja_movimientos").insert({
+              sesion_id: sesionCajaId,
+              tipo: "devolucion_anticipo",
+              monto: totalDevuelto,
+              concepto: `Devolución anticipo ${orden.folio} (menos cargo $${cargoAplicado.toFixed(2)}). Motivo: ${motivo}`,
+              autorizado_por: userId,
+            });
+          }
+
+          // El cargo de cancelación permanece en caja como ingreso
+          if (sesionCajaId && cargoAplicado > 0) {
+            await supabase.from("caja_movimientos").insert({
+              sesion_id: sesionCajaId,
+              tipo: "entrada_efectivo",
+              monto: cargoAplicado,
+              concepto: `Cargo cancelación reparación ${orden.folio}`,
+              autorizado_por: userId,
+            });
+          }
+        }
+      } else {
+        // Devolución completa (flujo admin normal)
+        totalDevuelto = await devolverAnticiposOrden(
+          id,
+          orden.folio,
+          motivo,
+          sesionCajaId,
+          userId
+        );
+      }
     }
 
     return NextResponse.json({
@@ -109,6 +168,7 @@ export async function POST(
       piezasDevueltas: true,
       anticiposDevueltos: devolverAnticipos,
       totalAnticipoDevuelto: totalDevuelto,
+      cargoAplicado,
     });
   } catch (error) {
     console.error("Error en POST /api/reparaciones/[id]/cancelar:", error);

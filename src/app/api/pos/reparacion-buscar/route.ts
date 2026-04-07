@@ -60,6 +60,7 @@ export async function GET(request: Request) {
         marca_dispositivo,
         modelo_dispositivo,
         costo_total,
+        cargo_cancelacion,
         cliente:clientes(
           id,
           nombre,
@@ -117,6 +118,7 @@ export async function GET(request: Request) {
           marcaDispositivo: orden.marca_dispositivo,
           modeloDispositivo: orden.modelo_dispositivo,
           costoTotal: parseFloat(orden.costo_total || 0),
+          cargoCancelacion: parseFloat(orden.cargo_cancelacion ?? 100),
           clienteNombre: cliente
             ? `${cliente.nombre || ""} ${cliente.apellido || ""}`.trim()
             : "",

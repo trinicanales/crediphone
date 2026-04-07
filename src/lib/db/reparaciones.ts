@@ -105,6 +105,7 @@ function mapOrdenFromDB(dbOrden: any): OrdenReparacion {
     cobroAlmacenajeInicio: dbOrden.cobro_almacenaje_inicio ? new Date(dbOrden.cobro_almacenaje_inicio) : undefined,
     descuentoRapidoOfrecido: dbOrden.descuento_rapido_ofrecido ?? false,
     descuentoRapidoPorcentaje: dbOrden.descuento_rapido_porcentaje ?? undefined,
+    cargoCancelacion: parseFloat(dbOrden.cargo_cancelacion ?? 100),
   };
 }
 
@@ -487,6 +488,11 @@ export async function createOrdenReparacion(
     if ((ordenData as any).catalogoServicioId) {
       insertData.catalogo_servicio_id = (ordenData as any).catalogoServicioId;
     }
+
+    // Cargo de cancelación — monto retenido si el cliente cancela antes de instalar piezas
+    insertData.cargo_cancelacion = typeof (ordenData as any).cargoCancelacion === "number"
+      ? (ordenData as any).cargoCancelacion
+      : 100;
 
     const { data, error } = await supabase
       .from("ordenes_reparacion")

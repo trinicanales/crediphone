@@ -129,6 +129,9 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
   const [presupuestoTotal, setPresupuestoTotal] = useState<number>(0);
   const [presupuestoManoDeObra, setPresupuestoManoDeObra] = useState<number>(0);
   const [presupuestoPiezas, setPresupuestoPiezas] = useState<number>(0);
+  // Cargo de cancelación: monto mínimo que se retiene si el cliente cancela el servicio
+  // Se muestra en el PDF y aplica al cancelar desde el POS (default $100 MXN)
+  const [cargoCancelacion, setCargoCancelacion] = useState<number>(100);
   const [anticipos, setAnticipos] = useState<any[]>([]);
   const [piezasCotizacion, setPiezasCotizacion] = useState<any[]>([]);
 
@@ -432,6 +435,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
         presupuestoPiezas,
         anticiposData: anticipos,
         piezasCotizacion: piezasCotizacion,
+        cargoCancelacion,
 
         // FASE 54-B: Referencia al servicio del catálogo seleccionado
         catalogoServicioId: catalogoServicioId || null,
@@ -580,6 +584,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     setPresupuestoTotal(0);
     setPresupuestoManoDeObra(0);
     setPresupuestoPiezas(0);
+    setCargoCancelacion(100);
     setAnticipos([]);
     setPiezasCotizacion([]);
     setPatronDesbloqueo("");
@@ -1091,6 +1096,35 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                   if (data.piezasCotizacion) setPiezasCotizacion(data.piezasCotizacion);
                 }}
               />
+
+              {/* Cargo de cancelación */}
+              <div style={{ marginTop: "1.25rem", padding: "1rem", borderRadius: "0.5rem", border: "1px solid var(--color-border-subtle)", background: "var(--color-bg-elevated)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                  <DollarSign className="h-4 w-4" style={{ color: "var(--color-warning)" }} />
+                  Cargo por cancelación (MXN)
+                </label>
+                <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: "0.5rem" }}>
+                  Monto mínimo que se retiene si el cliente cancela el servicio antes de que las piezas sean instaladas. Aparece en el documento de la orden.
+                </p>
+                <input
+                  type="number"
+                  min={0}
+                  step={10}
+                  value={cargoCancelacion}
+                  onChange={(e) => setCargoCancelacion(Math.max(0, Number(e.target.value)))}
+                  style={{
+                    width: "160px",
+                    borderRadius: "0.5rem",
+                    border: "1.5px solid var(--color-border)",
+                    background: "var(--color-bg-surface)",
+                    color: "var(--color-text-primary)",
+                    padding: "0.5rem 0.75rem",
+                    fontSize: "0.875rem",
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
             </div>
           </motion.div>
 

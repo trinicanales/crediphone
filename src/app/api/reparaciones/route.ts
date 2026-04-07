@@ -179,6 +179,8 @@ export async function POST(request: Request) {
         anticiposData: body.anticiposData || undefined,
         // FASE 54-B - Catálogo de servicios de reparación
         catalogoServicioId: body.catalogoServicioId || undefined,
+        // Cargo de cancelación: monto que se retiene si el cliente cancela antes de instalar piezas
+        cargoCancelacion: typeof body.cargoCancelacion === "number" ? body.cargoCancelacion : 100,
       },
       userId,                             // ← userId real del usuario autenticado
       filterDistribuidorId,               // ← distribuidor del usuario

@@ -531,6 +531,8 @@ export interface OrdenReparacion {
   anticiposData?: any[];
   /** ID del servicio del catálogo de reparaciones (FASE 54-B) */
   catalogoServicioId?: string;
+  /** Cargo mínimo que se retiene si el cliente cancela antes de instalar piezas (default $100 MXN) */
+  cargoCancelacion?: number;
 
   // Auditoría
   creadoPor?: string;

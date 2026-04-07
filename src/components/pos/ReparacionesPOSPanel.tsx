@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from "react";
 import {
-  Search, AlertCircle, DollarSign, CheckCircle, Phone, Wrench,
+  Search, AlertCircle, DollarSign, CheckCircle, Phone, Wrench, XCircle,
 } from "lucide-react";
 import type { OrdenReparacionDetallada, TipoPago } from "@/types";
 
@@ -243,6 +243,154 @@ function ModalCobroSaldo({ onConfirm, onCancel, ordenFolio, saldoPendiente }: Mo
   );
 }
 
+// ─── Modal Cancelar Reparación ───────────────────────────────────────────────
+
+interface ModalCancelarProps {
+  onConfirm: (motivo: string) => void;
+  onCancel: () => void;
+  ordenFolio: string;
+  totalAnticipos: number;
+  cargoCancelacion: number;
+}
+
+function ModalCancelarReparacion({
+  onConfirm,
+  onCancel,
+  ordenFolio,
+  totalAnticipos,
+  cargoCancelacion,
+}: ModalCancelarProps) {
+  const [motivo, setMotivo] = useState("");
+  const [error, setError] = useState("");
+
+  const cargoEfectivo = Math.min(cargoCancelacion, totalAnticipos);
+  const devolucionAlCliente = Math.max(0, totalAnticipos - cargoEfectivo);
+
+  const handleConfirm = () => {
+    if (!motivo.trim()) {
+      setError("Indica el motivo de cancelación");
+      return;
+    }
+    onConfirm(motivo.trim());
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.6)" }}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl p-6 space-y-4"
+        style={{
+          background: "var(--color-bg-surface)",
+          border: "1px solid var(--color-border)",
+          boxShadow: "var(--shadow-xl)",
+        }}
+      >
+        {/* Título */}
+        <div>
+          <h3 className="text-base font-semibold" style={{ color: "var(--color-danger)" }}>
+            Cancelar Reparación
+          </h3>
+          <p className="text-sm mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+            Orden {ordenFolio}
+          </p>
+        </div>
+
+        {/* Resumen financiero */}
+        <div
+          className="rounded-xl p-4 space-y-2 text-sm"
+          style={{
+            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--color-border-subtle)",
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <span style={{ color: "var(--color-text-secondary)" }}>Anticipos pagados:</span>
+            <span className="font-mono font-semibold" style={{ color: "var(--color-text-primary)" }}>
+              {fmtPrecio(totalAnticipos)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span style={{ color: "var(--color-danger)" }}>Cargo de cancelación:</span>
+            <span className="font-mono font-semibold" style={{ color: "var(--color-danger)" }}>
+              −{fmtPrecio(cargoEfectivo)}
+            </span>
+          </div>
+          <div
+            className="pt-2 flex items-center justify-between"
+            style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+          >
+            <span className="font-medium" style={{ color: "var(--color-text-primary)" }}>
+              A devolver al cliente:
+            </span>
+            <span
+              className="font-mono font-bold text-lg"
+              style={{ color: devolucionAlCliente > 0 ? "var(--color-success)" : "var(--color-text-muted)" }}
+            >
+              {fmtPrecio(devolucionAlCliente)}
+            </span>
+          </div>
+        </div>
+
+        {/* Motivo */}
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
+            Motivo de cancelación
+          </label>
+          <textarea
+            value={motivo}
+            onChange={(e) => { setMotivo(e.target.value); setError(""); }}
+            placeholder="Cliente ya no quiere reparar, se fue a otro servicio..."
+            rows={3}
+            className="w-full rounded-xl px-3 py-2.5 text-sm resize-none"
+            style={{
+              background: "var(--color-bg-sunken)",
+              border: `1px solid ${error ? "var(--color-danger)" : "var(--color-border)"}`,
+              color: "var(--color-text-primary)",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        {error && (
+          <div
+            className="flex items-center gap-2 text-sm rounded-lg px-3 py-2"
+            style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)" }}
+          >
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+            style={{
+              background: "var(--color-bg-elevated)",
+              color: "var(--color-text-secondary)",
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            Volver
+          </button>
+          <button
+            onClick={handleConfirm}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+            style={{
+              background: "var(--color-danger)",
+              color: "#fff",
+            }}
+          >
+            Confirmar cancelación
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Panel principal ──────────────────────────────────────────────────────────
 
 interface ReparacionesPOSPanelProps {
@@ -259,8 +407,10 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
   // Modales
   const [showModalAnticipo, setShowModalAnticipo] = useState(false);
   const [showModalCobroSaldo, setShowModalCobroSaldo] = useState(false);
+  const [showModalCancelar, setShowModalCancelar] = useState(false);
   const [procesandoCobroSaldo, setProcesandoCobroSaldo] = useState(false);
   const [procesandoAnticipo, setProcesandoAnticipo] = useState(false);
+  const [procesandoCancelacion, setProcesandoCancelacion] = useState(false);
   const [mensajeExito, setMensajeExito] = useState("");
 
   const handleBuscar = useCallback(async (query: string) => {
@@ -381,6 +531,47 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
       setError("Error de conexión");
     } finally {
       setProcesandoCobroSaldo(false);
+    }
+  };
+
+  const handleCancelarReparacion = async (motivo: string) => {
+    if (!orden) return;
+
+    setProcesandoCancelacion(true);
+    try {
+      const res = await fetch(`/api/reparaciones/${orden.id}/cancelar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          motivo,
+          devolverAnticipos: true,
+          cargoCancelacion: (orden as any).cargoCancelacion ?? 100,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error ?? "Error al cancelar la orden");
+        setShowModalCancelar(false);
+        return;
+      }
+
+      const devuelto = data.totalAnticipoDevuelto ?? 0;
+      const cargo = data.cargoAplicado ?? 0;
+      setMensajeExito(
+        devuelto > 0
+          ? `✅ Orden cancelada. Devolver ${fmtPrecio(devuelto)} al cliente (cargo: ${fmtPrecio(cargo)})`
+          : `✅ Orden ${orden.folio} cancelada`
+      );
+      setShowModalCancelar(false);
+      setOrden(null);
+      setTotalAnticipos(0);
+      setSearchQuery("");
+      setTimeout(() => setMensajeExito(""), 6000);
+    } catch (err) {
+      setError("Error de conexión al cancelar");
+    } finally {
+      setProcesandoCancelacion(false);
     }
   };
 
@@ -551,30 +742,48 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
             {/* Botones de acción */}
             {/* "Registrar anticipo" siempre visible en órdenes activas (costo_total puede ser 0 en diagnóstico) */}
             {orden.estado !== "entregado" && orden.estado !== "cancelado" ? (
-              <div className={hayDeuda ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
-                <button
-                  onClick={() => setShowModalAnticipo(true)}
-                  disabled={procesandoAnticipo || procesandoCobroSaldo}
-                  className="py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
-                  style={{
-                    background: "var(--color-bg-elevated)",
-                    color: "var(--color-text-secondary)",
-                    border: "1px solid var(--color-border)",
-                  }}
-                >
-                  Registrar anticipo
-                </button>
-                {hayDeuda && (
+              <div className="flex flex-col gap-2">
+                <div className={hayDeuda ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
                   <button
-                    onClick={() => setShowModalCobroSaldo(true)}
-                    disabled={procesandoCobroSaldo || procesandoAnticipo}
+                    onClick={() => setShowModalAnticipo(true)}
+                    disabled={procesandoAnticipo || procesandoCobroSaldo || procesandoCancelacion}
                     className="py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
                     style={{
-                      background: "var(--color-accent)",
-                      color: "#fff",
+                      background: "var(--color-bg-elevated)",
+                      color: "var(--color-text-secondary)",
+                      border: "1px solid var(--color-border)",
                     }}
                   >
-                    Cobrar saldo
+                    Registrar anticipo
+                  </button>
+                  {hayDeuda && (
+                    <button
+                      onClick={() => setShowModalCobroSaldo(true)}
+                      disabled={procesandoCobroSaldo || procesandoAnticipo || procesandoCancelacion}
+                      className="py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                      style={{
+                        background: "var(--color-accent)",
+                        color: "#fff",
+                      }}
+                    >
+                      Cobrar saldo
+                    </button>
+                  )}
+                </div>
+                {/* Botón de cancelación — solo en estados donde todavía no hay reparación activa */}
+                {["recibido", "diagnostico", "presupuesto", "aprobado", "esperando_piezas"].includes(orden.estado) && (
+                  <button
+                    onClick={() => setShowModalCancelar(true)}
+                    disabled={procesandoCancelacion || procesandoAnticipo || procesandoCobroSaldo}
+                    className="w-full py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    style={{
+                      background: "var(--color-danger-bg)",
+                      color: "var(--color-danger)",
+                      border: "1px solid var(--color-danger)",
+                    }}
+                  >
+                    <XCircle className="w-4 h-4" />
+                    {procesandoCancelacion ? "Cancelando..." : "Cancelar reparación"}
                   </button>
                 )}
               </div>
@@ -627,6 +836,16 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
           saldoPendiente={saldoPendiente}
           onConfirm={handleCobroSaldoFinal}
           onCancel={() => setShowModalCobroSaldo(false)}
+        />
+      )}
+
+      {showModalCancelar && orden && (
+        <ModalCancelarReparacion
+          ordenFolio={orden.folio}
+          totalAnticipos={totalAnticipos}
+          cargoCancelacion={(orden as any).cargoCancelacion ?? 100}
+          onConfirm={handleCancelarReparacion}
+          onCancel={() => setShowModalCancelar(false)}
         />
       )}
     </>
