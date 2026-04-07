@@ -860,7 +860,7 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
     precio:          producto?.precio?.toString()  || "",
     costo:           producto?.costo?.toString()   || "",
     stock:           producto?.stock?.toString()   || "0",
-    stockMinimo:     producto?.stockMinimo?.toString() || "0",
+    stockMinimo:     producto?.stockMinimo?.toString() || "5",
     imagen:          producto?.imagen              || "",
     descripcion:     producto?.descripcion         || "",
     tipo:            producto?.tipo                || "",
@@ -869,6 +869,7 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
     proveedorId:     producto?.proveedorId         || "",
     esSerializado:   producto?.esSerializado       || false,
     ubicacionFisica: producto?.ubicacionFisica     || "",
+    ubicacionId:     producto?.ubicacionId         || "",
     codigoBarras:    producto?.codigoBarras        || "",
     sku:             producto?.sku                 || "",
     // FASE 27: campos de equipo celular
@@ -1053,6 +1054,18 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   }, [errors]);
 
+  // Handler especial para el selector de ubicación: guarda tanto el nombre (ubicacionFisica)
+  // como el id (ubicacionId) para mantener la relación estructurada con ubicaciones_inventario.
+  const handleUbicacionChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nombre = e.target.value;
+    const ub = ubicaciones.find((u) => u.nombre === nombre);
+    setFormData((prev) => ({
+      ...prev,
+      ubicacionFisica: nombre,
+      ubicacionId:     ub?.id || "",
+    }));
+  }, [ubicaciones]);
+
   const validate = () => {
     const e: Record<string, string> = {};
     if (!formData.nombre.trim())                          e.nombre  = "El nombre es requerido";
@@ -1081,12 +1094,13 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
           precio:          Number(formData.precio),
           costo:           formData.costo          ? Number(formData.costo)          : undefined,
           stock:           Number(formData.stock),
-          stockMinimo:     formData.stockMinimo    ? Number(formData.stockMinimo)    : undefined,
+          stockMinimo:     formData.stockMinimo !== "" ? Number(formData.stockMinimo)  : undefined,
           tipo:            formData.tipo            || undefined,
           categoriaId:     formData.categoriaId     || undefined,
           subcategoriaId:  formData.subcategoriaId  || undefined, // FASE 57
           proveedorId:     formData.proveedorId     || undefined,
           ubicacionFisica: formData.ubicacionFisica || undefined,
+          ubicacionId:     formData.ubicacionId     || undefined,
           codigoBarras:    formData.codigoBarras    || undefined,
           sku:             formData.sku             || undefined,
           // FASE 27: campos de equipo celular
@@ -1589,7 +1603,7 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
           <select
             name="ubicacionFisica"
             value={formData.ubicacionFisica}
-            onChange={handleChange}
+            onChange={handleUbicacionChange}
             className="w-full px-3 py-2 rounded-lg text-sm"
             style={{
               background: "var(--color-bg-sunken)",

@@ -8,7 +8,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -20,15 +20,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // super_admin sin filtro ve todo; admin solo ve las de su distribuidor
+    const effectiveDistId = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
+
     const searchParams = request.nextUrl.searchParams;
     const pendingOnly = searchParams.get("pending") === "true";
 
     if (pendingOnly) {
-      const alertas = await getAlertasPendientes();
+      const alertas = await getAlertasPendientes(effectiveDistId);
       return NextResponse.json({ success: true, data: alertas });
     }
 
-    const alertas = await getAllAlertas();
+    const alertas = await getAllAlertas(effectiveDistId);
     return NextResponse.json({ success: true, data: alertas });
   } catch (error: any) {
     console.error("Error in GET /api/inventario/alertas:", error);

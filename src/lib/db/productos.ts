@@ -127,9 +127,10 @@ export async function createProducto(producto: Omit<Producto, "id" | "createdAt"
       tipo: producto.tipo,
       es_serializado: producto.esSerializado,
       ubicacion_fisica: producto.ubicacionFisica,
-      // FASE 19: Código de barras y SKU
+      // FASE 19: Código de barras, SKU y ubicación estructurada
       codigo_barras: producto.codigoBarras || null,
       sku: producto.sku || null,
+      ubicacion_id:  producto.ubicacionId  || null,
       // FASE 27: Campos dedicados para equipos
       imei: producto.imei || null,
       color: producto.color || null,
@@ -171,6 +172,7 @@ export async function updateProducto(id: string, producto: Partial<Producto>, di
   // FASE 19 Fields
   if (producto.codigoBarras !== undefined) updates.codigo_barras = producto.codigoBarras || null;
   if (producto.sku !== undefined) updates.sku = producto.sku || null;
+  if (producto.ubicacionId  !== undefined) updates.ubicacion_id  = producto.ubicacionId  || null;
   // FASE 27 Fields
   if (producto.imei !== undefined) updates.imei = producto.imei || null;
   if (producto.color !== undefined) updates.color = producto.color || null;

@@ -612,12 +612,13 @@ export async function ajustarStockVerificacion(
 // ==========================================
 
 /**
- * Get all pending alerts (admin)
+ * Get all pending alerts (admin) — filtrado por distribuidor
  */
-export async function getAlertasPendientes(): Promise<
+export async function getAlertasPendientes(distribuidorId?: string): Promise<
   AlertaProductoNuevoDetallada[]
 > {
-  const supabase = createAdminClient(); const { data, error } = await supabase
+  const supabase = createAdminClient();
+  let query = supabase
     .from("alertas_productos_nuevos")
     .select(
       `
@@ -631,6 +632,9 @@ export async function getAlertasPendientes(): Promise<
     .eq("estado", "pendiente")
     .order("fecha_alerta", { ascending: false });
 
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+
+  const { data, error } = await query;
   if (error) throw error;
 
   return data.map((row) => ({
@@ -643,10 +647,11 @@ export async function getAlertasPendientes(): Promise<
 }
 
 /**
- * Get all alerts (any state)
+ * Get all alerts (any state) — filtrado por distribuidor
  */
-export async function getAllAlertas(): Promise<AlertaProductoNuevoDetallada[]> {
-  const supabase = createAdminClient(); const { data, error } = await supabase
+export async function getAllAlertas(distribuidorId?: string): Promise<AlertaProductoNuevoDetallada[]> {
+  const supabase = createAdminClient();
+  let query = supabase
     .from("alertas_productos_nuevos")
     .select(
       `
@@ -660,6 +665,9 @@ export async function getAllAlertas(): Promise<AlertaProductoNuevoDetallada[]> {
     .order("fecha_alerta", { ascending: false })
     .limit(100);
 
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+
+  const { data, error } = await query;
   if (error) throw error;
 
   return data.map((row) => ({

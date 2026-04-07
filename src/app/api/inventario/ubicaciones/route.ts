@@ -10,27 +10,32 @@ import type { NuevaUbicacionFormData } from "@/types";
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    // Filtrar por distribuidor (super_admin puede pasar header para ver uno específico)
+    const headerDistId = request.headers.get("X-Distribuidor-Id");
+    const effectiveDistId = isSuperAdmin
+      ? (headerDistId ?? undefined)
+      : (distribuidorId ?? undefined);
+
     const searchParams = request.nextUrl.searchParams;
-    const action = searchParams.get("action");
     const includeInactive = searchParams.get("includeInactive") === "true";
     const withCounts = searchParams.get("withCounts") === "true";
 
     if (withCounts) {
-      const ubicaciones = await getUbicacionesWithCounts();
+      const ubicaciones = await getUbicacionesWithCounts(effectiveDistId);
       return NextResponse.json({ success: true, data: ubicaciones });
     }
 
     if (includeInactive) {
-      const ubicaciones = await getAllUbicaciones();
+      const ubicaciones = await getAllUbicaciones(effectiveDistId);
       return NextResponse.json({ success: true, data: ubicaciones });
     }
 
-    const ubicaciones = await getUbicaciones();
+    const ubicaciones = await getUbicaciones(effectiveDistId);
     return NextResponse.json({ success: true, data: ubicaciones });
   } catch (error: any) {
     console.error("Error in GET /api/inventario/ubicaciones:", error);

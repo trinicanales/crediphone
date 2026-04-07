@@ -45,28 +45,34 @@ function mapMovimientoFromDB(row: any): MovimientoUbicacion {
 // ==========================================
 
 /**
- * Get all active locations
+ * Get all active locations for a distribuidor
  */
-export async function getUbicaciones(): Promise<UbicacionInventario[]> {
-  const { data, error } = await createAdminClient()
+export async function getUbicaciones(distribuidorId?: string): Promise<UbicacionInventario[]> {
+  let query = createAdminClient()
     .from("ubicaciones_inventario")
     .select("*")
     .eq("activo", true)
     .order("codigo", { ascending: true });
 
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+
+  const { data, error } = await query;
   if (error) throw error;
   return data.map(mapUbicacionFromDB);
 }
 
 /**
- * Get all locations including inactive
+ * Get all locations including inactive for a distribuidor
  */
-export async function getAllUbicaciones(): Promise<UbicacionInventario[]> {
-  const { data, error } = await createAdminClient()
+export async function getAllUbicaciones(distribuidorId?: string): Promise<UbicacionInventario[]> {
+  let query = createAdminClient()
     .from("ubicaciones_inventario")
     .select("*")
     .order("codigo", { ascending: true });
 
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+
+  const { data, error } = await query;
   if (error) throw error;
   return data.map(mapUbicacionFromDB);
 }
@@ -253,12 +259,12 @@ export async function getProductosCountByUbicacion(
 }
 
 /**
- * Get all locations with product counts
+ * Get all locations with product counts for a distribuidor
  */
-export async function getUbicacionesWithCounts(): Promise<
+export async function getUbicacionesWithCounts(distribuidorId?: string): Promise<
   Array<UbicacionInventario & { productosCount: number }>
 > {
-  const ubicaciones = await getUbicaciones();
+  const ubicaciones = await getUbicaciones(distribuidorId);
 
   const ubicacionesWithCounts = await Promise.all(
     ubicaciones.map(async (ubicacion) => {
