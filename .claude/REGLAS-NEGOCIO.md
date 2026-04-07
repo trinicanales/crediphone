@@ -80,6 +80,26 @@ Si al cierre de sesión el monto declarado ≠ monto calculado:
 
 ---
 
+## 🔧 PRESUPUESTO DE REPARACIÓN — Dos fases (confirmado Trini 2026-04-07)
+
+### Fase 1 — Cotización sin pieza ("Presupuesto General")
+- Al recibir el equipo, el técnico da una cotización ESTIMADA (sin saber exactamente qué pieza necesita)
+- Esta cotización incluye: mano de obra aproximada + estimado de piezas
+- El cliente aprueba ese presupuesto estimado para que se proceda con la reparación
+- **En el PDF/documento:** se etiqueta como "PRESUPUESTO ESTIMADO" — no es el costo final
+
+### Fase 2 — Costo real con pieza (cuando llega del taller)
+- El técnico recibe la pieza y la registra desde el área técnica del sistema
+- En ese momento se actualiza el costo real de piezas en la orden
+- **En el PDF:** si hay piezas registradas, el costo es definitivo (se muestra la tabla de piezas)
+
+### Regla para el PDF
+- Si `reparacion_piezas` está VACÍO → el presupuesto es estimado → mostrar "COTIZACIÓN ESTIMADA — sujeta a cambio al confirmar piezas"
+- Si `reparacion_piezas` tiene registros → el costo es definitivo → mostrar la tabla de piezas como "PIEZAS UTILIZADAS"
+- **NUNCA mostrar la sección de piezas vacía** — confunde al cliente
+
+---
+
 ## 📄 DOCUMENTO PDF — Campos obligatorios (Trini 2026-04-07)
 
 El PDF es un documento legal bajo la LFPC (Ley Federal de Protección al Consumidor).

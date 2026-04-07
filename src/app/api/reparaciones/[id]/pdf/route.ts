@@ -562,7 +562,23 @@ export async function POST(
     }
 
     // Presupuesto — derecha
-    y2 = sectionLabel(doc, "Presupuesto / Anticipos", c2, y2);
+    // Determinar si el presupuesto es estimado (sin piezas reales) o definitivo (con piezas)
+    const tienepiézasReales = piezas && piezas.length > 0;
+    const labelPresupuesto = tienepiézasReales ? "Presupuesto / Anticipos" : "Cotización Estimada / Anticipos";
+    y2 = sectionLabel(doc, labelPresupuesto, c2, y2);
+
+    if (!tienepiézasReales && precioTotal > 0) {
+      // Aviso de estimado
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(6.5);
+      tc(doc, C.amber);
+      doc.text("* Presupuesto estimado — sujeto a cambio al confirmar piezas", c2, y2);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      tc(doc, C.gray);
+      y2 += 4.5;
+    }
+
     doc.setFontSize(7.5);
 
     const metodoPagoLabel: Record<string, string> = {
@@ -583,7 +599,8 @@ export async function POST(
       if (precioPiezas > 0) {
         doc.setFont("helvetica", "normal");
         tc(doc, C.grayLight);
-        doc.text("Piezas:", c2, y2);
+        // Etiqueta según si ya hay piezas reales o es estimado
+        doc.text(tienepiézasReales ? "Piezas:" : "Piezas (est.):", c2, y2);
         tc(doc, C.gray);
         doc.text(`$${precioPiezas.toFixed(2)}`, c2 + colW - 2, y2, { align: "right" });
         y2 += 4;
@@ -596,7 +613,7 @@ export async function POST(
       }
       doc.setFont("helvetica", "bold");
       tc(doc, C.grayLight);
-      doc.text("Total reparación:", c2, y2);
+      doc.text(tienepiézasReales ? "Total reparación:" : "Total estimado:", c2, y2);
       tc(doc, C.gray);
       doc.text(`$${precioTotal.toFixed(2)}`, c2 + colW - 2, y2, { align: "right" });
       doc.setFont("helvetica", "normal");
@@ -686,6 +703,7 @@ export async function POST(
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.8);
       tc(doc, C.brandMid);
+      // Si hay piezas reales, el título es definitivo
       doc.text("PIEZAS Y REFACCIONES UTILIZADAS", ML + 2, y + 3.8);
 
       // Encabezados de columna
