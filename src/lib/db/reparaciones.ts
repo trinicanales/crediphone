@@ -622,7 +622,26 @@ export async function updateDiagnostico(
 // =====================================================
 
 /**
- * Cambia el estado de una orden
+ * Mapa de transiciones de estado válidas del servidor.
+ * Espejo del frontend — validación en servidor para prevenir manipulación de API.
+ * Regla: si el estado destino no está en el array del estado origen → rechazar.
+ */
+const TRANSICIONES_VALIDAS: Record<EstadoOrdenReparacion, EstadoOrdenReparacion[]> = {
+  recibido:          ["diagnostico", "cancelado"],
+  diagnostico:       ["esperando_piezas", "presupuesto", "aprobado", "no_reparable", "cancelado"],
+  esperando_piezas:  ["en_reparacion", "aprobado", "cancelado"],
+  presupuesto:       ["aprobado", "cancelado"],
+  aprobado:          ["en_reparacion", "cancelado"],
+  en_reparacion:     ["completado", "esperando_piezas", "no_reparable", "cancelado"],
+  completado:        ["listo_entrega", "cancelado"],
+  listo_entrega:     ["entregado", "cancelado"],
+  entregado:         [],
+  no_reparable:      [],
+  cancelado:         [],
+};
+
+/**
+ * Cambia el estado de una orden con validación de transición en el servidor.
  */
 export async function cambiarEstadoOrden(
   ordenId: string,
@@ -630,6 +649,27 @@ export async function cambiarEstadoOrden(
   notas?: string
 ): Promise<OrdenReparacion> {
   const supabase = createAdminClient();
+
+  // Leer el estado actual antes de actualizar
+  const { data: ordenActual, error: errorLectura } = await supabase
+    .from("ordenes_reparacion")
+    .select("estado")
+    .eq("id", ordenId)
+    .single();
+
+  if (errorLectura || !ordenActual) {
+    throw new Error("Orden no encontrada");
+  }
+
+  const estadoActual = ordenActual.estado as EstadoOrdenReparacion;
+  const transicionesPermitidas = TRANSICIONES_VALIDAS[estadoActual] ?? [];
+
+  if (!transicionesPermitidas.includes(nuevoEstado)) {
+    throw new Error(
+      `Transición no permitida: "${estadoActual}" → "${nuevoEstado}". ` +
+      `Estados permitidos desde "${estadoActual}": ${transicionesPermitidas.join(", ") || "ninguno"}`
+    );
+  }
 
   const updateData: any = {
     estado: nuevoEstado,

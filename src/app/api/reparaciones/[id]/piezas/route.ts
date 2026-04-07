@@ -61,7 +61,8 @@ export async function POST(
 
     const { id: ordenId } = await params;
     const body = await request.json();
-    const { productoId, cantidad, costoUnitario, notas } = body;
+    const { productoId, cantidad, notas } = body;
+    // costoUnitario del cliente se IGNORA — siempre se lee desde la BD para evitar fraude
 
     if (!productoId) {
       return NextResponse.json(
@@ -77,22 +78,22 @@ export async function POST(
       );
     }
 
-    if (costoUnitario === undefined || typeof costoUnitario !== "number" || costoUnitario < 0) {
-      return NextResponse.json(
-        { success: false, error: "costoUnitario debe ser un número válido" },
-        { status: 400 }
-      );
-    }
-
-    // Verificar stock ANTES de intentar agregar — para ofrecer solicitud_pieza si es 0
+    // Leer producto desde BD: stock + costo real (no confiar en el cliente)
     const supabase = createAdminClient();
     const { data: producto } = await supabase
       .from("productos")
-      .select("id, nombre, stock")
+      .select("id, nombre, stock, costo, precio")
       .eq("id", productoId)
       .single();
 
-    if (producto && producto.stock < cantidad) {
+    if (!producto) {
+      return NextResponse.json(
+        { success: false, error: "Producto no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (producto.stock < cantidad) {
       // Sin stock suficiente → 409 con flag para que el frontend ofrezca solicitud_pieza
       return NextResponse.json(
         {
@@ -108,11 +109,14 @@ export async function POST(
       );
     }
 
+    // Costo real desde BD: usar costo de compra si existe, si no el precio de venta
+    const costoUnitarioReal = parseFloat(producto.costo ?? producto.precio ?? 0);
+
     const pieza = await agregarPiezaReparacion(
       ordenId,
       productoId,
       cantidad,
-      costoUnitario,
+      costoUnitarioReal,
       userId,
       notas
     );
