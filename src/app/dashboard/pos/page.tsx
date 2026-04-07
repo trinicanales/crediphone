@@ -728,8 +728,10 @@ export default function POSPage() {
   };
 
   // FASE 30: Al seleccionar producto, verificar si es equipo serializado con IMEI
+  // I5 fix: se activa por esSerializado o por tipo equipo — independiente de si ya tiene IMEI
   const handleSelectProductoConImei = (producto: Producto) => {
-    const esSerializado = (producto.tipo === "equipo_nuevo" || producto.tipo === "equipo_usado") && producto.imei;
+    const esSerializado = producto.esSerializado === true ||
+      producto.tipo === "equipo_nuevo" || producto.tipo === "equipo_usado";
     if (esSerializado) {
       setImeiProductoPendiente(producto);
       setImeiInput(producto.imei ?? "");
@@ -744,6 +746,11 @@ export default function POSPage() {
     if (!imeiProductoPendiente) return;
     const producto = imeiProductoPendiente;
     const imei = imeiInput.trim();
+    // I5 fix: IMEI obligatorio para equipos serializados (mínimo 8 dígitos, máx 15)
+    if (imei.length < 8) {
+      alert("El IMEI es obligatorio para equipos serializados (mínimo 8 dígitos).");
+      return;
+    }
 
     const existingIndex = cartItems.findIndex(i => !i.esServicio && i.producto?.id === producto.id);
     if (existingIndex >= 0) {
