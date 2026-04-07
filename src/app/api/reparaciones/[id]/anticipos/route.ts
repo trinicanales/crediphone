@@ -6,7 +6,6 @@ import {
   getAnticiposByOrden,
 } from "@/lib/db/reparaciones";
 import { getSesionActiva } from "@/lib/db/caja";
-import { createTraspasoAnticipo } from "@/lib/db/traspasos";
 import { createConfirmacionDeposito } from "@/lib/db/confirmaciones";
 import type { TipoPago, DesglosePagoMixto } from "@/types";
 
@@ -38,15 +37,21 @@ export async function GET(
 /**
  * POST /api/reparaciones/[id]/anticipos
  *
- * FASE 37 — Flujo diferenciado por rol:
+ * Flujo simplificado (rediseño 2026-04-07):
  *
- * Si quien registra es un TÉCNICO y el método es EFECTIVO:
- *   → Se crea el anticipo en anticipos_reparacion (para actualizar el saldo)
- *   → Se crea un traspaso_anticipo en estado 'pendiente' (el vendedor deberá confirmar)
- *   → NO se asienta en caja todavía — la caja recibe el monto cuando el vendedor confirma
+ * EFECTIVO (cualquier rol — técnico, vendedor, admin):
+ *   → El dinero entra DIRECTO a la sesión de caja activa del usuario.
+ *   → Si no hay sesión activa: anticipo queda registrado sin sesión (pendiente).
+ *     Al abrir caja, esos anticipos se asocian automáticamente a la nueva sesión.
+ *   → Si quien registra es un TÉCNICO: se envía notificación informativa al admin/vendedor.
+ *     No se crea traspaso pendiente — la caja es la fuente de control, no el técnico.
  *
- * En todos los demás casos (vendedor/admin, o pago no en efectivo):
- *   → Flujo original: anticipo + caja directamente
+ * TRANSFERENCIA / DEPÓSITO (cualquier rol):
+ *   → Se mantiene flujo de confirmación (el banco debe confirmar el movimiento).
+ *   → Se crea confirmacion_deposito pendiente de validación del admin.
+ *
+ * REGLA DE NEGOCIO: Todo el dinero pasa por caja. El técnico no es un nodo de dinero —
+ * es un punto de registro. La responsabilidad de la caja es del vendedor/admin.
  */
 export async function POST(
   request: Request,
@@ -79,110 +84,32 @@ export async function POST(
       .eq("id", id)
       .single();
 
-    // FASE 37: Técnico + efectivo → traspaso pendiente (no va a caja directamente)
-    const esTecnicoConEfectivo = role === "tecnico" && body.tipoPago === "efectivo";
-
-    // FASE 38: Transferencia o depósito → requiere confirmación del admin antes de entrar a caja
-    const esDepositoTransferencia =
-      body.tipoPago === "transferencia" || body.tipoPago === "deposito";
-
-    const requiereConfirmacion = esDepositoTransferencia;
-
-    // Sesión de caja activa del usuario (solo aplica para efectivo no-técnico y no-depósito)
-    let sesionCajaId: string | undefined;
-    if (!esTecnicoConEfectivo && !requiereConfirmacion) {
-      try {
-        const sesion = await getSesionActiva(userId);
-        sesionCajaId = sesion?.id;
-      } catch {
-        // Sin sesión activa — ver caso de "sin sesión" abajo
-      }
-    }
-
-    // NUEVA LÓGICA (propuesta de usuario): Admin/vendedor cobra efectivo SIN sesión activa
-    // → crear traspaso igualmente para que el dinero no quede en limbo
-    // El admin/vendedor es el responsable hasta que lo entregue a caja y alguien confirme
-    const esEfectivoSinSesion =
-      body.tipoPago === "efectivo" &&
-      !esTecnicoConEfectivo &&
-      !requiereConfirmacion &&
-      !sesionCajaId;
-    // Nota: super_admin también puede caer aquí, incluirlo en el flujo de traspaso
-
-    // Nombre del cliente (para notificaciones)
     const clienteData = orden?.cliente as { nombre?: string; apellido?: string } | null;
     const clienteNombre = clienteData
       ? [clienteData.nombre, clienteData.apellido].filter(Boolean).join(" ")
       : "Cliente";
+    const folioOrden = orden?.folio || "Sin folio";
 
-    // Crear el anticipo en anticipos_reparacion
-    // - Si es traspaso O transferencia/depósito O sin sesión: sin caja (se asienta al confirmar)
-    const anticipo = await addAnticipoReparacion(
-      id,
-      {
-        monto: Number(body.monto),
-        tipoPago: body.tipoPago as TipoPago,
-        desgloseMixto: body.desgloseMixto as DesglosePagoMixto | undefined,
-        referenciaPago: body.referenciaPago,
-        notas: body.notas,
-      },
-      userId,
-      (esTecnicoConEfectivo || requiereConfirmacion || esEfectivoSinSesion) ? undefined : sesionCajaId,
-      orden?.folio
-    );
+    // ── CASO 1: Transferencia o depósito → confirmación bancaria requerida ──────
+    const esDepositoTransferencia =
+      body.tipoPago === "transferencia" || body.tipoPago === "deposito";
 
-    // FASE 37: Crear el traspaso pendiente (técnico + efectivo)
-    if (esTecnicoConEfectivo) {
-      await createTraspasoAnticipo({
-        distribuidorId: distribuidorId ?? undefined,
-        reparacionId: id,
-        anticipoId: anticipo.id,
-        tecnicoId: userId,
-        creadoPorRol: "tecnico",
-        folioOrden: orden?.folio || "Sin folio",
-        clienteNombre,
-        montoRegistrado: Number(body.monto),
-      });
+    if (esDepositoTransferencia) {
+      // Registrar anticipo sin sesión (se asienta al confirmar el depósito)
+      const anticipo = await addAnticipoReparacion(
+        id,
+        {
+          monto: Number(body.monto),
+          tipoPago: body.tipoPago as TipoPago,
+          referenciaPago: body.referenciaPago,
+          notas: body.notas,
+        },
+        userId,
+        undefined, // sin sesión hasta confirmar
+        folioOrden
+      );
 
-      return NextResponse.json({
-        success: true,
-        data: anticipo,
-        message: "Anticipo registrado. El vendedor debe confirmar la recepción del efectivo.",
-        requiereTraspaso: true,
-        requiereConfirmacion: false,
-        registradoEnCaja: false,
-      });
-    }
-
-    // NUEVA: Admin/vendedor/super_admin cobró efectivo pero SIN sesión de caja activa
-    // → crear traspaso para que el dinero aterrice y haya un responsable nombrado
-    if (esEfectivoSinSesion) {
-      await createTraspasoAnticipo({
-        distribuidorId: distribuidorId ?? undefined,
-        reparacionId: id,
-        anticipoId: anticipo.id,
-        tecnicoId: userId,                                    // el que tiene el dinero
-        creadoPorRol: (role ?? "admin") as import("@/types").UserRole,
-        folioOrden: orden?.folio || "Sin folio",
-        clienteNombre,
-        montoRegistrado: Number(body.monto),
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: anticipo,
-        message: "Anticipo registrado sin sesión de caja activa. Se generó una alerta para entregarlo a caja. Abre una sesión y confirma la entrega.",
-        requiereTraspaso: true,
-        requiereConfirmacion: false,
-        registradoEnCaja: false,
-        sinSesion: true,
-      });
-    }
-
-    // FASE 38: Crear confirmación pendiente (transferencia / depósito)
-    if (requiereConfirmacion) {
-      // Obtener nombre del registrador
-      const supabase = createAdminClient();
+      // Obtener nombre del registrador para la notificación
       const { data: registrador } = await supabase
         .from("users")
         .select("nombre, apellido")
@@ -200,7 +127,7 @@ export async function POST(
         tipoPago: body.tipoPago as "transferencia" | "deposito",
         referenciaBancaria: body.referenciaPago,
         registradoPor: userId,
-        folioOrden: orden?.folio || "Sin folio",
+        folioOrden,
         clienteNombre,
         registradorNombre,
       });
@@ -210,21 +137,122 @@ export async function POST(
         data: anticipo,
         confirmacion,
         message: `Anticipo por ${body.tipoPago} registrado. Pendiente de confirmación del administrador.`,
-        requiereTraspaso: false,
         requiereConfirmacion: true,
         registradoEnCaja: false,
         linkToken: confirmacion.linkToken,
       });
     }
 
+    // ── CASO 2: Efectivo (cualquier rol) → directo a caja ────────────────────────
+    // Buscar sesión activa del usuario actual
+    let sesionCajaId: string | undefined;
+    let sesionAbierta = false;
+    try {
+      const sesion = await getSesionActiva(userId);
+      if (sesion) {
+        sesionCajaId = sesion.id;
+        sesionAbierta = true;
+      }
+    } catch {
+      // Sin sesión activa — el anticipo queda pendiente
+    }
+
+    // Registrar anticipo (con o sin sesión de caja)
+    const anticipo = await addAnticipoReparacion(
+      id,
+      {
+        monto: Number(body.monto),
+        tipoPago: body.tipoPago as TipoPago,
+        desgloseMixto: body.desgloseMixto as DesglosePagoMixto | undefined,
+        referenciaPago: body.referenciaPago,
+        notas: body.notas,
+      },
+      userId,
+      sesionCajaId,
+      folioOrden
+    );
+
+    // Si quien registra es un técnico → enviar notificación informativa al admin/vendedor
+    // (sin crear traspaso — el dinero ya está en caja o queda pendiente de sesión)
+    if (role === "tecnico") {
+      try {
+        const { data: tecnico } = await supabase
+          .from("users")
+          .select("nombre, apellido")
+          .eq("id", userId)
+          .single();
+        const tecnicoNombre = tecnico
+          ? [tecnico.nombre, tecnico.apellido].filter(Boolean).join(" ")
+          : "Un técnico";
+
+        await supabase.from("notificaciones").insert({
+          tipo: "anticipo_recibido_tecnico",
+          titulo: "💰 Anticipo recibido por técnico",
+          mensaje: `${tecnicoNombre} recibió $${Number(body.monto).toFixed(2)} MXN en efectivo del cliente ${clienteNombre} — Orden ${folioOrden}${sesionAbierta ? " (asentado en caja)" : " (pendiente: sin sesión activa)"}`,
+          severidad: "info",
+          distribuidor_id: distribuidorId || null,
+          metadata: {
+            orden_id: id,
+            folio_orden: folioOrden,
+            anticipo_id: anticipo.id,
+            tecnico_id: userId,
+            monto: Number(body.monto),
+            sesion_caja_id: sesionCajaId || null,
+            registrado_en_caja: sesionAbierta,
+          },
+          leida: false,
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        // No fallar el registro del anticipo si falla la notificación
+        console.warn("[Anticipos] No se pudo crear notificación de técnico");
+      }
+    }
+
+    // Si no hay sesión activa → notificación de anticipo pendiente
+    if (!sesionAbierta) {
+      try {
+        const { data: empleado } = await supabase
+          .from("users")
+          .select("nombre, apellido")
+          .eq("id", userId)
+          .single();
+        const empleadoNombre = empleado
+          ? [empleado.nombre, empleado.apellido].filter(Boolean).join(" ")
+          : "El empleado";
+
+        await supabase.from("notificaciones").insert({
+          tipo: "anticipo_sin_sesion",
+          titulo: "⚠️ Anticipo pendiente de caja",
+          mensaje: `${empleadoNombre} registró un anticipo de $${Number(body.monto).toFixed(2)} MXN para la orden ${folioOrden} (${clienteNombre}) sin sesión de caja activa. Se sumará automáticamente cuando abra su sesión.`,
+          severidad: "media",
+          distribuidor_id: distribuidorId || null,
+          metadata: {
+            orden_id: id,
+            folio_orden: folioOrden,
+            anticipo_id: anticipo.id,
+            empleado_id: userId,
+            monto: Number(body.monto),
+          },
+          leida: false,
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        console.warn("[Anticipos] No se pudo crear notificación de anticipo sin sesión");
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: anticipo,
-      message: "Anticipo registrado" + (sesionCajaId ? " y asentado en caja" : " (sin sesión de caja activa)"),
-      requiereTraspaso: false,
+      message: sesionAbierta
+        ? "Anticipo registrado y asentado en caja"
+        : "Anticipo registrado. Se sumará a tu caja cuando abras una sesión.",
       requiereConfirmacion: false,
-      registradoEnCaja: !!sesionCajaId,
+      registradoEnCaja: sesionAbierta,
+      sinSesion: !sesionAbierta,
     });
+
   } catch (error) {
     console.error("Error en POST /api/reparaciones/[id]/anticipos:", error);
     return NextResponse.json({ success: false, error: "Error al registrar anticipo", message: error instanceof Error ? error.message : "Error desconocido" }, { status: 500 });

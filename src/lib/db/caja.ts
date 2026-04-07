@@ -120,6 +120,22 @@ export async function abrirCaja(
     throw new Error(`Error al abrir caja: ${error?.message || "Unknown error"}`);
   }
 
+  // Asociar anticipos pendientes del usuario que quedaron sin sesión
+  // (registrados cuando la caja estaba cerrada — se suman automáticamente al abrir)
+  try {
+    const nuevaSesionId = data.id;
+    await supabase
+      .from("anticipos_reparacion")
+      .update({ sesion_caja_id: nuevaSesionId })
+      .eq("recibido_por", usuarioId)
+      .is("sesion_caja_id", null)
+      .eq("tipo_pago", "efectivo")
+      .neq("estado", "devuelto");
+  } catch {
+    // No bloquear la apertura de caja si falla la asociación de anticipos
+    console.warn("[Caja] No se pudieron asociar anticipos pendientes al abrir sesión");
+  }
+
   return mapSesionFromDB(data);
 }
 
@@ -227,16 +243,19 @@ export async function cerrarCaja(
 
   (movimientosData || []).forEach((mov: any) => {
     const monto = parseFloat(mov.monto);
-    if (mov.tipo === "deposito" || mov.tipo === "entrada_anticipo" || mov.tipo === "pay_in") {
+    // NOTA: entrada_anticipo y devolucion_anticipo se excluyen aquí porque los anticipos
+    // de reparación se calculan en el paso 3b directamente desde anticipos_reparacion
+    // (fuente de verdad). Incluirlos aquí causaría doble conteo en el cuadre.
+    if (mov.tipo === "deposito" || mov.tipo === "pay_in") {
       totalDepositos += monto;
-    } else if (mov.tipo === "retiro" || mov.tipo === "devolucion_anticipo" || mov.tipo === "pay_out") {
+    } else if (mov.tipo === "retiro" || mov.tipo === "pay_out") {
       totalRetiros += monto;
     }
   });
 
   // 3b. Anticipos de reparación en EFECTIVO de esta sesión
-  // Consultamos directamente anticipos_reparacion (fuente de verdad),
-  // no caja_movimientos, para evitar doble conteo y cubrir registros históricos.
+  // Fuente de verdad: anticipos_reparacion (no caja_movimientos).
+  // Se excluyen los devueltos para obtener el neto real en la caja.
   let totalAnticipsEfectivo = 0;
   try {
     const { data: anticipsData } = await supabase
