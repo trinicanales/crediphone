@@ -228,7 +228,7 @@ export async function POST(
 
     const { data: orden, error } = await supabase
       .from("ordenes_reparacion")
-      .select("*, clientes:cliente_id (nombre, apellido, telefono, direccion)")
+      .select("*, clientes:cliente_id (nombre, apellido, telefono, direccion), tecnico:tecnico_id (nombre, apellido)")
       .eq("id", id)
       .single();
 
@@ -238,14 +238,30 @@ export async function POST(
 
     const { data: anticipos } = await supabase
       .from("anticipos_reparacion")
-      .select("*")
+      .select("fecha_anticipo, monto, tipo_pago, estado")
       .eq("orden_id", id)
+      .neq("estado", "devuelto")
       .order("fecha_anticipo", { ascending: true });
+
+    const { data: piezas } = await supabase
+      .from("reparacion_piezas")
+      .select("nombre_pieza, cantidad, costo_unitario, productos(nombre)")
+      .eq("orden_id", id)
+      .order("created_at", { ascending: true });
+
+    const { data: garantiaRecord } = await supabase
+      .from("garantias_reparacion")
+      .select("dias_garantia, tipo_garantia, fecha_vencimiento")
+      .eq("orden_id", id)
+      .maybeSingle();
 
     const totalAnticipos = (anticipos || []).reduce(
       (s: number, a: { monto?: unknown }) => s + Number(a.monto || 0), 0
     );
-    const precioTotal = Number(orden.precio_total || orden.presupuesto_total || 0);
+    const precioTotal = Number(orden.precio_total || orden.presupuesto_total || orden.costo_total || 0);
+    const precioManoObra = Number(orden.precio_mano_obra || orden.costo_reparacion || 0);
+    const precioPiezas  = Number(orden.precio_piezas  || orden.costo_partes || 0);
+    const cargoCancelacion = Number(orden.cargo_cancelacion ?? 100);
 
     // QR URLs
     const host  = request.headers.get("host")              || "crediphone.vercel.app";
@@ -472,6 +488,56 @@ export async function POST(
     y = hLine(doc, y);
 
     /* ╔══════════════════════════════════════════════════╗
+       ║  3B. DIAGNÓSTICO TÉCNICO | TÉCNICO ASIGNADO      ║
+       ╚══════════════════════════════════════════════════╝ */
+    {
+      const tec = orden.tecnico as Record<string, string> | null;
+      const tecNombre = tec ? `${tec.nombre || ""} ${tec.apellido || ""}`.trim() : "";
+      const diagTexto = (orden.diagnostico_tecnico || "").trim();
+
+      if (diagTexto || tecNombre) {
+        y = maybeBreak(doc, y, 22);
+        y1 = y + 1; y2 = y + 1;
+
+        if (diagTexto) {
+          y1 = sectionLabel(doc, "Diagnóstico Técnico", c1, y1);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          tc(doc, C.gray);
+          const diagLines = doc.splitTextToSize(diagTexto, colW);
+          doc.text(diagLines, c1, y1);
+          y1 += diagLines.length * 4 + 1;
+        }
+
+        if (tecNombre) {
+          y2 = sectionLabel(doc, "Técnico Responsable", c2, y2);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          tc(doc, C.gray);
+          doc.text(tecNombre, c2, y2);
+          y2 += 5;
+
+          // Garantía vigente (si existe)
+          if (garantiaRecord) {
+            const gVenc = garantiaRecord.fecha_vencimiento
+              ? new Date(garantiaRecord.fecha_vencimiento).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })
+              : "";
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            tc(doc, C.green);
+            doc.text(`Garantía ${garantiaRecord.dias_garantia ?? 90} días — vence: ${gVenc}`, c2, y2);
+            y2 += 4;
+          }
+        }
+
+        tc(doc, C.gray);
+        doc.setFont("helvetica", "normal");
+        y = Math.max(y1, y2) + 1;
+        y = hLine(doc, y);
+      }
+    }
+
+    /* ╔══════════════════════════════════════════════════╗
        ║  4. ESTADO FÍSICO | ACCESO + PRESUPUESTO         ║
        ╚══════════════════════════════════════════════════╝ */
     y1 = y + 1; y2 = y + 1;
@@ -499,11 +565,38 @@ export async function POST(
     y2 = sectionLabel(doc, "Presupuesto / Anticipos", c2, y2);
     doc.setFontSize(7.5);
 
+    const metodoPagoLabel: Record<string, string> = {
+      efectivo: "Efectivo", tarjeta: "Tarjeta", transferencia: "Transf.",
+      deposito: "Depósito", mixto: "Mixto",
+    };
+
     if (precioTotal > 0) {
-      doc.setFont("helvetica", "normal");
+      // Desglose: mano de obra + piezas + total
+      if (precioManoObra > 0) {
+        doc.setFont("helvetica", "normal");
+        tc(doc, C.grayLight);
+        doc.text("Mano de obra:", c2, y2);
+        tc(doc, C.gray);
+        doc.text(`$${precioManoObra.toFixed(2)}`, c2 + colW - 2, y2, { align: "right" });
+        y2 += 4;
+      }
+      if (precioPiezas > 0) {
+        doc.setFont("helvetica", "normal");
+        tc(doc, C.grayLight);
+        doc.text("Piezas:", c2, y2);
+        tc(doc, C.gray);
+        doc.text(`$${precioPiezas.toFixed(2)}`, c2 + colW - 2, y2, { align: "right" });
+        y2 += 4;
+      }
+      // Línea subtotal solo si hay desglose
+      if (precioManoObra > 0 || precioPiezas > 0) {
+        dc(doc, C.grayLine);
+        doc.setLineWidth(0.15);
+        doc.line(c2, y2 - 1, c2 + colW, y2 - 1);
+      }
+      doc.setFont("helvetica", "bold");
       tc(doc, C.grayLight);
       doc.text("Total reparación:", c2, y2);
-      doc.setFont("helvetica", "bold");
       tc(doc, C.gray);
       doc.text(`$${precioTotal.toFixed(2)}`, c2 + colW - 2, y2, { align: "right" });
       doc.setFont("helvetica", "normal");
@@ -511,12 +604,13 @@ export async function POST(
     }
 
     if (anticipos && anticipos.length > 0) {
-      (anticipos as Array<{ fecha_anticipo: string; monto: unknown }>).forEach((a) => {
+      (anticipos as Array<{ fecha_anticipo: string; monto: unknown; tipo_pago?: string }>).forEach((a) => {
         const fd = new Date(a.fecha_anticipo).toLocaleDateString("es-MX", {
           day: "2-digit", month: "short",
         });
+        const metodo = metodoPagoLabel[a.tipo_pago || ""] || (a.tipo_pago || "");
         tc(doc, C.grayLight);
-        doc.text(`Anticipo (${fd}):`, c2, y2);
+        doc.text(`Anticipo ${fd}${metodo ? ` (${metodo})` : ""}:`, c2, y2);
         doc.setFont("helvetica", "bold");
         tc(doc, C.gray);
         doc.text(`-$${Number(a.monto).toFixed(2)}`, c2 + colW - 2, y2, { align: "right" });
@@ -526,6 +620,17 @@ export async function POST(
       dc(doc, C.grayLine);
       doc.setLineWidth(0.15);
       doc.line(c2, y2 - 0.5, c2 + colW, y2 - 0.5);
+    }
+
+    // Cargo de cancelación (siempre visible)
+    if (cargoCancelacion > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(6.5);
+      tc(doc, C.grayLight);
+      doc.text(`Cargo cancelación: $${cargoCancelacion.toFixed(2)}`, c2, y2);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      y2 += 4;
     }
 
     if (precioTotal > 0) {
@@ -566,6 +671,72 @@ export async function POST(
     doc.setFont("helvetica", "normal");
     y = Math.max(y1, y2) + 1;
     y = hLine(doc, y, true);
+
+    /* ╔══════════════════════════════════════════════════╗
+       ║  4B. PIEZAS UTILIZADAS                           ║
+       ╚══════════════════════════════════════════════════╝ */
+    if (piezas && piezas.length > 0) {
+      y = maybeBreak(doc, y, 20 + piezas.length * 5);
+
+      // Cabecera compacta
+      fc(doc, C.bgLight);
+      dc(doc, C.grayLine);
+      doc.setLineWidth(0.18);
+      doc.rect(ML, y, CW, 5.5, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      tc(doc, C.brandMid);
+      doc.text("PIEZAS Y REFACCIONES UTILIZADAS", ML + 2, y + 3.8);
+
+      // Encabezados de columna
+      const pzX = [ML, ML + 100, ML + 130, ML + 165];
+      y += 7;
+      doc.setFontSize(6.2);
+      tc(doc, C.grayLight);
+      doc.text("Descripción",    pzX[0], y);
+      doc.text("Cant.",          pzX[1], y);
+      doc.text("P. Unit.",       pzX[2], y);
+      doc.text("Subtotal",       pzX[3], y);
+      y += 3.5;
+
+      dc(doc, C.grayLine);
+      doc.setLineWidth(0.12);
+      doc.line(ML, y, PW - MR, y);
+      y += 3;
+
+      let totalPiezasReal = 0;
+      (piezas as Array<{ nombre_pieza?: string; cantidad?: number; costo_unitario?: unknown; productos?: { nombre?: string } | null }>)
+        .forEach((p) => {
+          const nombre = p.nombre_pieza || (p.productos?.nombre ?? "Pieza sin nombre");
+          const cant = p.cantidad ?? 1;
+          const cu = Number(p.costo_unitario || 0);
+          const subtotal = cant * cu;
+          totalPiezasReal += subtotal;
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          tc(doc, C.gray);
+          const nomLines = doc.splitTextToSize(nombre, 94);
+          doc.text(nomLines, pzX[0], y);
+          doc.text(String(cant),                pzX[1], y);
+          doc.text(`$${cu.toFixed(2)}`,         pzX[2], y);
+          doc.text(`$${subtotal.toFixed(2)}`,   pzX[3], y);
+          y += Math.max(nomLines.length * 4, 4.5);
+        });
+
+      // Total de piezas
+      dc(doc, C.grayLine);
+      doc.setLineWidth(0.15);
+      doc.line(ML + 100, y - 0.5, PW - MR, y - 0.5);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      tc(doc, C.gray);
+      doc.text("Total piezas:", pzX[2], y + 3.5);
+      doc.text(`$${totalPiezasReal.toFixed(2)}`, pzX[3], y + 3.5);
+      y += 7;
+
+      y = hLine(doc, y, false);
+    }
 
     /* ╔══════════════════════════════════════════════════╗
        ║  5. TÉRMINOS IMPORTANTES                         ║
