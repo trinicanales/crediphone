@@ -256,8 +256,8 @@ export async function POST(
     let qrTrackData = "";
     let qrTermsData = "";
     try {
-      qrTrackData = await QRCode.toDataURL(trackingUrl, { width: 140, margin: 1, errorCorrectionLevel: "M" });
-      qrTermsData = await QRCode.toDataURL(terminosUrl,  { width: 70,  margin: 1, errorCorrectionLevel: "M" });
+      qrTrackData = await QRCode.toDataURL(trackingUrl, { width: 140, margin: 3, errorCorrectionLevel: "M" });
+      qrTermsData = await QRCode.toDataURL(terminosUrl,  { width: 70,  margin: 3, errorCorrectionLevel: "M" });
     } catch { /* continuar sin QR */ }
 
     /* ── Inicializar PDF ───────────────────────────────────────── */
@@ -269,11 +269,11 @@ export async function POST(
        ╚══════════════════════════════════════════════════╝ */
 
     // ── Dos QRs lado a lado, arriba a la derecha ──────────────────────────
-    const QR_BIG   = 30;                          // tracking  (grande)
-    const QR_SMALL = 20;                          // términos  (pequeño)
-    const QR_GAP   = 3;                           // separación entre los dos
-    const qrBigX   = PW - MR - QR_BIG;           // 175 mm desde el borde
-    const qrSmallX = qrBigX - QR_SMALL - QR_GAP; // 152 mm desde el borde
+    const QR_BIG   = 30;                           // tracking  (grande)
+    const QR_SMALL = 20;                           // términos  (pequeño)
+    const QR_GAP   = 10;                           // separación entre los dos (mín. 8 mm para evitar conflictos de scanner)
+    const qrBigX   = PW - MR - QR_BIG;            // 175 mm desde el borde
+    const qrSmallX = qrBigX - QR_SMALL - QR_GAP;  // 145 mm desde el borde
     // ancho disponible para el bloque de texto a la izquierda
     const hdrContentW = qrSmallX - 4 - ML;       // ≈ 137 mm
 
