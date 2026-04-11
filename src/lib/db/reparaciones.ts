@@ -454,8 +454,7 @@ export async function createOrdenReparacion(
       costo_reparacion: ordenData.costoReparacion || ordenData.presupuestoManoDeObra || 0,
       // costo_partes: partes reales (se recalcula en recalcularCostoPiezas al agregar piezas)
       costo_partes: ordenData.costoPartes || 0,
-      // costo_total inicial = mano de obra (las piezas reales se suman en recalcularCostoPiezas)
-      costo_total: (ordenData.costoReparacion || ordenData.presupuestoManoDeObra || 0) + (ordenData.costoPartes || 0),
+      // costo_total es GENERATED ALWAYS AS (costo_reparacion + costo_partes) — NO insertar
       partes_reemplazadas: ordenData.partesReemplazadas || [],
       fecha_estimada_entrega: ordenData.fechaEstimadaEntrega || null,
       notas_internas: ordenData.notasInternas || null,
@@ -595,16 +594,13 @@ export async function updateDiagnostico(
     ? (diagnosticoData.requiereAprobacion ? "presupuesto" : "aprobado")
     : estadoActual;
 
-  // Calcular costo_total como suma de mano de obra + partes
-  const costoTotal = (diagnosticoData.costoReparacion || 0) + (diagnosticoData.costoPartes || 0);
-
   const { data, error } = await supabase
     .from("ordenes_reparacion")
     .update({
       diagnostico_tecnico: diagnosticoData.diagnosticoTecnico,
       costo_reparacion: diagnosticoData.costoReparacion,
       costo_partes: diagnosticoData.costoPartes,
-      costo_total: costoTotal,
+      // costo_total es GENERATED ALWAYS AS — no actualizar
       partes_reemplazadas: diagnosticoData.partesReemplazadas,
       fecha_estimada_entrega: diagnosticoData.fechaEstimadaEntrega || null,
       notas_tecnico: diagnosticoData.notasTecnico || null,
@@ -1649,7 +1645,7 @@ async function recalcularCostoPiezas(ordenId: string): Promise<void> {
     .from("ordenes_reparacion")
     .update({
       costo_partes: totalPiezas,
-      costo_total: costoReparacion + totalPiezas,
+      // costo_total es GENERATED ALWAYS AS — se recalcula automáticamente
     })
     .eq("id", ordenId);
 }

@@ -1129,9 +1129,11 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
         const data = await res.json().catch(() => ({}));
         const mensaje = res.status === 403
           ? "No tienes permiso para realizar esta acción. Contacta al administrador."
-          : (data?.error || data?.message || `Error al guardar el producto (${res.status})`);
+          : res.status === 401
+          ? "Tu sesión expiró. Recarga la página e inicia sesión de nuevo."
+          : (data?.message || data?.error || `Error al guardar el producto (código ${res.status})`);
         setSubmitError(mensaje);
-        console.error("Error al guardar:", data);
+        console.error("Error al guardar producto:", res.status, data);
       }
     } catch (err) {
       setSubmitError("Error de conexión. Verifica tu internet e intenta de nuevo.");
