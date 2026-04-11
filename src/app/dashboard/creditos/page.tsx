@@ -264,25 +264,25 @@ export default function CreditosPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <Card>
+        <Card interactive>
           <div className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Total Créditos</div>
           <div className="text-3xl font-bold mt-2" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
             {creditos.length}
           </div>
         </Card>
-        <Card>
+        <Card interactive>
           <div className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Activos</div>
           <div className="text-3xl font-bold mt-2" style={{ color: "var(--color-success)", fontFamily: "var(--font-data)" }}>
             {creditosActivos}
           </div>
         </Card>
-        <Card>
+        <Card interactive>
           <div className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Vencidos</div>
           <div className="text-3xl font-bold mt-2" style={{ color: "var(--color-danger)", fontFamily: "var(--font-data)" }}>
             {creditosVencidos}
           </div>
         </Card>
-        <Card>
+        <Card interactive>
           <div className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Monto Total</div>
           <div className="text-2xl font-bold mt-2" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
             {formatPrice(montoTotalCreditos)}
@@ -395,6 +395,7 @@ function TableRow({
   onPayjoyToggle: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [btnHover, setBtnHover] = useState<"view" | "download" | "edit" | "delete" | "payjoy" | null>(null);
   return (
     <tr
       onMouseEnter={() => setHovered(true)}
@@ -446,9 +447,9 @@ function TableRow({
           onClick={onView}
           className="mr-3"
           title="Ver detalle"
-          style={{ color: "var(--color-text-muted)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-accent)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}
+          onMouseEnter={() => setBtnHover("view")}
+          onMouseLeave={() => setBtnHover(null)}
+          style={{ color: btnHover === "view" ? "var(--color-accent)" : "var(--color-text-muted)" }}
         >
           <Eye className="w-4 h-4 inline" />
         </button>
@@ -457,36 +458,36 @@ function TableRow({
           disabled={downloadingPdf === credito.id}
           className="mr-3"
           title="Descargar PDF"
-          style={{ color: "var(--color-text-muted)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-accent)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}
+          onMouseEnter={() => setBtnHover("download")}
+          onMouseLeave={() => setBtnHover(null)}
+          style={{ color: btnHover === "download" ? "var(--color-accent)" : "var(--color-text-muted)" }}
         >
           <Download className={`w-4 h-4 inline ${downloadingPdf === credito.id ? "animate-pulse" : ""}`} />
         </button>
         <button
           onClick={onEdit}
           className="mr-4"
-          style={{ color: "var(--color-info)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-accent)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-info)")}
+          onMouseEnter={() => setBtnHover("edit")}
+          onMouseLeave={() => setBtnHover(null)}
+          style={{ color: btnHover === "edit" ? "var(--color-accent)" : "var(--color-info)" }}
         >
           Editar
         </button>
         <button
           onClick={onDelete}
           className="mr-4"
-          style={{ color: "var(--color-danger)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-danger-text)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-danger)")}
+          onMouseEnter={() => setBtnHover("delete")}
+          onMouseLeave={() => setBtnHover(null)}
+          style={{ color: btnHover === "delete" ? "var(--color-danger-text)" : "var(--color-danger)" }}
         >
           Eliminar
         </button>
         <button
           onClick={onPayjoyToggle}
           title="Payjoy"
-          style={{ color: credito.payjoyFinanceOrderId ? "var(--color-warning)" : "var(--color-text-muted)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-warning)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = credito.payjoyFinanceOrderId ? "var(--color-warning)" : "var(--color-text-muted)")}
+          onMouseEnter={() => setBtnHover("payjoy")}
+          onMouseLeave={() => setBtnHover(null)}
+          style={{ color: (btnHover === "payjoy" || credito.payjoyFinanceOrderId) ? "var(--color-warning)" : "var(--color-text-muted)" }}
         >
           <Zap className="w-4 h-4 inline" />
         </button>
