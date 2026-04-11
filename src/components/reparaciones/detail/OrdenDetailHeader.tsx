@@ -136,7 +136,13 @@ export function OrdenDetailHeader({ orden, onEdit, onCancelar }: OrdenDetailHead
       const response = await fetch(`/api/reparaciones/${orden.id}/pdf`, {
         method: "POST",
       });
-      if (!response.ok) throw new Error("Error al generar PDF");
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const msg = errData?.message || `Error ${response.status} al generar PDF`;
+        console.error("Error descargando PDF:", msg);
+        alert(`No se pudo generar el PDF.\n\n${msg}`);
+        return;
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -148,6 +154,7 @@ export function OrdenDetailHeader({ orden, onEdit, onCancelar }: OrdenDetailHead
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error descargando PDF:", error);
+      alert("Error de conexión al generar el PDF. Verifica tu internet e intenta de nuevo.");
     } finally {
       setDownloadingPdf(false);
     }

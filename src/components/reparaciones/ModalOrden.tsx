@@ -515,9 +515,15 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(pdfUrl);
+          } else {
+            const errData = await pdfResponse.json().catch(() => ({}));
+            const msg = errData?.message || `Error ${pdfResponse.status} al generar PDF`;
+            console.error("Error al generar PDF:", msg);
+            alert(`⚠️ La orden fue creada correctamente pero el PDF no se pudo generar.\n\n${msg}\n\nPuedes descargarlo desde el botón "Descargar PDF" en el detalle de la orden.`);
           }
         } catch (pdfError) {
           console.error("Error al generar PDF:", pdfError);
+          alert("⚠️ La orden fue creada correctamente pero hubo un error de conexión al generar el PDF.\n\nPuedes descargarlo desde el botón \"Descargar PDF\" en el detalle de la orden.");
         }
 
         const ordenId = data.data.id;

@@ -917,7 +917,8 @@ export async function POST(
     });
 
   } catch (err) {
-    console.error("Error al generar PDF:", err);
-    return NextResponse.json({ success: false, message: "Error al generar PDF" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Error al generar PDF:", msg);
+    return NextResponse.json({ success: false, message: `Error al generar PDF: ${msg}` }, { status: 500 });
   }
 }
