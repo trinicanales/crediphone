@@ -80,7 +80,11 @@ export default function ProductosPage() {
           (p.descripcion?.toLowerCase().includes(q))
       );
     }
-    if (filtroTipo !== "todos") result = result.filter((p) => p.tipo === filtroTipo);
+    if (filtroTipo === "__sin_tipo__") {
+      result = result.filter((p) => !p.tipo);
+    } else if (filtroTipo !== "todos") {
+      result = result.filter((p) => p.tipo === filtroTipo);
+    }
     if (filtroStock === "en_stock") {
       result = result.filter((p) => p.stock > 0 && !(p.stockMinimo !== undefined && p.stock <= p.stockMinimo));
     } else if (filtroStock === "bajo") {
@@ -236,6 +240,15 @@ export default function ProductosPage() {
               onClick={() => setFiltroTipo(t.value)}
             />
           ))}
+          {/* I8: pill para productos legacy sin tipo asignado */}
+          {productos.some((p) => !p.tipo) && (
+            <FilterBtn
+              label="Sin tipo"
+              active={filtroTipo === "__sin_tipo__"}
+              count={productos.filter((p) => !p.tipo).length}
+              onClick={() => setFiltroTipo(filtroTipo === "__sin_tipo__" ? "todos" : "__sin_tipo__")}
+            />
+          )}
           <button
             onClick={fetchProductos}
             className="ml-auto p-1 rounded-lg transition-colors"
@@ -437,7 +450,7 @@ export default function ProductosPage() {
                 )}
                 {filteredProductos.length !== productos.length && (
                   <button
-                    onClick={() => { setSearchQuery(""); setFiltroTipo("todos"); }}
+                    onClick={() => { setSearchQuery(""); setFiltroTipo("todos"); setFiltroStock("todos"); }}
                     style={{ color: "var(--color-accent)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
                     onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
