@@ -228,7 +228,7 @@ export async function POST(
 
     const { data: orden, error } = await supabase
       .from("ordenes_reparacion")
-      .select("*, clientes:cliente_id (nombre, apellido, telefono, direccion), tecnico:tecnico_id (nombre, apellido)")
+      .select("*, clientes:cliente_id (nombre, apellido, telefono, direccion), tecnico:tecnico_id (name)")
       .eq("id", id)
       .single();
 
@@ -492,7 +492,7 @@ export async function POST(
        ╚══════════════════════════════════════════════════╝ */
     {
       const tec = orden.tecnico as Record<string, string> | null;
-      const tecNombre = tec ? `${tec.nombre || ""} ${tec.apellido || ""}`.trim() : "";
+      const tecNombre = tec ? (tec.name || "").trim() : "";
       const diagTexto = (orden.diagnostico_tecnico || "").trim();
 
       if (diagTexto || tecNombre) {
