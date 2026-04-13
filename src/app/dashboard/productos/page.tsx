@@ -2579,8 +2579,8 @@ function HistorialImeiModal({
  * con márgenes de 8mm y gap de 3mm entre etiquetas.
  */
 function calcularGridCarta(mmW: number, mmH: number) {
-  const pageW = 200; // 216 - 2*8 margen
-  const pageH = 263; // 279 - 2*8 margen
+  const pageW = 206; // 216 - 2*5mm margen carta
+  const pageH = 269; // 279 - 2*5mm margen carta
   const gap = 3;
   const cols = Math.floor((pageW + gap) / (mmW + gap));
   const rows = Math.floor((pageH + gap) / (mmH + gap));
@@ -2602,65 +2602,125 @@ function EtiquetasMasivasModal({
   productos: Producto[];
   onClose: () => void;
 }) {
-  const [tamano, setTamano]           = useState<TamanoEtiqueta>("70x40");
+  const [tamano, setTamano]               = useState<TamanoEtiqueta>("70x40");
   const [mostrarPrecio, setMostrarPrecio] = useState(true);
+  const [mostrarBarras, setMostrarBarras] = useState(true);
   const [copiasPorProducto, setCopias]    = useState(1);
+  const printRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen || productos.length === 0) return null;
 
-  const mm = MM_SIZES[tamano];
+  const mm  = MM_SIZES[tamano];
   const cfg = TAMANOS.find((t) => t.id === tamano) ?? TAMANOS[1];
   const { cols, porPagina } = calcularGridCarta(mm.w, mm.h);
-  const totalEtiquetas = productos.length * copiasPorProducto;
+
+  // Etiquetas expandidas (copias por producto)
+  const etiquetas: Producto[] = [];
+  for (const p of productos) {
+    for (let i = 0; i < copiasPorProducto; i++) etiquetas.push(p);
+  }
+  const totalEtiquetas = etiquetas.length;
   const totalPaginas   = Math.ceil(totalEtiquetas / porPagina);
 
-  function generarHTML() {
-    // Generar lista de etiquetas expandida (copias por producto)
-    const etiquetas: Producto[] = [];
-    for (const p of productos) {
-      for (let i = 0; i < copiasPorProducto; i++) etiquetas.push(p);
-    }
+  // Dimensiones SVG — iguales al modal individual para máxima fidelidad
+  const qrSize   = cfg.id === "50x30" ? 68  : cfg.id === "70x40" ? 96  : 130;
+  const barcodeW = cfg.id === "70x40" ? 130 : 200;
+  const barcodeH = cfg.id === "70x40" ? 28  : 36;
 
-    // QR ocupa toda la altura útil de la etiqueta (altura - 2*padding)
-    const qrMm  = mm.h - 4;
-    const qrPx  = Math.round(qrMm * 3.78); // 96dpi: 1mm ≈ 3.78px
+  // ── Render de una etiqueta (preview en pantalla, con px de cfg) ──────────────
+  function renderPreview(p: Producto, key: React.Key) {
+    const codigo = p.codigoBarras?.trim() || p.sku?.trim() || p.id.slice(-8).toUpperCase();
+    const marcaModelo = [p.marca, p.modelo].filter(Boolean).join(" · ");
+    const precio = Number(p.precio ?? 0);
+    return (
+      <div key={key} style={{
+        width: cfg.width, height: cfg.height,
+        border: "1.5px solid #333", borderRadius: 6,
+        padding: "6px 8px", display: "flex", flexDirection: "row",
+        gap: 6, alignItems: "stretch", background: "#fff",
+        overflow: "hidden", boxSizing: "border-box", flexShrink: 0,
+        fontFamily: "'Helvetica Neue', Arial, sans-serif",
+      }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", minWidth: 0 }}>
+          {mostrarBarras && tamano !== "50x30" && (
+            <div style={{ overflow: "hidden" }}>
+              <Code128SVG value={codigo || "SIN-CODIGO"} width={barcodeW} height={barcodeH} showText={false} />
+            </div>
+          )}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", overflow: "hidden" }}>
+            <div style={{ fontSize: cfg.id === "50x30" ? "0.5rem" : cfg.id === "70x40" ? "0.625rem" : "0.8125rem", fontWeight: 700, lineHeight: 1.3, color: "#111", overflow: "hidden" }}>
+              {p.nombre}
+            </div>
+            {marcaModelo && (
+              <div style={{ fontSize: cfg.id === "50x30" ? "0.375rem" : "0.45rem", color: "#666", marginTop: 1 }}>{marcaModelo}</div>
+            )}
+          </div>
+          {mostrarPrecio && (
+            <div style={{ fontSize: cfg.id === "50x30" ? "1rem" : cfg.id === "70x40" ? "1.5rem" : "2rem", fontWeight: 900, color: "#0d1e35", lineHeight: 1, letterSpacing: "-0.5px" }}>
+              ${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </div>
+          )}
+        </div>
+        <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <QRCodeSVG value={codigo || "SIN-CODIGO"} size={qrSize} level="M" />
+          <div style={{ fontSize: "0.3rem", fontFamily: "monospace", color: "#777", marginTop: 1, maxWidth: qrSize, textAlign: "center", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+            {codigo.length > 12 ? codigo.slice(0, 12) + "…" : codigo}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-    const labelCSS = `
-      .etiqueta {
-        width: ${mm.w}mm;
-        height: ${mm.h}mm;
-        border: 1.5pt solid #333;
-        border-radius: 1.5mm;
-        padding: 2mm;
-        display: inline-flex;
-        flex-direction: row;
-        align-items: stretch;
-        gap: 1.5mm;
-        overflow: hidden;
-        box-sizing: border-box;
-        vertical-align: top;
-        margin: 1.5mm;
-        background: #fff;
-        font-family: 'Helvetica Neue', Arial, sans-serif;
-        break-inside: avoid;
-      }
-      .col-left  { flex: 1; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
-      .col-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-      .nombre { font-size: ${mm.w <= 50 ? "5pt" : mm.w <= 70 ? "6pt" : "8pt"}; font-weight: 700; line-height: 1.3; color: #111; }
-      .sub    { font-size: ${mm.w <= 50 ? "4pt" : "4.5pt"}; color: #666; margin-top: 0.5mm; }
-      .precio { font-size: ${mm.w <= 50 ? "10pt" : mm.w <= 70 ? "12pt" : "16pt"}; font-weight: 900; color: #0d1e35; line-height: 1; }
-      .qr-code { font-size: 3.5pt; font-family: monospace; color: #666; letter-spacing: 0.3pt; margin-top: 0.5mm; text-align: center; }
-    `;
+  // ── Render para imprimir (mm-based, mismo enfoque que EtiquetaModal) ─────────
+  function renderPrint(p: Producto, key: React.Key) {
+    const codigo = p.codigoBarras?.trim() || p.sku?.trim() || p.id.slice(-8).toUpperCase();
+    const marcaModelo = [p.marca, p.modelo].filter(Boolean).join(" · ");
+    const precio = Number(p.precio ?? 0);
+    return (
+      <div key={key} className="etiqueta" style={{
+        width: `${mm.w}mm`, height: `${mm.h}mm`,
+        border: "1.5pt solid #333", borderRadius: "2mm",
+        padding: "1.5mm 2mm", display: "flex", flexDirection: "row",
+        gap: "1.5mm", alignItems: "stretch", background: "#fff",
+        overflow: "hidden", boxSizing: "border-box", pageBreakInside: "avoid",
+        fontFamily: "'Helvetica Neue', Arial, sans-serif",
+      }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", minWidth: 0 }}>
+          {mostrarBarras && tamano !== "50x30" && (
+            <div>
+              <Code128SVG value={codigo || "SIN-CODIGO"} width={barcodeW} height={barcodeH} showText={false} />
+            </div>
+          )}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{ fontSize: cfg.id === "50x30" ? "5pt" : cfg.id === "70x40" ? "6pt" : "8pt", fontWeight: 700, lineHeight: 1.3, color: "#111" }}>
+              {p.nombre}
+            </div>
+            {marcaModelo && (
+              <div style={{ fontSize: "3.5pt", color: "#666", marginTop: "0.3mm" }}>{marcaModelo}</div>
+            )}
+          </div>
+          {mostrarPrecio && (
+            <div style={{ fontSize: cfg.id === "50x30" ? "9pt" : cfg.id === "70x40" ? "12pt" : "16pt", fontWeight: 900, color: "#0d1e35", letterSpacing: "-0.5pt", lineHeight: 1 }}>
+              ${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </div>
+          )}
+        </div>
+        <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <QRCodeSVG value={codigo || "SIN-CODIGO"} size={qrSize} level="M" />
+          <div style={{ fontSize: "3pt", fontFamily: "monospace", color: "#666", marginTop: "0.3mm", textAlign: "center", overflow: "hidden", whiteSpace: "nowrap" }}>
+            {codigo.length > 16 ? codigo.slice(0, 16) + "…" : codigo}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-    // Cada etiqueta es un elemento del array (sin joins que generen \n\n falsos)
-    const etiquetaHTMLs = etiquetas.map((p) => {
-      const codigo = p.codigoBarras ?? p.id.slice(-8).toUpperCase();
-      const precio = Number(p.precio ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 });
-      const sub    = [p.marca, p.modelo].filter(Boolean).join(" · ");
-      return `<div class="etiqueta"><div class="col-left"><div><div class="nombre">${p.nombre ?? ""}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>${mostrarPrecio ? `<div class="precio">$${precio}</div>` : ""}</div><div class="col-right"><img src="https://api.qrserver.com/v1/create-qr-code/?size=${qrPx}x${qrPx}&data=${encodeURIComponent(codigo)}&margin=0" width="${qrMm}mm" height="${qrMm}mm" alt="QR" /><div class="qr-code">${codigo}</div></div></div>`;
-    });
-
-    return `<!DOCTYPE html>
+  function imprimir() {
+    const labels = printRef.current?.innerHTML ?? "";
+    if (!labels) return;
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2668,123 +2728,29 @@ function EtiquetasMasivasModal({
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; }
-.pagina {
-  width: 216mm;
-  min-height: 279mm;
-  padding: 8mm;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 0;
-  page-break-after: always;
-  background: white;
-}
-${labelCSS}
+.labels-grid { display: flex; flex-wrap: wrap; gap: 3mm; align-content: flex-start; }
 @media print {
-  @page { size: letter; margin: 0; }
+  @page { size: letter; margin: 5mm; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .pagina { page-break-after: always; }
+  .etiqueta { break-inside: avoid; }
 }
 </style>
 </head>
 <body>
-${chunkArray(etiquetaHTMLs, porPagina).map((chunk) =>
-  `<div class="pagina">${chunk.join("")}</div>`
-).join("\n")}
+<div class="labels-grid">${labels}</div>
 <script>window.onload = () => window.print();<\/script>
 </body>
-</html>`;
-  }
-
-  function chunkArray<T>(arr: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
-    return chunks;
-  }
-
-  function imprimir() {
-    const html = generarHTML();
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (!win) return;
-    win.document.write(html);
+</html>`);
     win.document.close();
   }
 
-  function exportarSVG() {
-    const mm = MM_SIZES[tamano];
-    const GAP = 3;
-    const MARGIN = 8;
-    const pageWmm = 216;
-    const pageHmm = 279;
-    const innerW = pageWmm - MARGIN * 2;
-    const innerH = pageHmm - MARGIN * 2;
-    const SCALE = 3.7795; // px/mm a 96dpi
-    const labelW = mm.w * SCALE;
-    const labelH = mm.h * SCALE;
-    const gapPx  = GAP * SCALE;
-    const marginPx = MARGIN * SCALE;
-    const pageWpx = pageWmm * SCALE;
-    const pageHpx = pageHmm * SCALE;
-
-    const etiquetas: Producto[] = [];
-    for (const p of productos) {
-      for (let i = 0; i < copiasPorProducto; i++) etiquetas.push(p);
-    }
-
-    // Posiciones
-    let shapes = "";
-    let x = marginPx;
-    let y = marginPx;
-    let maxRowH = 0;
-
-    for (const p of etiquetas) {
-      if (x + labelW > pageWpx - marginPx) {
-        x = marginPx;
-        y += maxRowH + gapPx;
-        maxRowH = 0;
-      }
-      if (y + labelH > pageHpx - marginPx) break; // sólo primera página
-
-      const codigo = p.codigoBarras ?? p.id.slice(-8).toUpperCase();
-      const precio = Number(p.precio ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 });
-      const sub    = [p.marca, p.modelo].filter(Boolean).join(" · ");
-
-      shapes += `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
-  <rect width="${labelW.toFixed(1)}" height="${labelH.toFixed(1)}" rx="5" ry="5" fill="white" stroke="#333" stroke-width="1.5"/>
-  <text x="4" y="14" font-size="${mm.w <= 50 ? 7 : 8}" font-weight="bold" fill="#111" font-family="Arial">${escXml(p.nombre ?? "")}</text>
-  ${sub ? `<text x="4" y="${mm.w <= 50 ? 20 : 22}" font-size="6" fill="#666" font-family="Arial">${escXml(sub)}</text>` : ""}
-  ${mostrarPrecio ? `<text x="4" y="${labelH - 5}" font-size="${mm.w <= 50 ? 12 : 14}" font-weight="bold" fill="#0d1e35" font-family="Arial">$${escXml(precio)}</text>` : ""}
-  <text x="${labelW - 4}" y="${labelH - 5}" font-size="5" fill="#666" font-family="monospace" text-anchor="end">${escXml(codigo)}</text>
-</g>`;
-
-      x += labelW + gapPx;
-      maxRowH = Math.max(maxRowH, labelH);
-    }
-
-    const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${pageWpx.toFixed(0)}" height="${pageHpx.toFixed(0)}" viewBox="0 0 ${pageWpx.toFixed(0)} ${pageHpx.toFixed(0)}">
-  <rect width="100%" height="100%" fill="white"/>
-  ${shapes}
-</svg>`;
-
-    const blob = new Blob([svgContent], { type: "image/svg+xml" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `etiquetas-carta-${productos.length}prods.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function escXml(s: string) {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
+  const previewLabels = etiquetas.slice(0, Math.min(4, etiquetas.length));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Imprimir etiquetas — ${productos.length} productos`} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Imprimir etiquetas — ${productos.length} producto${productos.length !== 1 ? "s" : ""}`} size="lg">
       <div className="space-y-5">
 
-        {/* Config */}
+        {/* Configuración */}
         <div className="grid grid-cols-2 gap-4">
           {/* Tamaño */}
           <div>
@@ -2797,28 +2763,37 @@ ${chunkArray(etiquetaHTMLs, porPagina).map((chunk) =>
                   <label key={t.id} className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="tamano-masivo" checked={tamano === t.id} onChange={() => setTamano(t.id)} style={{ accentColor: "var(--color-accent)" }} />
                     <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>{t.label}</span>
-                    <span className="text-xs ml-auto" style={{ color: "var(--color-text-muted)" }}>{g.cols} col × {g.rows} fil = {g.porPagina}/pág</span>
+                    <span className="text-xs ml-auto" style={{ color: "var(--color-text-muted)" }}>{g.cols}×{g.rows} = {g.porPagina}/pág</span>
                   </label>
                 );
               })}
             </div>
           </div>
 
-          {/* Opciones */}
+          {/* Opciones + copias */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Opciones</p>
-            <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input type="checkbox" checked={mostrarPrecio} onChange={(e) => setMostrarPrecio(e.target.checked)} style={{ accentColor: "var(--color-accent)" }} />
-              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Mostrar precio</span>
-            </label>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Contenido</p>
+            <div className="space-y-2 mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={mostrarPrecio} onChange={(e) => setMostrarPrecio(e.target.checked)} style={{ accentColor: "var(--color-accent)" }} />
+                <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Mostrar precio</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={mostrarBarras} onChange={(e) => setMostrarBarras(e.target.checked)} style={{ accentColor: "var(--color-accent)" }} disabled={tamano === "50x30"} />
+                <span className="text-sm" style={{ color: tamano === "50x30" ? "var(--color-text-muted)" : "var(--color-text-primary)" }}>
+                  Código de barras CODE128
+                  {tamano === "50x30" && <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginLeft: 4 }}>(solo 70×40 y 100×50)</span>}
+                </span>
+              </label>
+            </div>
 
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Copias por producto</p>
             <div className="flex items-center gap-2">
-              <button onClick={() => setCopias((c) => Math.max(1, c - 1))} className="w-7 h-7 rounded flex items-center justify-center" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)" }}>
+              <button onClick={() => setCopias((c) => Math.max(1, c - 1))} className="w-7 h-7 rounded flex items-center justify-center" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)", cursor: "pointer" }}>
                 <MinusIcon className="w-3 h-3" style={{ color: "var(--color-text-primary)" }} />
               </button>
               <span className="text-sm font-bold w-6 text-center" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-primary)" }}>{copiasPorProducto}</span>
-              <button onClick={() => setCopias((c) => Math.min(20, c + 1))} className="w-7 h-7 rounded flex items-center justify-center" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)" }}>
+              <button onClick={() => setCopias((c) => Math.min(20, c + 1))} className="w-7 h-7 rounded flex items-center justify-center" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)", cursor: "pointer" }}>
                 <PlusIcon className="w-3 h-3" style={{ color: "var(--color-text-primary)" }} />
               </button>
             </div>
@@ -2826,36 +2801,64 @@ ${chunkArray(etiquetaHTMLs, porPagina).map((chunk) =>
         </div>
 
         {/* Resumen */}
-        <div className="rounded-lg px-4 py-3 flex items-center gap-6 text-sm" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}>
-          <div>
-            <span style={{ color: "var(--color-text-muted)" }}>Etiquetas total </span>
-            <strong style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>{totalEtiquetas}</strong>
-          </div>
-          <div>
-            <span style={{ color: "var(--color-text-muted)" }}>Páginas carta </span>
-            <strong style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>{totalPaginas}</strong>
-          </div>
-          <div>
-            <span style={{ color: "var(--color-text-muted)" }}>Por página </span>
-            <strong style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>{porPagina}</strong>
-            <span style={{ color: "var(--color-text-muted)" }}> ({cols} columnas)</span>
+        <div className="rounded-lg px-4 py-2.5 flex items-center gap-6 text-sm flex-wrap" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}>
+          <div><span style={{ color: "var(--color-text-muted)" }}>Total etiquetas </span><strong style={{ fontFamily: "var(--font-data)", color: "var(--color-text-primary)" }}>{totalEtiquetas}</strong></div>
+          <div><span style={{ color: "var(--color-text-muted)" }}>Páginas carta </span><strong style={{ fontFamily: "var(--font-data)", color: "var(--color-text-primary)" }}>{totalPaginas}</strong></div>
+          <div><span style={{ color: "var(--color-text-muted)" }}>Por página </span><strong style={{ fontFamily: "var(--font-data)", color: "var(--color-text-primary)" }}>{porPagina}</strong><span style={{ color: "var(--color-text-muted)" }}> ({cols} col)</span></div>
+        </div>
+
+        {/* Vista previa */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>
+            Vista previa {etiquetas.length > previewLabels.length ? `(primeras ${previewLabels.length} de ${etiquetas.length})` : ""}
+          </p>
+          <div style={{
+            background: "var(--color-bg-elevated)",
+            borderRadius: "var(--radius-lg)",
+            padding: "1rem",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            alignItems: "flex-start",
+            minHeight: cfg.height + 32,
+            border: "1px solid var(--color-border-subtle)",
+          }}>
+            {previewLabels.map((p, i) => renderPreview(p, `prev-${i}`))}
+            {etiquetas.length > previewLabels.length && (
+              <div style={{
+                width: cfg.width, height: cfg.height,
+                border: "1.5px dashed var(--color-border)",
+                borderRadius: 6,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--color-text-muted)",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                gap: 4,
+              }}>
+                <span style={{ fontSize: "1.25rem", fontFamily: "var(--font-data)" }}>+{etiquetas.length - previewLabels.length}</span>
+                <span>más</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Lista de productos seleccionados */}
+        {/* Lista de productos */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Productos seleccionados</p>
-          <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--color-border-subtle)", maxHeight: 180, overflowY: "auto" }}>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>Productos ({productos.length})</p>
+          <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--color-border-subtle)", maxHeight: 150, overflowY: "auto" }}>
             {productos.map((p) => (
               <div key={p.id} className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
-                <div className="w-8 h-8 rounded flex items-center justify-center shrink-0" style={{ background: "var(--color-bg-elevated)" }}>
-                  {p.imagen ? <img src={obtenerUrlImagen(p.imagen) ?? ""} alt="" className="w-8 h-8 object-cover rounded" /> : <Smartphone className="w-4 h-4" style={{ color: "var(--color-text-muted)" }} />}
+                <div className="w-7 h-7 rounded flex items-center justify-center shrink-0" style={{ background: "var(--color-bg-elevated)" }}>
+                  {p.imagen ? <img src={obtenerUrlImagen(p.imagen) ?? ""} alt="" className="w-7 h-7 object-cover rounded" /> : <Smartphone className="w-3.5 h-3.5" style={{ color: "var(--color-text-muted)" }} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate" style={{ color: "var(--color-text-primary)" }}>{p.nombre}</p>
-                  <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>{[p.marca, p.modelo].filter(Boolean).join(" · ")}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>{[p.marca, p.modelo].filter(Boolean).join(" · ") || "Sin marca/modelo"}</p>
                 </div>
-                <span className="text-xs font-mono shrink-0" style={{ color: "var(--color-text-secondary)" }}>
+                <span className="text-xs shrink-0" style={{ fontFamily: "var(--font-data)", color: "var(--color-text-secondary)" }}>
                   ${Number(p.precio).toLocaleString("es-MX", { minimumFractionDigits: 0 })}
                 </span>
               </div>
@@ -2863,16 +2866,17 @@ ${chunkArray(etiquetaHTMLs, porPagina).map((chunk) =>
           </div>
         </div>
 
+        {/* Div oculto para capturar SVGs inline — mismo enfoque que EtiquetaModal */}
+        <div ref={printRef} style={{ display: "none" }}>
+          {etiquetas.map((p, i) => renderPrint(p, `print-${i}`))}
+        </div>
+
         {/* Acciones */}
         <div className="flex gap-3 justify-end pt-2" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button variant="secondary" onClick={exportarSVG}>
-            <Tag className="w-4 h-4 mr-2" />
-            Exportar SVG
-          </Button>
           <Button onClick={imprimir}>
             <Printer className="w-4 h-4 mr-2" />
-            Imprimir / PDF
+            Imprimir / PDF ({totalEtiquetas} etiquetas)
           </Button>
         </div>
       </div>
