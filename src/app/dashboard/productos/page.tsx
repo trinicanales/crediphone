@@ -2746,56 +2746,26 @@ body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; padd
     win.document.close();
   }
 
-  function escXml(s: string) {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-
   function exportarSVG() {
-    const GAP = 3;
-    const MARGIN = 5;
-    const pageWmm = 216;
-    const pageHmm = 279;
-    const SCALE = 3.7795; // px/mm a 96dpi
-    const labelW = mm.w * SCALE;
-    const labelH = mm.h * SCALE;
-    const gapPx    = GAP * SCALE;
-    const marginPx = MARGIN * SCALE;
-    const pageWpx  = pageWmm * SCALE;
-    const pageHpx  = pageHmm * SCALE;
+    // Usa los mismos SVGs inline del printRef (Code128 + QR reales)
+    // envueltos en foreignObject — idéntico al resultado de imprimir
+    const labels = printRef.current?.innerHTML ?? "";
+    if (!labels) return;
 
-    let shapes = "";
-    let x = marginPx;
-    let y = marginPx;
-    let maxRowH = 0;
-
-    for (const p of etiquetas) {
-      if (x + labelW > pageWpx - marginPx) {
-        x = marginPx;
-        y += maxRowH + gapPx;
-        maxRowH = 0;
-      }
-      if (y + labelH > pageHpx - marginPx) break; // solo primera página
-
-      const codigo = p.codigoBarras?.trim() || p.sku?.trim() || p.id.slice(-8).toUpperCase();
-      const precio  = Number(p.precio ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 });
-      const sub     = [p.marca, p.modelo].filter(Boolean).join(" · ");
-
-      shapes += `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
-  <rect width="${labelW.toFixed(1)}" height="${labelH.toFixed(1)}" rx="5" ry="5" fill="white" stroke="#333" stroke-width="1.5"/>
-  <text x="4" y="14" font-size="${mm.w <= 50 ? 7 : 8}" font-weight="bold" fill="#111" font-family="Arial">${escXml(p.nombre ?? "")}</text>
-  ${sub ? `<text x="4" y="${mm.w <= 50 ? 20 : 22}" font-size="6" fill="#666" font-family="Arial">${escXml(sub)}</text>` : ""}
-  ${mostrarPrecio ? `<text x="4" y="${labelH - 5}" font-size="${mm.w <= 50 ? 12 : 14}" font-weight="bold" fill="#0d1e35" font-family="Arial">$${escXml(precio)}</text>` : ""}
-  <text x="${labelW - 4}" y="${labelH - 5}" font-size="5" fill="#666" font-family="monospace" text-anchor="end">${escXml(codigo)}</text>
-</g>`;
-
-      x += labelW + gapPx;
-      maxRowH = Math.max(maxRowH, labelH);
-    }
+    const SCALE  = 3.7795;          // px/mm a 96dpi
+    const pageWpx = Math.round(216 * SCALE); // 816px
+    const pageHpx = Math.round(279 * SCALE); // 1054px
+    const padPx   = Math.round(5 * SCALE);   // 5mm → ~19px
 
     const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${pageWpx.toFixed(0)}" height="${pageHpx.toFixed(0)}" viewBox="0 0 ${pageWpx.toFixed(0)} ${pageHpx.toFixed(0)}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml"
+     width="${pageWpx}" height="${pageHpx}" viewBox="0 0 ${pageWpx} ${pageHpx}">
   <rect width="100%" height="100%" fill="white"/>
-  ${shapes}
+  <foreignObject x="${padPx}" y="${padPx}" width="${pageWpx - padPx * 2}" height="${pageHpx - padPx * 2}">
+    <xhtml:div style="display:flex;flex-wrap:wrap;gap:11px;align-content:flex-start;font-family:'Helvetica Neue',Arial,sans-serif;">
+      ${labels}
+    </xhtml:div>
+  </foreignObject>
 </svg>`;
 
     const blob = new Blob([svgContent], { type: "image/svg+xml" });
