@@ -1887,20 +1887,22 @@ function EtiquetaModal({
               height: ${cfg.id === "50x30" ? "30mm" : cfg.id === "70x40" ? "40mm" : "50mm"};
               border: 1.5pt solid #333;
               border-radius: 2mm;
-              padding: 2mm;
+              padding: 1.5mm 2mm;
               display: flex;
-              flex-direction: column;
-              justify-content: space-between;
+              flex-direction: row;
+              gap: 1.5mm;
+              align-items: stretch;
               overflow: hidden;
               page-break-inside: avoid;
+              box-sizing: border-box;
             }
-            .etiqueta-top { flex: 1; }
+            .col-left { flex: 1; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; min-width: 0; }
+            .col-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
             .nombre { font-size: ${cfg.id === "50x30" ? "5pt" : cfg.id === "70x40" ? "6pt" : "8pt"}; font-weight: 700; line-height: 1.3; }
-            .marca-modelo { font-size: ${cfg.id === "50x30" ? "4pt" : cfg.id === "70x40" ? "4.5pt" : "6pt"}; color: #666; margin-top: 0.5mm; }
-            .etiqueta-bottom { display: flex; align-items: center; justify-content: space-between; gap: 2mm; }
-            .precio { font-size: ${cfg.id === "50x30" ? "9pt" : cfg.id === "70x40" ? "14pt" : "17pt"}; font-weight: 900; letter-spacing: -0.5pt; }
+            .marca-modelo { font-size: 3.5pt; color: #666; margin-top: 0.3mm; }
+            .precio { font-size: ${cfg.id === "50x30" ? "9pt" : cfg.id === "70x40" ? "12pt" : "16pt"}; font-weight: 900; letter-spacing: -0.5pt; color: #0d1e35; line-height: 1; }
             .qr-wrap svg { display: block; }
-            .codigo-text { font-size: 4pt; font-family: 'Courier New', monospace; letter-spacing: 0.5pt; color: #555; margin-top: 0.5mm; text-align: center; }
+            .codigo-text { font-size: 3pt; font-family: 'Courier New', monospace; color: #666; margin-top: 0.3mm; text-align: center; overflow: hidden; white-space: nowrap; }
           </style>
         </head>
         <body>
@@ -1924,64 +1926,73 @@ function EtiquetaModal({
   const imei         = producto.imei;
 
   // Etiqueta individual (se repite cantidad veces)
+  // Layout en dos columnas: izquierda = barcode+nombre+precio / derecha = QR a altura completa
+  // El QR ocupa toda la altura de la etiqueta → más grande y escaneable
   const etiquetaStyle: CSSProperties = {
     width: cfg.width,
     height: cfg.height,
     border: "1.5px solid #333",
     borderRadius: 6,
-    padding: "8px 10px",
+    padding: "6px 8px",
     display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "stretch",
     background: "#fff",
     fontFamily: "'Helvetica Neue', Arial, sans-serif",
     overflow: "hidden",
     flexShrink: 0,
+    boxSizing: "border-box",
   };
 
-  const nombreSize   = cfg.id === "50x30" ? "0.5rem" : cfg.id === "70x40" ? "0.625rem" : "0.8125rem";
-  const marcaSize    = cfg.id === "50x30" ? "0.4rem"  : cfg.id === "70x40" ? "0.5rem"  : "0.625rem";
-  const precioSize   = cfg.id === "50x30" ? "1.1rem"  : cfg.id === "70x40" ? "1.65rem" : "2rem";
-  const qrSize       = cfg.id === "50x30" ? 68        : cfg.id === "70x40" ? 84        : 110;
+  const nombreSize   = cfg.id === "50x30" ? "0.5rem"   : cfg.id === "70x40" ? "0.625rem" : "0.8125rem";
+  const marcaSize    = cfg.id === "50x30" ? "0.375rem"  : cfg.id === "70x40" ? "0.45rem"  : "0.575rem";
+  const precioSize   = cfg.id === "50x30" ? "1rem"      : cfg.id === "70x40" ? "1.5rem"   : "2rem";
+  // QR ocupa la altura interna de la etiqueta (altura - padding vertical)
+  const qrSize       = cfg.id === "50x30" ? cfg.height - 16 : cfg.id === "70x40" ? cfg.height - 18 : cfg.height - 20;
+  // Ancho del barcode = ancho total - qrSize - padding - gap
+  const barcodeW     = cfg.id === "70x40" ? cfg.width - qrSize - 28 : cfg.width - qrSize - 28;
+  const barcodeH     = cfg.id === "70x40" ? 30 : 38;
 
   const EtiquetaEl = () => (
     <div style={etiquetaStyle}>
-      <div>
-        <div style={{ fontSize: nombreSize, fontWeight: 700, lineHeight: 1.3, color: "#111", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-          {nombre}
-        </div>
-        {marcaModelo && (
-          <div style={{ fontSize: marcaSize, color: "#666", marginTop: 2 }}>
-            {marcaModelo}
+      {/* ── Columna izquierda: barcode → nombre → precio ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", minWidth: 0 }}>
+        {/* Barcode arriba (solo 70x40 y 100x50) */}
+        {mostrarBarras && cfg.id !== "50x30" && (
+          <div style={{ overflow: "hidden" }}>
+            <Code128SVG value={codigo} width={barcodeW} height={barcodeH} showText={false} />
           </div>
         )}
-        {mostrarIMEI && imei && (
-          <div style={{ fontSize: marcaSize, color: "#888", fontFamily: "monospace", marginTop: 1 }}>
-            IMEI: {imei}
+        {/* Nombre y marca en el medio */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", overflow: "hidden" }}>
+          <div style={{ fontSize: nombreSize, fontWeight: 700, lineHeight: 1.3, color: "#111", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {nombre}
+          </div>
+          {marcaModelo && (
+            <div style={{ fontSize: marcaSize, color: "#666", marginTop: 1 }}>
+              {marcaModelo}
+            </div>
+          )}
+          {mostrarIMEI && imei && (
+            <div style={{ fontSize: marcaSize, color: "#888", fontFamily: "monospace", marginTop: 1 }}>
+              {imei}
+            </div>
+          )}
+        </div>
+        {/* Precio abajo */}
+        {mostrarPrecio && (
+          <div style={{ fontSize: precioSize, fontWeight: 900, color: "#0d1e35", lineHeight: 1, letterSpacing: "-0.5px" }}>
+            ${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
           </div>
         )}
       </div>
-      {/* Fila inferior: precio + código */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-        {/* Código de barras CODE128 — lector físico lo puede escanear */}
-        {mostrarBarras && cfg.id !== "50x30" && (
-          <div style={{ textAlign: "center" }}>
-            <Code128SVG value={codigo} width={cfg.id === "70x40" ? 210 : 300} height={cfg.id === "70x40" ? 40 : 52} showText={false} />
-          </div>
-        )}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-          {mostrarPrecio && (
-            <div style={{ fontSize: precioSize, fontWeight: 900, color: "#0d1e35", lineHeight: 1, letterSpacing: "-0.5px" }}>
-              ${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-            </div>
-          )}
-          <div style={{ textAlign: "center", flexShrink: 0 }}>
-            {/* QR — escaneable desde celular */}
-            <QRCodeSVG value={codigo} size={qrSize} level="M" />
-            <div style={{ fontSize: "0.35rem", fontFamily: "monospace", letterSpacing: "0.3px", color: "#666", marginTop: 1 }}>
-              {codigo.length > 14 ? codigo.slice(0, 14) + "…" : codigo}
-            </div>
-          </div>
+
+      {/* ── Columna derecha: QR a altura completa ── */}
+      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <QRCodeSVG value={codigo} size={qrSize} level="M" />
+        <div style={{ fontSize: "0.3rem", fontFamily: "monospace", color: "#777", marginTop: 1, maxWidth: qrSize, textAlign: "center", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+          {codigo.length > 12 ? codigo.slice(0, 12) + "…" : codigo}
         </div>
       </div>
     </div>
@@ -2131,39 +2142,42 @@ function EtiquetaModal({
               height: cfg.id === "50x30" ? "30mm" : cfg.id === "70x40" ? "40mm" : "50mm",
               border: "1.5pt solid #333",
               borderRadius: "2mm",
-              padding: "2mm",
+              padding: "1.5mm 2mm",
               display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
+              flexDirection: "row",
+              gap: "1.5mm",
+              alignItems: "stretch",
               overflow: "hidden",
               pageBreakInside: "avoid",
               background: "#fff",
               fontFamily: "'Helvetica Neue', Arial, sans-serif",
+              boxSizing: "border-box",
             }}>
-              <div>
-                <div style={{ fontSize: cfg.id === "50x30" ? "5pt" : cfg.id === "70x40" ? "6pt" : "8pt", fontWeight: 700, lineHeight: 1.3 }}>
-                  {nombre}
+              {/* Columna izquierda: barcode → nombre → precio */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", minWidth: 0 }}>
+                {mostrarBarras && cfg.id !== "50x30" && (
+                  <div>
+                    <Code128SVG value={codigo} width={cfg.id === "70x40" ? 130 : 200} height={cfg.id === "70x40" ? 28 : 36} showText={false} />
+                  </div>
+                )}
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div style={{ fontSize: cfg.id === "50x30" ? "5pt" : cfg.id === "70x40" ? "6pt" : "8pt", fontWeight: 700, lineHeight: 1.3 }}>
+                    {nombre}
+                  </div>
+                  {marcaModelo && <div style={{ fontSize: "3.5pt", color: "#666", marginTop: "0.3mm" }}>{marcaModelo}</div>}
+                  {mostrarIMEI && imei && <div style={{ fontSize: "3.5pt", color: "#888", fontFamily: "monospace" }}>{imei}</div>}
                 </div>
-                {marcaModelo && <div style={{ fontSize: "4pt", color: "#666", marginTop: "0.5mm" }}>{marcaModelo}</div>}
-                {mostrarIMEI && imei && <div style={{ fontSize: "4pt", color: "#888", fontFamily: "monospace", marginTop: "0.5mm" }}>IMEI: {imei}</div>}
-              </div>
-              {/* CODE128 para lector físico */}
-              {mostrarBarras && cfg.id !== "50x30" && (
-                <div style={{ textAlign: "center", marginBottom: "0.5mm" }}>
-                  <Code128SVG value={codigo} width={cfg.id === "70x40" ? 210 : 300} height={cfg.id === "70x40" ? 40 : 52} showText={false} />
-                </div>
-              )}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "2mm" }}>
                 {mostrarPrecio && (
-                  <div style={{ fontSize: cfg.id === "50x30" ? "9pt" : cfg.id === "70x40" ? "14pt" : "17pt", fontWeight: 900, color: "#0d1e35", letterSpacing: "-0.5pt", lineHeight: 1 }}>
+                  <div style={{ fontSize: cfg.id === "50x30" ? "9pt" : cfg.id === "70x40" ? "12pt" : "16pt", fontWeight: 900, color: "#0d1e35", letterSpacing: "-0.5pt", lineHeight: 1 }}>
                     ${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </div>
                 )}
-                <div style={{ textAlign: "center", flexShrink: 0 }}>
-                  <QRCodeSVG value={codigo} size={cfg.id === "50x30" ? 68 : cfg.id === "70x40" ? 84 : 110} level="M" />
-                  <div style={{ fontSize: "4pt", fontFamily: "monospace", letterSpacing: "0.3pt", color: "#555", marginTop: "0.5mm" }}>
-                    {codigo.length > 14 ? codigo.slice(0, 14) + "…" : codigo}
-                  </div>
+              </div>
+              {/* Columna derecha: QR a altura completa */}
+              <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <QRCodeSVG value={codigo} size={cfg.id === "50x30" ? 68 : cfg.id === "70x40" ? 96 : 130} level="M" />
+                <div style={{ fontSize: "3pt", fontFamily: "monospace", color: "#666", marginTop: "0.3mm", textAlign: "center", maxWidth: cfg.id === "50x30" ? "18mm" : cfg.id === "70x40" ? "25mm" : "34mm", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                  {codigo}
                 </div>
               </div>
             </div>
