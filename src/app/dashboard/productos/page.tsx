@@ -65,6 +65,7 @@ export default function ProductosPage() {
   const [etiquetaProducto, setEtiquetaProducto]       = useState<Producto | null>(null); // FASE 60
   const [seleccionados, setSeleccionados]             = useState<Set<string>>(new Set());
   const [etiquetasMasivasOpen, setEtiquetasMasivasOpen] = useState(false);
+  const [imprimirTodasOpen, setImprimirTodasOpen]     = useState(false);
 
   useEffect(() => { fetchProductos(); }, []);
 
@@ -100,23 +101,33 @@ export default function ProductosPage() {
     setFilteredProductos(result);
   }, [searchQuery, filtroTipo, filtroStock, sortStock, productos]);
 
-  const fetchProductos = async () => {
+  const fetchProductos = async (): Promise<Producto[]> => {
     try {
       setLoading(true);
       const res = await fetch("/api/productos");
       const data = await res.json();
-      if (data.success) { setProductos(data.data); setFilteredProductos(data.data); }
+      if (data.success) { setProductos(data.data); setFilteredProductos(data.data); return data.data; }
     } catch (err) {
       console.error("Error al cargar productos:", err);
     } finally {
       setLoading(false);
     }
+    return [];
   };
 
   const handleCreate = () => { setModalMode("create"); setSelectedProducto(null); setIsModalOpen(true); };
   const handleEdit = (p: Producto) => { setModalMode("edit"); setSelectedProducto(p); setIsModalOpen(true); };
   const handleModalClose = () => { setIsModalOpen(false); setSelectedProducto(null); };
-  const handleSuccess = () => { fetchProductos(); handleModalClose(); };
+  const handleSuccess = async () => {
+    const prevIds = new Set(productos.map((p) => p.id));
+    const nuevaLista = await fetchProductos();
+    handleModalClose();
+    // Al crear producto nuevo → abrir modal etiqueta automáticamente
+    if (modalMode === "create") {
+      const nuevo = nuevaLista.find((p) => !prevIds.has(p.id));
+      if (nuevo) setEtiquetaProducto(nuevo);
+    }
+  };
   const handleDeleteClick = (p: Producto) => { setProductoToDelete(p); setDeleteConfirmModal(true); };
 
   const handleDeleteConfirm = async () => {
@@ -148,7 +159,7 @@ export default function ProductosPage() {
             Gestiona equipos, accesorios y servicios
           </p>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
           <Button variant="secondary" onClick={() => setImeiModalOpen(true)}>
             <History className="w-4 h-4 mr-2" />
             Historial IMEI
@@ -157,6 +168,12 @@ export default function ProductosPage() {
             <Upload className="w-4 h-4 mr-2" />
             Importar Remisión
           </Button>
+          {filteredProductos.length > 0 && (
+            <Button variant="secondary" onClick={() => setImprimirTodasOpen(true)}>
+              <Printer className="w-4 h-4 mr-2" />
+              Imprimir todas ({filteredProductos.length})
+            </Button>
+          )}
           {canCrearProducto && (
             <Button onClick={handleCreate}>
               <Plus className="w-4 h-4 mr-2" />
@@ -493,11 +510,18 @@ export default function ProductosPage() {
       {/* FASE 60: Modal de Etiqueta Imprimible */}
       <EtiquetaModal producto={etiquetaProducto} onClose={() => setEtiquetaProducto(null)} />
 
-      {/* FASE 63+: Modal etiquetas masivas */}
+      {/* FASE 63+: Modal etiquetas masivas — seleccionados */}
       <EtiquetasMasivasModal
         isOpen={etiquetasMasivasOpen}
         productos={filteredProductos.filter((p) => seleccionados.has(p.id))}
         onClose={() => setEtiquetasMasivasOpen(false)}
+      />
+
+      {/* Modal etiquetas masivas — todos los productos visibles */}
+      <EtiquetasMasivasModal
+        isOpen={imprimirTodasOpen}
+        productos={filteredProductos}
+        onClose={() => setImprimirTodasOpen(false)}
       />
     </div>
   );
@@ -2597,6 +2621,10 @@ function EtiquetasMasivasModal({
       for (let i = 0; i < copiasPorProducto; i++) etiquetas.push(p);
     }
 
+    // QR ocupa toda la altura útil de la etiqueta (altura - 2*padding)
+    const qrMm  = mm.h - 4;
+    const qrPx  = Math.round(qrMm * 3.78); // 96dpi: 1mm ≈ 3.78px
+
     const labelCSS = `
       .etiqueta {
         width: ${mm.w}mm;
@@ -2605,8 +2633,9 @@ function EtiquetasMasivasModal({
         border-radius: 1.5mm;
         padding: 2mm;
         display: inline-flex;
-        flex-direction: column;
-        justify-content: space-between;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 1.5mm;
         overflow: hidden;
         box-sizing: border-box;
         vertical-align: top;
@@ -2615,33 +2644,21 @@ function EtiquetasMasivasModal({
         font-family: 'Helvetica Neue', Arial, sans-serif;
         break-inside: avoid;
       }
+      .col-left  { flex: 1; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+      .col-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
       .nombre { font-size: ${mm.w <= 50 ? "5pt" : mm.w <= 70 ? "6pt" : "8pt"}; font-weight: 700; line-height: 1.3; color: #111; }
       .sub    { font-size: ${mm.w <= 50 ? "4pt" : "4.5pt"}; color: #666; margin-top: 0.5mm; }
       .precio { font-size: ${mm.w <= 50 ? "10pt" : mm.w <= 70 ? "12pt" : "16pt"}; font-weight: 900; color: #0d1e35; line-height: 1; }
-      .qr-wrap { text-align: center; flex-shrink: 0; }
-      .qr-code { font-size: 3.5pt; font-family: monospace; color: #666; letter-spacing: 0.3pt; margin-top: 0.5mm; }
-      .bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 2mm; }
+      .qr-code { font-size: 3.5pt; font-family: monospace; color: #666; letter-spacing: 0.3pt; margin-top: 0.5mm; text-align: center; }
     `;
 
-    const rows = etiquetas.map((p) => {
+    // Cada etiqueta es un elemento del array (sin joins que generen \n\n falsos)
+    const etiquetaHTMLs = etiquetas.map((p) => {
       const codigo = p.codigoBarras ?? p.id.slice(-8).toUpperCase();
       const precio = Number(p.precio ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 });
       const sub    = [p.marca, p.modelo].filter(Boolean).join(" · ");
-      const qrSize = mm.w <= 50 ? 120 : mm.w <= 70 ? 160 : 200;
-      return `<div class="etiqueta">
-  <div>
-    <div class="nombre">${p.nombre ?? ""}</div>
-    ${sub ? `<div class="sub">${sub}</div>` : ""}
-  </div>
-  <div class="bottom">
-    ${mostrarPrecio ? `<div class="precio">$${precio}</div>` : ""}
-    <div class="qr-wrap">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(codigo)}&margin=0" width="${mm.w <= 50 ? "17mm" : mm.w <= 70 ? "22mm" : "28mm"}" alt="QR" />
-      <div class="qr-code">${codigo}</div>
-    </div>
-  </div>
-</div>`;
-    }).join("\n");
+      return `<div class="etiqueta"><div class="col-left"><div><div class="nombre">${p.nombre ?? ""}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>${mostrarPrecio ? `<div class="precio">$${precio}</div>` : ""}</div><div class="col-right"><img src="https://api.qrserver.com/v1/create-qr-code/?size=${qrPx}x${qrPx}&data=${encodeURIComponent(codigo)}&margin=0" width="${qrMm}mm" height="${qrMm}mm" alt="QR" /><div class="qr-code">${codigo}</div></div></div>`;
+    });
 
     return `<!DOCTYPE html>
 <html lang="es">
@@ -2671,8 +2688,8 @@ ${labelCSS}
 </style>
 </head>
 <body>
-${chunkArray(rows.split("\n\n"), porPagina).map((chunk) =>
-  `<div class="pagina">${chunk.join("\n")}</div>`
+${chunkArray(etiquetaHTMLs, porPagina).map((chunk) =>
+  `<div class="pagina">${chunk.join("")}</div>`
 ).join("\n")}
 <script>window.onload = () => window.print();<\/script>
 </body>
