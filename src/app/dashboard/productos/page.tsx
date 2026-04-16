@@ -945,8 +945,8 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
     }
     fetch("/api/categorias", { headers }).then((r) => r.json()).then((d) => { if (d.success) setCategorias(d.data); }).catch(() => {});
     fetch("/api/proveedores", { headers }).then((r) => r.json()).then((d) => { if (d.success) setProveedores(d.data); }).catch(() => {});
-    // Cargar ubicaciones físicas de almacén
-    fetch("/api/inventario/ubicaciones").then((r) => r.json()).then((d) => { if (d.success) setUbicaciones(d.data ?? []); }).catch(() => {});
+    // Cargar ubicaciones físicas de almacén — mismo header que categorías y proveedores
+    fetch("/api/inventario/ubicaciones", { headers }).then((r) => r.json()).then((d) => { if (d.success) setUbicaciones(d.data ?? []); }).catch(() => {});
     // FASE 54: cargar marcas existentes + mezclar con catálogo estático (FASE 65)
     setSugerenciasMarcas(MARCAS_CELULARES); // precarga inmediata desde catálogo
     fetch("/api/productos/sugerencias?campo=marcas", { headers })

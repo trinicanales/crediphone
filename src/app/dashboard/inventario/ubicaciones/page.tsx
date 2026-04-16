@@ -43,13 +43,19 @@ export default function UbicacionesPage() {
     } else if (user) {
       fetchUbicaciones();
     }
-  }, [user, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, router, distribuidorActivo?.id]);
 
   const fetchUbicaciones = async () => {
     try {
       setLoading(true);
+      const headers: HeadersInit = {};
+      if (distribuidorActivo?.id) {
+        headers["X-Distribuidor-Id"] = distribuidorActivo.id;
+      }
       const response = await fetch(
-        "/api/inventario/ubicaciones?withCounts=true"
+        "/api/inventario/ubicaciones?withCounts=true",
+        { headers }
       );
       const data = await response.json();
 
@@ -115,7 +121,10 @@ export default function UbicacionesPage() {
       if (editingId) {
         response = await fetch(`/api/inventario/ubicaciones/${editingId}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(distribuidorActivo?.id ? { "X-Distribuidor-Id": distribuidorActivo.id } : {}),
+          },
           body: JSON.stringify(body),
         });
       } else {
@@ -155,6 +164,9 @@ export default function UbicacionesPage() {
     try {
       const response = await fetch(`/api/inventario/ubicaciones/${id}`, {
         method: "DELETE",
+        headers: {
+          ...(distribuidorActivo?.id ? { "X-Distribuidor-Id": distribuidorActivo.id } : {}),
+        },
       });
 
       const data = await response.json();
