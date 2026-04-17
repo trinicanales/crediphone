@@ -11,6 +11,7 @@ import {
   agregarPiezaReparacion,
 } from "@/lib/db/reparaciones";
 import { getAuthContext } from "@/lib/auth/server";
+import { notificarResponsablesKassa } from "@/lib/db/notificaciones";
 import type { EstadoOrdenReparacion } from "@/types";
 
 /**
@@ -219,6 +220,30 @@ export async function POST(request: Request) {
         // No bloquear la creación si una pieza no tiene stock suficiente
         piezasError.push(`${pieza.nombre}: ${err instanceof Error ? err.message : "error"}`);
       }
+    }
+    // ────────────────────────────────────────────────────────────────────
+
+    // ── NOTIFICACIÓN AL ADMIN CUANDO UN TÉCNICO CREA LA ORDEN ──────────
+    // Si quien crea es un técnico, el admin debe saberlo de inmediato.
+    // Si además el sistema auto-asignó al mismo técnico creador → alerta extra.
+    if (role === "tecnico") {
+      const autoAsignado = nuevaOrden.tecnicoId === userId;
+      const alertaAsignacion = autoAsignado
+        ? " ⚠️ Auto-asignado al mismo técnico — revisar asignación."
+        : "";
+      const resumen = piezasReservadas.length > 0
+        ? ` Piezas reservadas: ${piezasReservadas.join(", ")}.`
+        : "";
+
+      notificarResponsablesKassa({
+        distribuidorId: filterDistribuidorId ?? undefined,
+        titulo: `📋 Técnico creó orden ${nuevaOrden.folio}`,
+        cuerpo: `${nuevaOrden.marcaDispositivo} ${nuevaOrden.modeloDispositivo} — "${body.problemaReportado}"${resumen}${alertaAsignacion}`,
+        url: `/dashboard/reparaciones`,
+        tipo: "orden_actualizada",
+        ordenId: nuevaOrden.id,
+        soloAdmins: true,
+      }).catch(() => {}); // fire-and-forget — no bloquea la respuesta
     }
     // ────────────────────────────────────────────────────────────────────
 

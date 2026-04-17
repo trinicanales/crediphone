@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { EnvioPresupuesto } from "./EnvioPresupuesto";
+import { ChecklistAperturaPanel } from "./ChecklistAperturaPanel";
 import type { ParteReemplazada, OrdenReparacionDetallada } from "@/types";
 
 interface ModalDiagnosticoProps {
@@ -45,6 +46,10 @@ export function ModalDiagnostico({
   const [partes, setPartes] = useState<ParteReemplazada[]>([
     { parte: "", costo: 0, cantidad: 1 },
   ]);
+
+  // Checklist de apertura
+  const [checklistResumen, setChecklistResumen] = useState("");
+  const [checklistTieneAlertas, setChecklistTieneAlertas] = useState(false);
 
   // Pre-cargar cotización existente si la orden ya tiene presupuesto del modal de recepción
   useEffect(() => {
@@ -129,10 +134,16 @@ export function ModalDiagnostico({
     try {
       setSubmitting(true);
 
+      // Combinar notas técnicas con el resumen del checklist de apertura
+      const notasConChecklist = checklistResumen
+        ? checklistResumen + (formData.notasTecnico ? "\n\n" + formData.notasTecnico : "")
+        : formData.notasTecnico;
+
       // Actualizar costo de partes automáticamente
       const payload = {
         diagnostico: {
           ...formData,
+          notasTecnico: notasConChecklist,
           costoPartes: costoTotalPartes,
           partesReemplazadas: partesValidas,
         },
@@ -199,6 +210,8 @@ export function ModalDiagnostico({
     setPartes([{ parte: "", costo: 0, cantidad: 1 }]);
     setDiagnosticoGuardado(false);
     setOrdenActualizada(null);
+    setChecklistResumen("");
+    setChecklistTieneAlertas(false);
   }
 
   function handleCerrarDespuesDeEnvio() {
@@ -273,6 +286,34 @@ export function ModalDiagnostico({
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Checklist de apertura interna */}
+        {!diagnosticoGuardado && (
+          <ChecklistAperturaPanel
+            onChange={(resumen, tieneAlertas) => {
+              setChecklistResumen(resumen);
+              setChecklistTieneAlertas(tieneAlertas);
+            }}
+          />
+        )}
+
+        {/* Banner de alerta crítica del checklist (visible aunque el panel esté colapsado) */}
+        {checklistTieneAlertas && !diagnosticoGuardado && (
+          <div
+            className="flex items-start gap-2 rounded-lg px-4 py-3 text-xs"
+            style={{
+              background: "var(--color-danger-bg)",
+              border: "1px solid var(--color-danger)",
+              color: "var(--color-danger-text)",
+            }}
+          >
+            <span className="flex-shrink-0 font-bold">⚠️</span>
+            <span>
+              Se registraron condiciones críticas en el checklist de apertura. Quedará en el
+              historial de la orden. Considera agregar un deslinde legal adicional si corresponde.
+            </span>
           </div>
         )}
 
