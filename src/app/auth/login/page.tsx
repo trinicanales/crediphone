@@ -251,8 +251,7 @@ export default function LoginPage() {
       if (data.session) {
         setState("success");
         setTimeout(() => {
-          router.push("/dashboard");
-          router.refresh();
+          window.location.href = "/dashboard";
         }, 600);
       }
     } catch {
