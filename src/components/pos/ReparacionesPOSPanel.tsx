@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
-  Search, AlertCircle, DollarSign, CheckCircle, Phone, Wrench, XCircle,
+  Search, AlertCircle, DollarSign, CheckCircle, Phone, Wrench, XCircle, Package,
 } from "lucide-react";
 import type { OrdenReparacionDetallada, TipoPago } from "@/types";
 
@@ -404,6 +404,29 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
   const [orden, setOrden] = useState<OrdenReparacionDetallada | null>(null);
   const [totalAnticipos, setTotalAnticipos] = useState(0);
 
+  // C3: Lista de órdenes listas para cobrar (listo_entrega)
+  const [listasParaCobrar, setListasParaCobrar] = useState<OrdenReparacionDetallada[]>([]);
+  const [loadingListos, setLoadingListos] = useState(false);
+
+  const fetchListosParaCobrar = useCallback(async () => {
+    setLoadingListos(true);
+    try {
+      const res = await fetch("/api/reparaciones?estado=listo_entrega&detalladas=true");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setListasParaCobrar(data.data);
+      }
+    } catch {
+      // silencioso — no bloquear el panel
+    } finally {
+      setLoadingListos(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchListosParaCobrar();
+  }, [fetchListosParaCobrar]);
+
   // Modales
   const [showModalAnticipo, setShowModalAnticipo] = useState(false);
   const [showModalCobroSaldo, setShowModalCobroSaldo] = useState(false);
@@ -520,7 +543,8 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
       setOrden(null);
       setTotalAnticipos(0);
       setSearchQuery("");
-      
+      void fetchListosParaCobrar(); // refrescar lista C3
+
       // Callback opcional para actualizar carrito si es necesario
       if (onCobroCompleto) {
         onCobroCompleto(orden.id);
@@ -804,19 +828,90 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
           </div>
         )}
 
-        {/* Empty state */}
-        {!loading && !orden && !error && (
-          <div className="flex-1 flex flex-col items-center justify-center px-3">
-            <Wrench
-              className="w-12 h-12 mb-3"
-              style={{ color: "var(--color-border-strong)" }}
-            />
-            <p className="text-sm font-medium text-center" style={{ color: "var(--color-text-secondary)" }}>
-              Escribe el folio o nombre del cliente
-            </p>
-            <p className="text-xs text-center mt-1" style={{ color: "var(--color-text-muted)" }}>
-              Para cobrar anticipos o saldo final de reparaciones
-            </p>
+        {/* C3: Lista de "Listos para cobrar" — visible cuando no hay búsqueda activa */}
+        {!loading && !orden && !error && !searchQuery && (
+          <div className="flex-1 overflow-y-auto px-3 pb-3 mt-2">
+            {/* Header sección */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4" style={{ color: "var(--color-success)" }} />
+                <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                  Listos para cobrar
+                </p>
+              </div>
+              {listasParaCobrar.length > 0 && (
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}
+                >
+                  {listasParaCobrar.length}
+                </span>
+              )}
+            </div>
+
+            {loadingListos && (
+              <div className="space-y-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: "var(--color-bg-elevated)" }} />
+                ))}
+              </div>
+            )}
+
+            {!loadingListos && listasParaCobrar.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <CheckCircle className="w-10 h-10 mb-2" style={{ color: "var(--color-border-strong)" }} />
+                <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+                  Sin equipos listos por cobrar
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+                  O usa la búsqueda para encontrar una orden
+                </p>
+              </div>
+            )}
+
+            {!loadingListos && listasParaCobrar.map((o) => {
+              const anticipos = (o as any).totalAnticipos ?? 0;
+              const saldo = Math.max(0, o.costoTotal - anticipos);
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => {
+                    setOrden(o);
+                    setTotalAnticipos(anticipos);
+                    setError("");
+                  }}
+                  className="w-full text-left rounded-xl px-3 py-2.5 mb-2 flex items-center justify-between gap-2 transition-all"
+                  style={{
+                    background: "var(--color-bg-surface)",
+                    border: "1px solid var(--color-border-subtle)",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--color-success)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--color-border-subtle)")}
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-mono font-bold leading-tight" style={{ color: "var(--color-text-primary)" }}>
+                      {o.folio}
+                    </p>
+                    <p className="text-xs truncate mt-0.5" style={{ color: "var(--color-text-secondary)" }}>
+                      {o.clienteNombre}{o.clienteApellido ? ` ${o.clienteApellido}` : ""} · {o.marcaDispositivo} {o.modeloDispositivo}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p
+                      className="text-sm font-mono font-bold"
+                      style={{ color: saldo > 0 ? "var(--color-warning)" : "var(--color-success)" }}
+                    >
+                      {fmtPrecio(saldo)}
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      {saldo > 0 ? "pendiente" : "pagado"}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
