@@ -207,9 +207,11 @@ function getConfiguracionNotificacion(
 
     completado: {
       tipoNotificacion: "orden_completada",
-      destinos: [{ tipo: "admin", canal: "sistema" }],
-      generarMensaje: (orden) =>
-        `Orden ${orden.folio} COMPLETADA: ${orden.marcaDispositivo} ${orden.modeloDispositivo} - Técnico: ${orden.tecnicoNombre}. Lista para revisión antes de entregar.`,
+      destinos: [
+        { tipo: "admin", canal: "sistema" },     // aviso interno al admin
+        { tipo: "cliente", canal: "whatsapp" },  // B3: aviso al cliente "tu equipo está listo"
+      ],
+      generarMensaje: (orden) => generarMensajeReparacionCompletada(orden),
     },
 
     listo_entrega: {
