@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   X, ExternalLink, Edit, Loader2, Wrench, Clock, AlertCircle,
   MessageSquare, Package, Timer, FileText, Image as ImageIcon,
-  DollarSign, Phone, CheckCircle, GitBranch
+  DollarSign, Phone, CheckCircle, GitBranch, Printer
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { PresupuestoSummary } from "@/components/reparaciones/detail/PresupuestoSummary";
@@ -537,6 +537,18 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                 title="Editar orden"
               >
                 <Edit className="w-4 h-4" />
+              </button>
+            )}
+            {orden && (
+              <button
+                className="p-1.5 rounded-lg"
+                style={{ color: "var(--color-text-muted)", background: "transparent" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-bg-elevated)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                onClick={() => window.open(`/dashboard/reparaciones/${orden.id}/ticket`, "_blank")}
+                title="Imprimir ticket de taller"
+              >
+                <Printer className="w-4 h-4" />
               </button>
             )}
             {/* Botón rápido "✓ Listo" — solo cuando está en_reparacion */}
