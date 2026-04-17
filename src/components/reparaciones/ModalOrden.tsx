@@ -1094,6 +1094,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                 presupuestoTotal={presupuestoTotal}
                 anticipos={anticipos}
                 defaultManoDeObra={catalogoPrecioSugerido}
+                marcaDispositivo={formData.marcaDispositivo}
+                modeloDispositivo={formData.modeloDispositivo}
                 onChange={(data) => {
                   setPresupuestoTotal(data.presupuestoTotal);
                   setPresupuestoManoDeObra(data.manoDeObra);

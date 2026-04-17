@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search, Package, Plus, Trash2, AlertTriangle, CheckCircle, PenLine } from "lucide-react";
-import type { PiezaCotizacion, Producto } from "@/types";
+import { Search, Package, Plus, Trash2, AlertTriangle, CheckCircle, PenLine, Zap } from "lucide-react";
+import type { PiezaCotizacion, Producto, CatalogoServicioReparacion } from "@/types";
 
 interface SelectorPiezasCotizacionProps {
   piezas: PiezaCotizacion[];
   onChange: (piezas: PiezaCotizacion[]) => void;
+  /** Si se pasan, aparece un panel de sugerencias automáticas de piezas y servicios */
+  marcaDispositivo?: string;
+  modeloDispositivo?: string;
 }
 
 const formatMXN = (n: number) =>
@@ -20,6 +23,8 @@ const formatMXN = (n: number) =>
 export function SelectorPiezasCotizacion({
   piezas,
   onChange,
+  marcaDispositivo,
+  modeloDispositivo,
 }: SelectorPiezasCotizacionProps) {
   const [busqueda, setBusqueda] = useState("");
   const [resultados, setResultados] = useState<Producto[]>([]);
@@ -34,6 +39,10 @@ export function SelectorPiezasCotizacion({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Sugerencias automáticas por marca/modelo
+  const [sugerencias, setSugerencias] = useState<PiezaCotizacion[]>([]);
+  const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
+
   // Cerrar dropdown al click fuera
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -44,6 +53,81 @@ export function SelectorPiezasCotizacion({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Cargar sugerencias cuando cambia marca/modelo
+  useEffect(() => {
+    if (!marcaDispositivo) {
+      setSugerencias([]);
+      return;
+    }
+
+    const marcaQ = encodeURIComponent(marcaDispositivo);
+    const modeloQ = modeloDispositivo ? `&modelo=${encodeURIComponent(modeloDispositivo)}` : "";
+
+    setCargandoSugerencias(true);
+
+    Promise.all([
+      fetch(`/api/productos?marca=${marcaQ}${modeloQ}&tipo=pieza_reparacion`).then((r) =>
+        r.ok ? r.json() : { success: false }
+      ),
+      fetch(`/api/catalogo-servicios?marca=${marcaQ}${modeloQ}`).then((r) =>
+        r.ok ? r.json() : { success: false }
+      ),
+    ])
+      .then(([prodData, svcData]) => {
+        const lista: PiezaCotizacion[] = [];
+
+        if (prodData.success && Array.isArray(prodData.data)) {
+          for (const p of prodData.data as Producto[]) {
+            lista.push({
+              id: `sug-prod-${p.id}`,
+              productoId: p.id,
+              nombre: [p.nombre, p.marca, p.modelo].filter(Boolean).join(" — "),
+              cantidad: 1,
+              precioUnitario: Number(p.precio ?? 0),
+              precioTotal: Number(p.precio ?? 0),
+              tieneStock: (p.stock ?? 0) > 0,
+              stockActual: p.stock ?? 0,
+              esLibre: false,
+            });
+          }
+        }
+
+        if (svcData.success && Array.isArray(svcData.data)) {
+          for (const s of svcData.data as CatalogoServicioReparacion[]) {
+            const precio = s.precioEfectivo ?? s.precioBase;
+            lista.push({
+              id: `sug-svc-${s.id}`,
+              nombre: s.nombre,
+              cantidad: 1,
+              precioUnitario: precio,
+              precioTotal: precio,
+              tieneStock: false,
+              esLibre: true,
+            });
+          }
+        }
+
+        setSugerencias(lista);
+      })
+      .catch(() => setSugerencias([]))
+      .finally(() => setCargandoSugerencias(false));
+  }, [marcaDispositivo, modeloDispositivo]);
+
+  const agregarSugerencia = (sug: PiezaCotizacion) => {
+    // Si ya está en la lista (por productoId o por nombre exacto), no duplicar
+    const yaExiste = piezas.some(
+      (p) =>
+        (sug.productoId && p.productoId === sug.productoId) ||
+        p.nombre === sug.nombre
+    );
+    if (yaExiste) return;
+    const nueva: PiezaCotizacion = {
+      ...sug,
+      id: `cot-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    };
+    onChange([...piezas, nueva]);
+  };
 
   // Buscar con debounce
   useEffect(() => {
@@ -179,6 +263,67 @@ export function SelectorPiezasCotizacion({
           Agregar libre
         </button>
       </div>
+
+      {/* Panel de sugerencias por marca/modelo */}
+      {marcaDispositivo && (sugerencias.length > 0 || cargandoSugerencias) && (
+        <div
+          className="rounded-lg p-3 space-y-2"
+          style={{
+            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          <div className="flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5" style={{ color: "var(--color-accent)" }} />
+            <span className="text-xs font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+              Sugeridas para {marcaDispositivo}{modeloDispositivo ? ` ${modeloDispositivo}` : ""}
+            </span>
+            {cargandoSugerencias && (
+              <div
+                className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin ml-1"
+                style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }}
+              />
+            )}
+          </div>
+          {sugerencias.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {sugerencias.map((sug) => {
+                const yaAgregada = piezas.some(
+                  (p) =>
+                    (sug.productoId && p.productoId === sug.productoId) ||
+                    p.nombre === sug.nombre
+                );
+                return (
+                  <button
+                    key={sug.id}
+                    type="button"
+                    onClick={() => agregarSugerencia(sug)}
+                    disabled={yaAgregada}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+                    style={{
+                      background: yaAgregada
+                        ? "var(--color-success-bg)"
+                        : "var(--color-bg-surface)",
+                      border: `1px solid ${yaAgregada ? "var(--color-success)" : "var(--color-border-strong)"}`,
+                      color: yaAgregada
+                        ? "var(--color-success-text)"
+                        : "var(--color-text-primary)",
+                      cursor: yaAgregada ? "default" : "pointer",
+                    }}
+                    title={`${sug.nombre} — $${sug.precioUnitario.toLocaleString("es-MX")}`}
+                  >
+                    {yaAgregada ? <CheckCircle className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                    <span className="max-w-[140px] truncate">{sug.nombre}</span>
+                    <span style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
+                      ${sug.precioUnitario.toLocaleString("es-MX")}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Buscador del catálogo */}
       <div className="relative" ref={dropdownRef}>
@@ -361,6 +506,7 @@ export function SelectorPiezasCotizacion({
                         precioUnitario: parseFloat(e.target.value) || 0,
                       })
                     }
+                    onFocus={(e) => e.target.select()}
                     onWheel={(e) => e.currentTarget.blur()}
                     placeholder="0.00"
                     min="0"

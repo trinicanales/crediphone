@@ -31,6 +31,9 @@ interface ComponentePresupuestoProps {
   anticipos: Anticipo[];
   /** Precio sugerido del catálogo de servicios — pre-llena mano de obra */
   defaultManoDeObra?: number;
+  /** Para sugerencias automáticas de piezas en el selector */
+  marcaDispositivo?: string;
+  modeloDispositivo?: string;
   onChange: (data: {
     presupuestoTotal: number;
     manoDeObra: number;
@@ -44,6 +47,8 @@ export function ComponentePresupuesto({
   presupuestoTotal,
   anticipos,
   defaultManoDeObra,
+  marcaDispositivo,
+  modeloDispositivo,
   onChange,
 }: ComponentePresupuestoProps) {
   const [mostrandoNuevoAnticipo, setMostrandoNuevoAnticipo] = useState(false);
@@ -202,7 +207,12 @@ export function ComponentePresupuesto({
           background: "var(--color-bg-surface)",
         }}
       >
-        <SelectorPiezasCotizacion piezas={piezas} onChange={handlePiezasChange} />
+        <SelectorPiezasCotizacion
+          piezas={piezas}
+          onChange={handlePiezasChange}
+          marcaDispositivo={marcaDispositivo}
+          modeloDispositivo={modeloDispositivo}
+        />
       </div>
 
       {/* MANO DE OBRA */}

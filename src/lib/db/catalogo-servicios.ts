@@ -61,7 +61,8 @@ function mapPrecioFromDB(db: Record<string, unknown>): CatalogoServicioPrecioDis
  */
 export async function getCatalogoServicios(
   distribuidorId?: string | null,
-  incluirInactivos = false
+  incluirInactivos = false,
+  filtros?: { marca?: string; modelo?: string }
 ): Promise<CatalogoServicioReparacion[]> {
   const supabase = createAdminClient();
 
@@ -77,6 +78,16 @@ export async function getCatalogoServicios(
   // Super_admin (null) ve todo; distribuidor ve globals + propios
   if (distribuidorId) {
     query = query.or(`distribuidor_id.is.null,distribuidor_id.eq.${distribuidorId}`);
+  }
+
+  // Filtrar por marca: genéricos (NULL) + los que coinciden
+  if (filtros?.marca) {
+    query = query.or(`marca.is.null,marca.ilike.%${filtros.marca}%`);
+  }
+
+  // Filtrar por modelo: genéricos (NULL) + los que coinciden
+  if (filtros?.modelo) {
+    query = query.or(`modelo.is.null,modelo.ilike.%${filtros.modelo}%`);
   }
 
   const { data, error } = await query;

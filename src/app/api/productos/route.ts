@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getProductos, createProducto } from "@/lib/db/productos";
+import { getProductos, createProducto, buscarProductos } from "@/lib/db/productos";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tienePermiso } from "@/lib/permisos";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { userId, role, distribuidorId } = await getAuthContext();
 
@@ -15,7 +15,26 @@ export async function GET() {
     // super_admin ve todos los productos; los demás ven solo los de su distribuidor
     const filterDistribuidorId = role === "super_admin" ? undefined : (distribuidorId ?? undefined);
 
-    const productos = await getProductos(filterDistribuidorId);
+    const url = new URL(request.url);
+    const q = url.searchParams.get("q") ?? undefined;
+    const tipo = url.searchParams.get("tipo") ?? undefined;
+    const marca = url.searchParams.get("marca") ?? undefined;
+    const modelo = url.searchParams.get("modelo") ?? undefined;
+
+    // Sin filtros: devolver todos (comportamiento original)
+    if (!q && !tipo && !marca && !modelo) {
+      const productos = await getProductos(filterDistribuidorId);
+      return NextResponse.json({ success: true, count: productos.length, data: productos });
+    }
+
+    // Con filtros: búsqueda filtrada
+    const productos = await buscarProductos({
+      distribuidorId: filterDistribuidorId,
+      q,
+      tipo,
+      marca,
+      modelo,
+    });
 
     return NextResponse.json({
       success: true,

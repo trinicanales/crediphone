@@ -5,7 +5,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { EnvioPresupuesto } from "./EnvioPresupuesto";
 import { ChecklistAperturaPanel } from "./ChecklistAperturaPanel";
-import type { ParteReemplazada, OrdenReparacionDetallada } from "@/types";
+import { Zap, CheckCircle, Plus } from "lucide-react";
+import type { ParteReemplazada, OrdenReparacionDetallada, Producto, CatalogoServicioReparacion } from "@/types";
 
 interface ModalDiagnosticoProps {
   isOpen: boolean;
@@ -51,6 +52,16 @@ export function ModalDiagnostico({
   const [checklistResumen, setChecklistResumen] = useState("");
   const [checklistTieneAlertas, setChecklistTieneAlertas] = useState(false);
 
+  // Sugerencias de piezas/servicios por marca+modelo
+  interface SugerenciaParte {
+    id: string;
+    nombre: string;
+    precio: number;
+    productoId?: string;
+  }
+  const [sugerencias, setSugerencias] = useState<SugerenciaParte[]>([]);
+  const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
+
   // Pre-cargar cotización existente si la orden ya tiene presupuesto del modal de recepción
   useEffect(() => {
     if (!isOpen || preloadedRef.current) return;
@@ -68,6 +79,69 @@ export function ModalDiagnostico({
       }));
     }
   }, [isOpen, orden]);
+
+  // Cargar sugerencias de piezas/servicios cuando se abre el modal
+  useEffect(() => {
+    const marca = orden?.marcaDispositivo;
+    if (!isOpen || !marca) {
+      setSugerencias([]);
+      return;
+    }
+
+    const marcaQ = encodeURIComponent(marca);
+    const modeloQ = orden?.modeloDispositivo
+      ? `&modelo=${encodeURIComponent(orden.modeloDispositivo)}`
+      : "";
+
+    setCargandoSugerencias(true);
+
+    Promise.all([
+      fetch(`/api/productos?marca=${marcaQ}${modeloQ}&tipo=pieza_reparacion`).then((r) =>
+        r.ok ? r.json() : { success: false }
+      ),
+      fetch(`/api/catalogo-servicios?marca=${marcaQ}${modeloQ}`).then((r) =>
+        r.ok ? r.json() : { success: false }
+      ),
+    ])
+      .then(([prodData, svcData]) => {
+        const lista: SugerenciaParte[] = [];
+
+        if (prodData.success && Array.isArray(prodData.data)) {
+          for (const p of prodData.data as Producto[]) {
+            lista.push({
+              id: `sug-prod-${p.id}`,
+              nombre: [p.nombre, p.marca, p.modelo].filter(Boolean).join(" — "),
+              precio: Number(p.precio ?? 0),
+              productoId: p.id,
+            });
+          }
+        }
+
+        if (svcData.success && Array.isArray(svcData.data)) {
+          for (const s of svcData.data as CatalogoServicioReparacion[]) {
+            lista.push({
+              id: `sug-svc-${s.id}`,
+              nombre: s.nombre,
+              precio: s.precioEfectivo ?? s.precioBase,
+            });
+          }
+        }
+
+        setSugerencias(lista);
+      })
+      .catch(() => setSugerencias([]))
+      .finally(() => setCargandoSugerencias(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, orden?.marcaDispositivo, orden?.modeloDispositivo]);
+
+  const agregarParteDesdeSugerencia = (sug: SugerenciaParte) => {
+    const yaExiste = partes.some((p) => p.parte === sug.nombre && p.costo === sug.precio);
+    if (yaExiste) return;
+    setPartes((prev) => [
+      ...prev.filter((p) => p.parte.trim() !== "" || p.costo > 0),
+      { parte: sug.nombre, costo: sug.precio, cantidad: 1, productoId: sug.productoId },
+    ]);
+  };
 
   // Calcular costo total de partes
   const costoTotalPartes = partes.reduce(
@@ -351,6 +425,7 @@ export function ModalDiagnostico({
               name="costoReparacion"
               value={formData.costoReparacion}
               onChange={handleChange}
+              onFocus={(e) => e.target.select()}
               min="0"
               step="0.01"
               placeholder="0.00"
@@ -359,6 +434,66 @@ export function ModalDiagnostico({
             />
           </div>
         </div>
+
+        {/* Sugerencias de piezas/servicios por marca+modelo */}
+        {orden?.marcaDispositivo && (sugerencias.length > 0 || cargandoSugerencias) && !diagnosticoGuardado && (
+          <div
+            className="rounded-lg p-3 space-y-2"
+            style={{
+              background: "var(--color-bg-elevated)",
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            <div className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" style={{ color: "var(--color-accent)" }} />
+              <span className="text-xs font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                Sugeridas para {orden.marcaDispositivo}
+                {orden.modeloDispositivo ? ` ${orden.modeloDispositivo}` : ""}
+              </span>
+              {cargandoSugerencias && (
+                <div
+                  className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin ml-1"
+                  style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }}
+                />
+              )}
+            </div>
+            {sugerencias.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {sugerencias.map((sug) => {
+                  const yaAgregada = partes.some(
+                    (p) => p.parte === sug.nombre && p.costo === sug.precio
+                  );
+                  return (
+                    <button
+                      key={sug.id}
+                      type="button"
+                      onClick={() => agregarParteDesdeSugerencia(sug)}
+                      disabled={yaAgregada}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+                      style={{
+                        background: yaAgregada
+                          ? "var(--color-success-bg)"
+                          : "var(--color-bg-surface)",
+                        border: `1px solid ${yaAgregada ? "var(--color-success)" : "var(--color-border-strong)"}`,
+                        color: yaAgregada
+                          ? "var(--color-success-text)"
+                          : "var(--color-text-primary)",
+                        cursor: yaAgregada ? "default" : "pointer",
+                      }}
+                      title={`${sug.nombre} — $${sug.precio.toLocaleString("es-MX")}`}
+                    >
+                      {yaAgregada ? <CheckCircle className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                      <span className="max-w-[140px] truncate">{sug.nombre}</span>
+                      <span style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
+                        ${sug.precio.toLocaleString("es-MX")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Lista de Partes */}
         <div className="pt-4" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
@@ -409,6 +544,7 @@ export function ModalDiagnostico({
                       onChange={(e) =>
                         handleParteChange(index, "costo", e.target.value)
                       }
+                      onFocus={(e) => e.target.select()}
                       min="0"
                       step="0.01"
                       placeholder="0.00"
@@ -426,6 +562,7 @@ export function ModalDiagnostico({
                     onChange={(e) =>
                       handleParteChange(index, "cantidad", e.target.value)
                     }
+                    onFocus={(e) => e.target.select()}
                     min="1"
                     placeholder="1"
                     className="w-full px-2 py-2 rounded-lg text-sm focus:outline-none"

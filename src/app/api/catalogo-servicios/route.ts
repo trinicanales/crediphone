@@ -28,12 +28,18 @@ export async function GET(request: Request) {
     const incluirInactivos =
       url.searchParams.get("incluirInactivos") === "true" &&
       ["admin", "super_admin"].includes(role ?? "");
+    const marcaFiltro = url.searchParams.get("marca") ?? undefined;
+    const modeloFiltro = url.searchParams.get("modelo") ?? undefined;
 
     // super_admin (distribuidorId === null) ve todo con precio_base
     const filterDistribuidorId =
       role === "super_admin" ? null : (distribuidorId ?? null);
 
-    const servicios = await getCatalogoServicios(filterDistribuidorId, incluirInactivos);
+    const servicios = await getCatalogoServicios(
+      filterDistribuidorId,
+      incluirInactivos,
+      { marca: marcaFiltro, modelo: modeloFiltro }
+    );
 
     return NextResponse.json({ success: true, data: servicios });
   } catch (error) {

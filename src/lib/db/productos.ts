@@ -49,6 +49,52 @@ function mapProductoFromDB(db: any): Producto {
   };
 }
 
+/**
+ * Búsqueda filtrada de productos — usada por /api/productos con query params.
+ * Todos los filtros son opcionales y se combinan con AND.
+ */
+export async function buscarProductos(opts: {
+  distribuidorId?: string;
+  q?: string;
+  tipo?: string;
+  marca?: string;
+  modelo?: string;
+  limit?: number;
+}): Promise<Producto[]> {
+  const supabase = createAdminClient();
+  let query = supabase
+    .from("productos")
+    .select("*")
+    .eq("activo", true)
+    .order("nombre", { ascending: true })
+    .limit(opts.limit ?? 50);
+
+  if (opts.distribuidorId) {
+    query = query.eq("distribuidor_id", opts.distribuidorId);
+  }
+
+  if (opts.q) {
+    query = query.or(
+      `nombre.ilike.%${opts.q}%,marca.ilike.%${opts.q}%,modelo.ilike.%${opts.q}%`
+    );
+  }
+
+  if (opts.tipo) {
+    query = query.eq("tipo", opts.tipo);
+  }
+
+  if (opts.marca || opts.modelo) {
+    const conds: string[] = [];
+    if (opts.marca) conds.push(`marca.ilike.%${opts.marca}%`);
+    if (opts.modelo) conds.push(`modelo.ilike.%${opts.modelo}%`);
+    query = query.or(conds.join(","));
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data as any[]).map(mapProductoFromDB);
+}
+
 export async function getProductos(distribuidorId?: string): Promise<Producto[]> {
   const supabase = createAdminClient();
   let query = supabase
