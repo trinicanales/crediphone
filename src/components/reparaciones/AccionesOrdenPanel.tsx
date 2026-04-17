@@ -6,11 +6,13 @@
  * Cada acción dispara: cambio de estado, apertura de modal, o tab específico del drawer.
  */
 
+import { useState } from "react";
 import {
   Search, Package, CheckCircle2, Wrench, Send,
   Camera, AlertTriangle, PlusCircle, Banknote,
 } from "lucide-react";
 import type { EstadoOrdenReparacion, OrdenReparacionDetallada } from "@/types";
+import { ModalQAEntrega } from "./ModalQAEntrega";
 
 // ─── Definición de acciones por estado ────────────────────────────────────────
 
@@ -304,13 +306,19 @@ export function AccionesOrdenPanel({
   onRegistrarEntrega,
 }: AccionesOrdenPanelProps) {
   const acciones = getAcciones(orden.estado, userRole);
+  const [mostrarQA, setMostrarQA] = useState(false);
 
   if (acciones.length === 0) return null;
 
   function ejecutarAccion(accion: AccionOrden) {
     switch (accion.tipo) {
       case "cambiar_estado":
-        if (accion.payload?.estado) onCambiarEstado(accion.payload.estado);
+        if (accion.payload?.estado === "listo_entrega") {
+          // Interceptar: mostrar checklist QA antes de confirmar
+          setMostrarQA(true);
+        } else if (accion.payload?.estado) {
+          onCambiarEstado(accion.payload.estado);
+        }
         break;
       case "abrir_diagnostico":
         onAbrirDiagnostico();
@@ -387,6 +395,18 @@ export function AccionesOrdenPanel({
             );
           })}
         </div>
+      )}
+
+      {/* Modal de QA antes de marcar "listo para entrega" */}
+      {mostrarQA && (
+        <ModalQAEntrega
+          folio={orden.folio}
+          onConfirmar={() => {
+            setMostrarQA(false);
+            onCambiarEstado("listo_entrega");
+          }}
+          onCancelar={() => setMostrarQA(false)}
+        />
       )}
     </div>
   );
