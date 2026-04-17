@@ -65,7 +65,7 @@ export default function ReparacionesPage() {
   const [filteredOrdenes, setFilteredOrdenes] = useState<OrdenReparacionDetallada[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterEstado, setFilterEstado] = useState<EstadoOrdenReparacion | "todas" | "garantias" | "vencidas">("todas");
+  const [filterEstado, setFilterEstado] = useState<EstadoOrdenReparacion | "todas" | "garantias" | "vencidas" | "mis_ordenes">("todas");
   const [diasListoEntregaMaximo, setDiasListoEntregaMaximo] = useState(30);
   const [stats, setStats] = useState({
     total: 0,
@@ -76,6 +76,7 @@ export default function ReparacionesPage() {
     listasEntrega: 0,
     garantiasActivas: 0,
     vencidas: 0,
+    misOrdenes: 0,
   });
 
   // Modal states
@@ -114,10 +115,10 @@ export default function ReparacionesPage() {
     filterOrdenes();
   }, [ordenes, searchQuery, filterEstado]);
 
-  // Calcular stats cuando cambian las órdenes o el límite de días
+  // Calcular stats cuando cambian las órdenes, el límite de días o el usuario
   useEffect(() => {
     calculateStats();
-  }, [ordenes, diasListoEntregaMaximo]);
+  }, [ordenes, diasListoEntregaMaximo, user]);
 
   async function fetchOrdenes() {
     try {
@@ -151,6 +152,11 @@ export default function ReparacionesPage() {
     const garantiasActivas = ordenes.filter(
       (o) => o.esGarantia && !["entregado", "cancelado"].includes(o.estado)
     ).length;
+    const misOrdenes = user?.id
+      ? ordenes.filter(
+          (o) => o.tecnicoId === user.id && !["entregado", "cancelado", "no_reparable"].includes(o.estado)
+        ).length
+      : 0;
     const vencidas = ordenes.filter((o) => {
       if (o.estado !== "listo_entrega" || !o.fechaCompletado) return false;
       const dias = (now - new Date(o.fechaCompletado).getTime()) / msPerDay;
@@ -166,6 +172,7 @@ export default function ReparacionesPage() {
       listasEntrega,
       garantiasActivas,
       vencidas,
+      misOrdenes,
     });
   }
 
@@ -187,7 +194,11 @@ export default function ReparacionesPage() {
     }
 
     // Filtro por estado
-    if (filterEstado === "garantias") {
+    if (filterEstado === "mis_ordenes") {
+      filtered = filtered.filter(
+        (o) => o.tecnicoId === user?.id && !["entregado", "cancelado", "no_reparable"].includes(o.estado)
+      );
+    } else if (filterEstado === "garantias") {
       filtered = filtered.filter(
         (o) => o.esGarantia && !["entregado", "cancelado"].includes(o.estado)
       );
@@ -327,6 +338,27 @@ export default function ReparacionesPage() {
             color="var(--color-danger-text)"
           />
         )}
+        {user?.role === "tecnico" && (
+          <div
+            className="p-4 rounded-xl cursor-pointer"
+            onClick={() => setFilterEstado("mis_ordenes")}
+            style={{
+              background: filterEstado === "mis_ordenes" ? "var(--color-accent)" : "var(--color-accent-light)",
+              boxShadow: "var(--shadow-sm)",
+              transition: "background 150ms",
+            }}
+          >
+            <p className="text-xs font-medium" style={{ color: filterEstado === "mis_ordenes" ? "#fff" : "var(--color-accent)" }}>
+              Mis Órdenes
+            </p>
+            <p
+              className="text-2xl font-bold mt-0.5"
+              style={{ color: filterEstado === "mis_ordenes" ? "#fff" : "var(--color-accent)", fontFamily: "var(--font-data)" }}
+            >
+              {stats.misOrdenes}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Toolbar */}
@@ -346,7 +378,7 @@ export default function ReparacionesPage() {
         />
         <select
           value={filterEstado}
-          onChange={(e) => setFilterEstado(e.target.value as EstadoOrdenReparacion | "todas" | "garantias" | "vencidas")}
+          onChange={(e) => setFilterEstado(e.target.value as EstadoOrdenReparacion | "todas" | "garantias" | "vencidas" | "mis_ordenes")}
           className="w-full md:w-52 px-4 py-2 rounded-xl text-sm"
           style={{
             background: "var(--color-bg-surface)",
@@ -356,6 +388,7 @@ export default function ReparacionesPage() {
           }}
         >
           <option value="todas">Todas las órdenes</option>
+          <option value="mis_ordenes">Mis órdenes</option>
           <option value="garantias">Solo Garantías</option>
           <option value="vencidas">Sin Recoger (vencidas)</option>
           <option value="recibido">Recibido</option>
@@ -385,6 +418,7 @@ export default function ReparacionesPage() {
           </p>
           <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
             {!searchQuery && filterEstado === "todas" && "Crea la primera orden con el botón + Nueva Orden"}
+            {filterEstado === "mis_ordenes" && "No tienes órdenes activas asignadas"}
           </p>
         </div>
       ) : (
