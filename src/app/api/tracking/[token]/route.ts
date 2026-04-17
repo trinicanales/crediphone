@@ -119,6 +119,32 @@ export async function GET(
 
     const totalAnticipos = anticipos?.reduce((sum, a) => sum + Number(a.monto), 0) || 0;
 
+    // Obtener fotos del equipo (públicas — el cliente puede ver su propio equipo)
+    const { data: fotosDb } = await supabase
+      .from("imagenes_reparacion")
+      .select("id, url_imagen, tipo_imagen, descripcion, orden_visualizacion")
+      .eq("orden_id", trackingData.orden_id)
+      .order("orden_visualizacion", { ascending: true });
+
+    const fotos = (fotosDb ?? []).map((f) => ({
+      id: f.id as string,
+      url: f.url_imagen as string,
+      tipo: f.tipo_imagen as string,
+      descripcion: f.descripcion as string | null,
+    }));
+
+    // Extraer checklist de apertura de notasTecnico (solo la sección del checklist, no notas privadas)
+    let checklistApertura: string | null = null;
+    if (orden.notasTecnico) {
+      const marker = "📋 Checklist de apertura:";
+      const idx = orden.notasTecnico.indexOf(marker);
+      if (idx !== -1) {
+        const afterMarker = orden.notasTecnico.slice(idx);
+        const endIdx = afterMarker.indexOf("\n\n");
+        checklistApertura = endIdx === -1 ? afterMarker : afterMarker.slice(0, endIdx);
+      }
+    }
+
     // Retornar solo información pública (sin datos sensibles)
     return NextResponse.json({
       success: true,
@@ -144,6 +170,7 @@ export async function GET(
           esGarantia: orden.esGarantia,
           totalAnticipos,
           saldoPendiente: orden.costoTotal - totalAnticipos,
+          checklistApertura,
         },
         cliente: {
           nombre: cliente?.nombre || "",
@@ -157,6 +184,7 @@ export async function GET(
         },
         historial,
         anticipos: anticipos || [],
+        fotos,
       },
     });
   } catch (error) {

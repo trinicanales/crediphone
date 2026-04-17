@@ -20,6 +20,9 @@ import {
   CircleDashed,
   Gift,
   Bell,
+  Camera,
+  ZoomIn,
+  X as XIcon,
 } from "lucide-react";
 import { TimelineEstados } from "@/components/reparaciones/TimelineEstados";
 import type { EstadoOrdenReparacion, ParteReemplazada } from "@/types";
@@ -48,6 +51,14 @@ interface OrdenTracking {
   esGarantia: boolean;
   totalAnticipos?: number;
   saldoPendiente?: number;
+  checklistApertura?: string | null;
+}
+
+interface FotoEquipo {
+  id: string;
+  url: string;
+  tipo: string;
+  descripcion: string | null;
 }
 
 interface Anticipo {
@@ -77,6 +88,7 @@ interface TrackingData {
   tecnico: { nombre: string };
   historial: HistorialEstado[];
   anticipos: Anticipo[];
+  fotos: FotoEquipo[];
 }
 
 /* ── Estado visual mapping ──────────────────────────────────── */
@@ -411,6 +423,7 @@ export default function TrackingPublicoPage() {
   });
   const [savingPromos, setSavingPromos] = useState(false);
   const [promoSaved, setPromoSaved] = useState(false);
+  const [fotoSeleccionada, setFotoSeleccionada] = useState<FotoEquipo | null>(null);
   // FASE 35: Promociones reales de la base de datos
   const [promosReales, setPromosReales] = useState<{
     id: string;
@@ -536,7 +549,7 @@ export default function TrackingPublicoPage() {
   if (loading) return <TrackingSkeleton />;
   if (error || !data) return <TrackingError message={error ?? ""} />;
 
-  const { orden, tecnico, historial, anticipos } = data;
+  const { orden, tecnico, historial, anticipos, fotos = [] } = data;
   const estadoInfo = getEstadoInfo(orden.estado);
   const StatusIcon = estadoInfo.icon;
 
@@ -749,6 +762,153 @@ export default function TrackingPublicoPage() {
               </>
             )}
           </SectionCard>
+        )}
+
+        {/* ── Inspección al abrir el equipo (checklist de apertura) ── */}
+        {orden.checklistApertura && (() => {
+          const text = orden.checklistApertura!;
+          const tieneProblemas = text.includes("⚠️ Problemas:");
+          const problemasMatch = text.match(/⚠️ Problemas: (.+?)(?:\.|$)/);
+          const okMatch = text.match(/✅ Sin problemas: (.+?)(?:\.|$)/);
+          const problemas = problemasMatch ? problemasMatch[1].split(", ") : [];
+          const okItems = okMatch ? okMatch[1].split(", ") : [];
+
+          return (
+            <SectionCard title="Inspección del Equipo" icon={Search}>
+              <p className="text-xs mb-3 leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
+                Al abrir tu equipo, el técnico documentó el estado interno de los componentes.
+              </p>
+
+              {tieneProblemas && (
+                <div
+                  className="rounded-lg px-4 py-3 mb-3"
+                  style={{
+                    background: "var(--color-danger-bg)",
+                    border: "1px solid var(--color-danger)",
+                  }}
+                >
+                  <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--color-danger-text)" }}>
+                    ⚠️ Condiciones encontradas
+                  </p>
+                  <ul className="space-y-1">
+                    {problemas.map((p, i) => (
+                      <li key={i} className="text-xs flex items-start gap-1.5" style={{ color: "var(--color-danger-text)" }}>
+                        <span className="shrink-0 mt-0.5">•</span>
+                        {p.trim()}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {okItems.length > 0 && (
+                <div className="space-y-1">
+                  {okItems.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 py-1">
+                      <CheckCircle2
+                        className="w-3.5 h-3.5 shrink-0"
+                        style={{ color: "var(--color-success)" }}
+                      />
+                      <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                        {item.trim()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          );
+        })()}
+
+        {/* ── Fotos del equipo ──────────────────────────────── */}
+        {fotos.length > 0 && (
+          <SectionCard title="Fotos del Equipo" icon={Camera}>
+            <p className="text-xs mb-3" style={{ color: "var(--color-text-muted)" }}>
+              Fotografías tomadas al momento de recibir y revisar tu dispositivo.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {fotos.map((foto) => (
+                <button
+                  key={foto.id}
+                  type="button"
+                  onClick={() => setFotoSeleccionada(foto)}
+                  className="relative rounded-lg overflow-hidden aspect-square group"
+                  style={{
+                    border: "1px solid var(--color-border-subtle)",
+                    background: "var(--color-bg-elevated)",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={foto.url}
+                    alt={foto.descripcion || foto.tipo || "Foto del equipo"}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{
+                      background: "rgba(0,0,0,0)",
+                      transition: "background 150ms ease",
+                    }}
+                  >
+                    <ZoomIn
+                      className="w-5 h-5"
+                      style={{ color: "rgba(255,255,255,0)", transition: "color 150ms ease" }}
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* ── Lightbox de foto ─────────────────────────────── */}
+        {fotoSeleccionada && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.85)" }}
+            onClick={() => setFotoSeleccionada(null)}
+          >
+            <div
+              className="relative max-w-lg w-full rounded-2xl overflow-hidden"
+              style={{ background: "var(--color-bg-surface)", maxHeight: "90vh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={fotoSeleccionada.url}
+                alt={fotoSeleccionada.descripcion || fotoSeleccionada.tipo || "Foto del equipo"}
+                style={{ width: "100%", display: "block", maxHeight: "75vh", objectFit: "contain" }}
+              />
+              {fotoSeleccionada.descripcion && (
+                <p
+                  className="px-4 py-3 text-sm text-center"
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  {fotoSeleccionada.descripcion}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setFotoSeleccionada(null)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center"
+                style={{
+                  background: "rgba(0,0,0,0.6)",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <XIcon className="w-4 h-4" style={{ color: "#fff" }} />
+              </button>
+            </div>
+          </div>
         )}
 
         {/* ── AUTORIZACIÓN REQUERIDA — diseño formal rojo/negro ── */}
