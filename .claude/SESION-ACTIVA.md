@@ -220,11 +220,21 @@
 | Tracking page | Listado de piezas cotizadas en panel de autorización |
 | PDF | Piezas cotizadas con precio en sección presupuesto |
 
+## F3-D + P2 — Detalle (2026-04-19)
+
+| Item | Descripción | Archivos |
+|------|-------------|---------|
+| F3-D | "Ofertas y Promociones" movida arriba: aparece después de Anticipos, antes de Historial | `tracking/[token]/page.tsx` |
+| P2-1 | `src/lib/pdf/orden-pdf.ts` — `generarOrdenPDF(ordenId, host, proto)` extrae lógica completa | nuevo |
+| P2-2 | `GET /api/tracking/[token]/pdf` — endpoint público sin auth, valida token, sirve PDF | nuevo |
+| P2-3 | `POST /api/reparaciones/[id]/pdf` — refactorizado a wrapper delgado | `api/reparaciones/[id]/pdf/route.ts` |
+| P2-4 | `generarMensajeListoEntrega(orden, pdfUrl?)` — incluye link PDF en WA si hay token | `lib/whatsapp-reparaciones.ts` |
+| P2-5 | `notificaciones-reparaciones.ts` — para `listo_entrega`: busca token existente → `/api/tracking/{token}/pdf` | `lib/notificaciones-reparaciones.ts` |
+| P2-6 | Tracking page: botón "Descargar PDF" apunta a `/api/tracking/{token}/pdf` | `tracking/[token]/page.tsx` |
+
 ## PENDIENTE (siguiente sesión si Trini lo pide)
 
-- **F3-D** — Mover sección "Ofertas y Promociones" arriba en la tracking page (solo reposicionamiento visual)
 - **PO1** — Sistema de Puntos / Loyalty (esfuerzo grande, diseñar desde cero)
-- **P2** — PDF automático al aprobar/entregar
 - **SECURITY-003** — wa_access_token encryption (no urgente)
 
 ---
