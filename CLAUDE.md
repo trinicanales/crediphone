@@ -130,7 +130,24 @@ npm run lint       # corregir errores críticos
 | `.claude/DEPLOY.md` | Si hay error en el deploy o necesitas deployar (~80 líneas) |
 
 **Archivos históricos** (NO leer en sesión normal):
-`ARCHIVO/BUGS-RESUELTOS.md` · `ARCHIVO/HISTORIAL-FASES.md` · `ARCHIVO/DEPLOY-WORKAROUNDS-COWORK.md`
+`ARCHIVO/BUGS-RESUELTOS.md` · `ARCHIVO/HISTORIAL-FASES.md` · `ARCHIVO/HISTORIAL-SESIONES.md` · `ARCHIVO/DEPLOY-WORKAROUNDS-COWORK.md`
+
+---
+
+## Al iniciar un nuevo chat
+
+**Paso 1** — Leer `.claude/SESION-ACTIVA.md` (siempre, es pequeño).
+**Paso 2** — Leer el archivo de referencia específico SOLO si la tarea lo requiere (ver tabla de arriba).
+**Paso 3** — NO leer archivos de código hasta que la tarea concrete exija un archivo específico.
+
+Si Trini dice solo "hola" o un saludo → preguntar: **"¿En qué área trabajamos hoy?"**
+Si Trini dice "continúa" → leer SESION-ACTIVA y retomar desde el estado indicado.
+
+**Consumo de tokens mínimo por sesión:**
+- Solo SESION-ACTIVA.md (~40 líneas) siempre
+- Agregar BUGS-ACTIVOS.md si toca BD/auth/caja/reparaciones
+- Agregar DESIGN-SYSTEM.md SOLO si toca UI/CSS
+- No leer HISTORIAL-SESIONES ni HISTORIAL-FASES en sesión normal
 
 ---
 
