@@ -1,8 +1,8 @@
 # Sesión Activa — CREDIPHONE
 
-## Estado: AUDITORÍA CRÍTICA COMPLETA ✅ — Deployado en Cloudflare Workers
+## Estado: AUDITORÍA INTEGRAL COMPLETA ✅ — Deployado en Cloudflare Workers
 
-**Última sesión:** 2026-04-22 — Auditoría integral: 5 hallazgos críticos implementados y deployados.
+**Última sesión:** 2026-04-22 — 5 hallazgos críticos + 3 UIs pendientes implementados y deployados.
 **Historial:** `ARCHIVO/HISTORIAL-SESIONES.md`
 
 ---
@@ -21,6 +21,9 @@
 | Cargo cancelación automático | ✅ | Lee cargo de la orden; piezas llegadas → retener |
 | Control de precio (aprobación admin) | ✅ | Vendedor propone → admin aprueba/rechaza |
 | POS + Caja | ✅ | Bolsa virtual con costos piezas y saldo real |
+| Badge "precio pendiente" en OrdenDrawer | ✅ | Header badge + tarjeta aprobación en tab presupuesto |
+| Versiones PDF en OrdenDrawer | ✅ | Sección "Documentos del servicio" con links descarga |
+| Panel piezas pendientes (vendedor) | ✅ | PiezasPendientesPanel en página reparaciones |
 
 ---
 
@@ -29,9 +32,6 @@
 - **C4** — ReparacionesPOSPanel: columnas anticipo/saldo (puede hacerse cuando lo pida)
 - **PO1** — Sistema de puntos / loyalty
 - **SECURITY-003** — Encriptar wa_access_token en BD
-- **UI pendiente de auditoría** — Badge "precio pendiente" en OrdenDrawer (BE listo, falta badge visual)
-- **UI pendiente de auditoría** — Lista versiones PDF en OrdenDrawer (BE listo, falta sección visual)
-- **UI pendiente de auditoría** — Panel vendedor: lista piezas pendientes de pedir (todas las órdenes)
 
 ---
 
