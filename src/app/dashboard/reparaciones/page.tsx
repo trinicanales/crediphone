@@ -15,6 +15,7 @@ import type {
 import { ExportButton } from "@/components/ui/ExportButton";
 import type { ColumnaExport } from "@/hooks/useExportCSV";
 import { Wrench, Trash2 } from "lucide-react";
+import { PiezasPendientesPanel } from "@/components/reparaciones/PiezasPendientesPanel";
 
 const COLUMNAS_REPARACIONES_CSV: ColumnaExport<OrdenReparacionDetallada>[] = [
   { header: "Folio", accessor: "folio" },
@@ -363,6 +364,11 @@ export default function ReparacionesPage() {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Panel piezas pendientes — visible para todos los roles */}
+      <div className="mb-6">
+        <PiezasPendientesPanel onAbrirOrden={setDrawerOrdenId} />
       </div>
 
       {/* Toolbar */}

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   X, ExternalLink, Edit, Loader2, Wrench, Clock, AlertCircle,
   MessageSquare, Package, Timer, FileText, Image as ImageIcon,
-  DollarSign, Phone, CheckCircle, GitBranch, Printer, Plus, PackageCheck, PackagePlus
+  DollarSign, Phone, CheckCircle, GitBranch, Printer, Plus, PackageCheck, PackagePlus,
+  Download, History, ShieldAlert,
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { PresupuestoSummary } from "@/components/reparaciones/detail/PresupuestoSummary";
@@ -95,6 +96,25 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const [guardandoPedido, setGuardandoPedido] = useState(false);
   const [recibiendoPedido, setRecibiendoPedido] = useState<string | null>(null);
 
+  // Solicitudes de cambio de precio
+  interface SolicitudPrecio {
+    id: string; estado: string; motivo: string | null; createdAt: string;
+    costoReparacionActual: number; costoPartesActual: number;
+    costoReparacionPropuesto: number; costoPartesPropuesto: number;
+    solicitadoPorNombre: string | null;
+  }
+  const [solicitudesPrecio, setSolicitudesPrecio] = useState<SolicitudPrecio[]>([]);
+  const [precioPendiente, setPrecioPendiente] = useState(false);
+  const [aprobandoPrecio, setAprobandoPrecio] = useState<string | null>(null);
+
+  // Versiones PDF
+  interface VersionPDF {
+    id: string; version: number; motivo: string;
+    descripcion: string | null; urlPdf: string; createdAt: string;
+  }
+  const [versionesPDF, setVersionesPDF] = useState<VersionPDF[]>([]);
+  const [cargandoPDF, setCargandoPDF] = useState(false);
+
   /** Abre el modal de cambio de estado, opcionalmente pre-seleccionando un destino */
   function abrirCambiarEstado(estadoDestino?: import("@/types").EstadoOrdenReparacion) {
     setEstadoInicialModal(estadoDestino);
@@ -181,6 +201,39 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
     if (activeTab === "diagnostico" && ordenId) fetchPedidosPieza();
   }, [activeTab, ordenId, fetchPedidosPieza]);
 
+  const fetchSolicitudesPrecio = useCallback(async () => {
+    if (!ordenId) return;
+    try {
+      const res = await fetch(`/api/reparaciones/${ordenId}/solicitudes-precio`);
+      const data = await res.json();
+      if (data.success) {
+        setSolicitudesPrecio(data.data);
+        setPrecioPendiente(data.precioPendienteAprobacion ?? false);
+      }
+    } catch { /* silencioso */ }
+  }, [ordenId]);
+
+  const fetchVersionesPDF = useCallback(async () => {
+    if (!ordenId) return;
+    setCargandoPDF(true);
+    try {
+      const res = await fetch(`/api/reparaciones/${ordenId}/versiones-pdf`);
+      const data = await res.json();
+      if (data.success) setVersionesPDF(data.data);
+    } catch { /* silencioso */ }
+    finally { setCargandoPDF(false); }
+  }, [ordenId]);
+
+  // Cargar solicitudes de precio siempre que cambie la orden (para el badge)
+  useEffect(() => {
+    if (ordenId) fetchSolicitudesPrecio();
+  }, [ordenId, fetchSolicitudesPrecio]);
+
+  // Cargar versiones PDF al abrir el tab presupuesto
+  useEffect(() => {
+    if (activeTab === "presupuesto" && ordenId) fetchVersionesPDF();
+  }, [activeTab, ordenId, fetchVersionesPDF]);
+
   async function handleGuardarPedido() {
     if (!orden || !nuevaPiezaNombre.trim()) return;
     setGuardandoPedido(true);
@@ -207,6 +260,27 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
       }
     } finally {
       setGuardandoPedido(false);
+    }
+  }
+
+  async function handleRevisionPrecio(solicitudId: string, accion: "aprobar" | "rechazar") {
+    if (!orden) return;
+    setAprobandoPrecio(solicitudId);
+    try {
+      const res = await fetch(`/api/reparaciones/${orden.id}/solicitudes-precio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ solicitudId, accion }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchSolicitudesPrecio();
+        if (accion === "aprobar") fetchOrden();
+      } else {
+        alert(data.error || "Error al procesar solicitud");
+      }
+    } finally {
+      setAprobandoPrecio(null);
     }
   }
 
@@ -672,6 +746,127 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
           </button>
         )}
 
+        {/* Solicitudes de cambio de precio — solo admin */}
+        {solicitudesPrecio.filter((s) => s.estado === "pendiente").length > 0 && (
+          <Card title="⚠️ Cambios de precio pendientes">
+            <div className="space-y-3">
+              {solicitudesPrecio.filter((s) => s.estado === "pendiente").map((sol) => {
+                const fmt = (n: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+                return (
+                  <div key={sol.id} className="rounded-lg p-3 space-y-2" style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}>
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 flex-shrink-0" style={{ color: "var(--color-warning-text)" }} />
+                      <span className="text-xs font-semibold" style={{ color: "var(--color-warning-text)" }}>
+                        {sol.solicitadoPorNombre ?? "Vendedor"} propone cambio de precio
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                      <div>
+                        <span style={{ color: "var(--color-text-muted)" }}>Mano de obra actual:</span>
+                        <span className="ml-1 font-mono font-semibold">{fmt(sol.costoReparacionActual)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--color-text-muted)" }}>Propuesto:</span>
+                        <span className="ml-1 font-mono font-semibold" style={{ color: "var(--color-accent)" }}>{fmt(sol.costoReparacionPropuesto)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--color-text-muted)" }}>Partes actual:</span>
+                        <span className="ml-1 font-mono font-semibold">{fmt(sol.costoPartesActual)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--color-text-muted)" }}>Propuesto:</span>
+                        <span className="ml-1 font-mono font-semibold" style={{ color: "var(--color-accent)" }}>{fmt(sol.costoPartesPropuesto)}</span>
+                      </div>
+                    </div>
+                    {sol.motivo && (
+                      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Motivo: {sol.motivo}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        disabled={aprobandoPrecio === sol.id}
+                        onClick={() => handleRevisionPrecio(sol.id, "aprobar")}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-bold"
+                        style={{ background: "var(--color-success)", color: "#fff", opacity: aprobandoPrecio === sol.id ? 0.7 : 1 }}
+                      >
+                        {aprobandoPrecio === sol.id ? "..." : "✓ Aprobar"}
+                      </button>
+                      <button
+                        disabled={aprobandoPrecio === sol.id}
+                        onClick={() => handleRevisionPrecio(sol.id, "rechazar")}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-medium"
+                        style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger)", opacity: aprobandoPrecio === sol.id ? 0.7 : 1 }}
+                      >
+                        ✕ Rechazar
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {/* Historial de PDFs versionados */}
+        <Card title="📄 Documentos del servicio">
+          {cargandoPDF ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--color-accent)" }} />
+            </div>
+          ) : versionesPDF.length === 0 ? (
+            <p className="text-xs py-2" style={{ color: "var(--color-text-muted)" }}>
+              Sin versiones de PDF registradas. Se generarán automáticamente al aprobar el presupuesto y al entregar.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {versionesPDF.map((v) => {
+                const MOTIVO_LABEL: Record<string, string> = {
+                  cotizacion_inicial: "Cotización inicial",
+                  aprobacion_cliente: "Aprobación del cliente",
+                  reaprobacion_presencial: "Aprobación presencial",
+                  cambio_presupuesto: "Cambio de presupuesto",
+                  entrega: "Acuse de entrega",
+                };
+                const fecha = new Date(v.createdAt).toLocaleDateString("es-MX", {
+                  day: "2-digit", month: "short", year: "numeric",
+                });
+                return (
+                  <div key={v.id} className="flex items-center gap-3 py-1.5">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold" style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)" }}>
+                      {v.version}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium leading-tight" style={{ color: "var(--color-text-primary)" }}>
+                        {MOTIVO_LABEL[v.motivo] ?? v.motivo}
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{fecha}</p>
+                    </div>
+                    <a
+                      href={v.urlPdf}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Descargar PDF"
+                      className="p-1.5 rounded-lg flex-shrink-0"
+                      style={{ color: "var(--color-accent)", background: "var(--color-accent-light)" }}
+                    >
+                      <Download className="w-4 h-4" />
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <button
+            className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium"
+            style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-secondary)", border: "1px solid var(--color-border)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-bg-sunken)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-bg-elevated)")}
+            onClick={fetchVersionesPDF}
+          >
+            <History className="w-3.5 h-3.5" />
+            Actualizar historial
+          </button>
+        </Card>
+
         {/* Promociones al momento de entrega */}
         {orden.estado === "listo_entrega" && clienteAceptaPromos === true && (
           <Card title="🎁 Sugerencias para el cliente">
@@ -796,6 +991,17 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                   </span>
                   <EstadoBadge estado={orden.estado} />
                   <PrioridadBadge prioridad={orden.prioridad} />
+                  {precioPendiente && (
+                    <button
+                      className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "1px solid var(--color-warning)" }}
+                      onClick={() => setActiveTab("presupuesto")}
+                      title="Cambio de precio pendiente de aprobación del admin"
+                    >
+                      <ShieldAlert className="w-3 h-3" />
+                      Precio pendiente
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs truncate mt-0.5" style={{ color: "var(--color-text-secondary)" }}>
                   {orden.marcaDispositivo} {orden.modeloDispositivo}
