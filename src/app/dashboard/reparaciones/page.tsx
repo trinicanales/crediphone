@@ -16,6 +16,9 @@ import { ExportButton } from "@/components/ui/ExportButton";
 import type { ColumnaExport } from "@/hooks/useExportCSV";
 import { Wrench, Trash2 } from "lucide-react";
 import { PiezasPendientesPanel } from "@/components/reparaciones/PiezasPendientesPanel";
+import { OfflineBanner } from "@/components/pos/OfflineBanner";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { encolarOperacion } from "@/lib/offline/queue";
 
 const COLUMNAS_REPARACIONES_CSV: ColumnaExport<OrdenReparacionDetallada>[] = [
   { header: "Folio", accessor: "folio" },
@@ -62,6 +65,7 @@ function StatPill({ label, value, bg, color }: { label: string; value: number; b
 
 export default function ReparacionesPage() {
   const { user, loading: authLoading } = useAuth();
+  const isOnline = useOnlineStatus();
   const [ordenes, setOrdenes] = useState<OrdenReparacionDetallada[]>([]);
   const [filteredOrdenes, setFilteredOrdenes] = useState<OrdenReparacionDetallada[]>([]);
   const [loading, setLoading] = useState(true);
@@ -250,7 +254,14 @@ export default function ReparacionesPage() {
       setModalCambiarEstadoOpen(true);
       return;
     }
-    // Transición directa via API
+    // Transición directa via API (o cola offline)
+    if (!isOnline) {
+      await encolarOperacion({
+        tipo: "reparacion_estado",
+        payload: { id: orden.id, estado: nuevoEstado },
+      });
+      return true;
+    }
     try {
       const res = await fetch(`/api/reparaciones/${orden.id}`, {
         method: "PUT",
@@ -297,6 +308,7 @@ export default function ReparacionesPage() {
 
   return (
     <div className="p-6">
+      <OfflineBanner onSyncComplete={() => void fetchOrdenes()} />
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>

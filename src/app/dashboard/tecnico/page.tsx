@@ -8,6 +8,9 @@ import { ModalDiagnostico } from "@/components/reparaciones/ModalDiagnostico";
 import { ModalCambiarEstado } from "@/components/reparaciones/ModalCambiarEstado";
 import { Wrench } from "lucide-react";
 import type { OrdenReparacionDetallada, EstadoOrdenReparacion } from "@/types";
+import { OfflineBanner } from "@/components/pos/OfflineBanner";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { encolarOperacion } from "@/lib/offline/queue";
 
 const ESTADOS_CRITICOS: EstadoOrdenReparacion[] = ["cancelado", "no_reparable"];
 
@@ -23,6 +26,7 @@ interface Stats {
 
 export default function PanelTecnicoPage() {
   const { user, loading: authLoading } = useAuth();
+  const isOnline = useOnlineStatus();
 
   const [ordenes, setOrdenes] = useState<OrdenReparacionDetallada[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +141,13 @@ export default function PanelTecnicoPage() {
       setModalCambiarEstadoOpen(true);
       return;
     }
+    if (!isOnline) {
+      await encolarOperacion({
+        tipo: "reparacion_estado",
+        payload: { id: orden.id, estado: nuevoEstado },
+      });
+      return true;
+    }
     try {
       const res = await fetch(`/api/reparaciones/${orden.id}`, {
         method: "PUT",
@@ -169,6 +180,7 @@ export default function PanelTecnicoPage() {
 
   return (
     <div className="p-6">
+      <OfflineBanner onSyncComplete={() => void cargarOrdenes()} />
       {/* ── Header ── */}
       <div className="mb-6 flex items-center justify-between">
         <div>

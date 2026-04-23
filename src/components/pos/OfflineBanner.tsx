@@ -126,14 +126,14 @@ export function OfflineBanner({ onSyncComplete }: OfflineBannerProps) {
             📡 Conexión recuperada —{" "}
             {sincronizando
               ? "sincronizando..."
-              : mensajeSync ?? `${pendientes} venta${pendientes !== 1 ? "s" : ""} pendiente${pendientes !== 1 ? "s" : ""} de sincronizar`}
+              : mensajeSync ?? `${pendientes} operación${pendientes !== 1 ? "es" : ""} pendiente${pendientes !== 1 ? "s" : ""} de sincronizar`}
           </>
         ) : (
           <>
             ⚠ Sin conexión a internet
             {pendientes > 0
-              ? ` — ${pendientes} venta${pendientes !== 1 ? "s" : ""} guardada${pendientes !== 1 ? "s" : ""} localmente`
-              : " — las ventas se guardarán localmente"}
+              ? ` — ${pendientes} operación${pendientes !== 1 ? "es" : ""} guardada${pendientes !== 1 ? "s" : ""} localmente`
+              : " — las operaciones se guardarán localmente"}
           </>
         )}
       </span>

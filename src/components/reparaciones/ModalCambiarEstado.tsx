@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { EstadoBadge } from "@/components/reparaciones/EstadoBadge";
 import type { EstadoOrdenReparacion } from "@/types";
 import { ArrowRight, AlertCircle } from "lucide-react";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { encolarOperacion } from "@/lib/offline/queue";
 
 interface ModalCambiarEstadoProps {
   isOpen: boolean;
@@ -61,6 +63,7 @@ export function ModalCambiarEstado({
   onSuccess,
   estadoInicial,
 }: ModalCambiarEstadoProps) {
+  const isOnline = useOnlineStatus();
   const [nuevoEstado, setNuevoEstado] = useState<EstadoOrdenReparacion | "">(estadoInicial ?? "");
   const [notas, setNotas] = useState("");
   const [loading, setLoading] = useState(false);
@@ -95,6 +98,17 @@ export function ModalCambiarEstado({
 
     try {
       setLoading(true);
+
+      if (!isOnline) {
+        await encolarOperacion({
+          tipo: "reparacion_estado",
+          payload: { id: ordenId, estado: nuevoEstado, notas: notas || undefined },
+        });
+        onSuccess();
+        handleClose();
+        return;
+      }
+
       const response = await fetch(`/api/reparaciones/${ordenId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

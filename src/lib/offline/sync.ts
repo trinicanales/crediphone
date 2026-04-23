@@ -33,7 +33,7 @@ async function enviarVenta(payload: unknown): Promise<void> {
 async function enviarReparacionEstado(payload: unknown): Promise<void> {
   const p = payload as { id: string; estado: string; notas?: string };
   const res = await fetch(`/api/reparaciones/${p.id}`, {
-    method: "PATCH",
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ estado: p.estado, notas: p.notas }),
   });
