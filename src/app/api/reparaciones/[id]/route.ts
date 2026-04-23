@@ -6,6 +6,7 @@ import {
   cambiarEstadoOrden,
 } from "@/lib/db/reparaciones";
 import { notificarCambioEstado } from "@/lib/notificaciones-reparaciones";
+import { notificarResponsablesKassa } from "@/lib/db/notificaciones";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { EstadoOrdenReparacion, DiagnosticoFormData } from "@/types";
@@ -96,10 +97,90 @@ export async function PUT(
       );
     }
 
+    const { userId, role, distribuidorId } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+
     let ordenActualizada;
 
     // Caso 1: Actualizar diagnóstico
     if (body.diagnostico) {
+      // ── CONTROL DE PRECIOS PARA VENDEDORES ──────────────────────────────
+      // Si un vendedor intenta cambiar costo_reparacion o costo_partes →
+      // crear solicitud de aprobación en lugar de aplicar directamente.
+      const esVendedor = role === "vendedor";
+      const nuevoCostoRep = body.diagnostico.costoReparacion;
+      const nuevoCostoPar = body.diagnostico.costoPartes;
+      const hayNuevoPrecio = nuevoCostoRep !== undefined || nuevoCostoPar !== undefined;
+
+      if (esVendedor && hayNuevoPrecio) {
+        const supabase = createAdminClient();
+        const ordenActual = await getOrdenReparacionById(id);
+
+        const costoRepActual = ordenActual?.costoReparacion ?? 0;
+        const costoParActual = ordenActual?.costoPartes ?? 0;
+        const preciosCambian =
+          (nuevoCostoRep !== undefined && Number(nuevoCostoRep) !== costoRepActual) ||
+          (nuevoCostoPar !== undefined && Number(nuevoCostoPar) !== costoParActual);
+
+        if (preciosCambian) {
+          // Guardar solicitud de cambio de precio
+          await supabase.from("solicitudes_cambio_precio").insert({
+            orden_id: id,
+            distribuidor_id: distribuidorId || null,
+            solicitado_por: userId,
+            estado: "pendiente",
+            costo_reparacion_actual: costoRepActual,
+            costo_partes_actual: costoParActual,
+            costo_reparacion_propuesto: nuevoCostoRep !== undefined ? Number(nuevoCostoRep) : costoRepActual,
+            costo_partes_propuesto: nuevoCostoPar !== undefined ? Number(nuevoCostoPar) : costoParActual,
+            motivo: body.diagnostico.motivo || "Cambio solicitado por vendedor",
+          });
+
+          // Marcar la orden como "precio pendiente de aprobación"
+          await supabase
+            .from("ordenes_reparacion")
+            .update({ precio_pendiente_aprobacion: true })
+            .eq("id", id);
+
+          // Notificar al admin para que apruebe
+          const folio = ordenActual?.folio ?? id;
+          notificarResponsablesKassa({
+            distribuidorId: distribuidorId ?? undefined,
+            titulo: `💰 Cambio de precio requiere aprobación — ${folio}`,
+            cuerpo: `Vendedor propone cambio de precio en ${folio}: mano de obra $${Number(nuevoCostoRep ?? costoRepActual).toFixed(2)}, partes $${Number(nuevoCostoPar ?? costoParActual).toFixed(2)}. Revisar y aprobar en la orden.`,
+            url: `/dashboard/reparaciones`,
+            tipo: "orden_actualizada",
+            ordenId: id,
+            soloAdmins: true,
+          }).catch(() => {});
+
+          // Aplicar los cambios NO de precio (diagnóstico, partes, notas) sin cambiar precios
+          const diagnosticoSinPrecios: DiagnosticoFormData = {
+            diagnosticoTecnico: body.diagnostico.diagnosticoTecnico,
+            costoReparacion: costoRepActual,  // mantener precio actual
+            costoPartes: costoParActual,       // mantener precio actual
+            partesReemplazadas: body.diagnostico.partesReemplazadas || [],
+            fechaEstimadaEntrega: body.diagnostico.fechaEstimadaEntrega
+              ? new Date(body.diagnostico.fechaEstimadaEntrega)
+              : undefined,
+            notasTecnico: body.diagnostico.notasTecnico,
+            requiereAprobacion: body.diagnostico.requiereAprobacion ?? true,
+          };
+
+          ordenActualizada = await updateDiagnostico(id, diagnosticoSinPrecios);
+
+          return NextResponse.json({
+            success: true,
+            data: ordenActualizada,
+            message: "Diagnóstico actualizado. El cambio de precio fue enviado al admin para aprobación.",
+            precioPendienteAprobacion: true,
+          });
+        }
+      }
+      // ──────────────────────────────────────────────────────────────────────
+
       const diagnosticoData: DiagnosticoFormData = {
         diagnosticoTecnico: body.diagnostico.diagnosticoTecnico,
         costoReparacion: body.diagnostico.costoReparacion,
@@ -193,10 +274,6 @@ export async function PUT(
 
     // Caso 3: Actualizar campos sueltos (fechaEstimadaEntrega, requiereAprobacion)
     if (body.fechaEstimadaEntrega !== undefined || body.requiereAprobacion !== undefined) {
-      const { userId } = await getAuthContext();
-      if (!userId) {
-        return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
-      }
       const supabase = createAdminClient();
       const patchData: Record<string, unknown> = {};
       if (body.fechaEstimadaEntrega !== undefined) {

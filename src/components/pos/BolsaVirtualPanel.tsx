@@ -27,7 +27,10 @@ interface OrdenBolsa {
   modeloDispositivo: string;
   presupuestoTotal: number;
   totalAnticipos: number;
+  costosPiezas: number;
   saldoPendiente: number;
+  saldoDisponibleBolsa: number;
+  ingresoNetoEstimado: number;
   anticipos: AnticipoResumen[];
 }
 
@@ -272,6 +275,17 @@ function OrdenCard({ orden, onAnticipoAgregado }: OrdenCardProps) {
                     Saldo: {fmtPrecio(orden.saldoPendiente)}
                   </p>
                 )}
+                {/* Costos de piezas y margen */}
+                {orden.costosPiezas > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      Costo piezas: <span style={{ fontFamily: "var(--font-data)", color: "var(--color-warning, #d97706)" }}>{fmtPrecio(orden.costosPiezas)}</span>
+                    </span>
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      Ingreso neto est.: <span style={{ fontFamily: "var(--font-data)", color: "var(--color-success)" }}>{fmtPrecio(orden.ingresoNetoEstimado)}</span>
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -385,6 +399,8 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
 
   const totalBolsa = ordenes.reduce((s, o) => s + o.totalAnticipos, 0);
   const totalSaldoPendiente = ordenes.reduce((s, o) => s + o.saldoPendiente, 0);
+  const totalCostosPiezas = ordenes.reduce((s, o) => s + o.costosPiezas, 0);
+  const totalSaldoDisponible = ordenes.reduce((s, o) => s + o.saldoDisponibleBolsa, 0);
 
   return (
     <div
@@ -428,10 +444,30 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
             {fmtPrecio(totalBolsa)}
           </span>
         </div>
+        {totalCostosPiezas > 0 && (
+          <div className="flex justify-between items-center">
+            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              − Costo piezas pedidas
+            </span>
+            <span className="text-sm font-semibold" style={{ color: "var(--color-warning, #d97706)", fontFamily: "var(--font-data)" }}>
+              − {fmtPrecio(totalCostosPiezas)}
+            </span>
+          </div>
+        )}
+        {totalCostosPiezas > 0 && (
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+              Saldo disponible real
+            </span>
+            <span className="text-sm font-bold" style={{ color: "var(--color-success)", fontFamily: "var(--font-data)" }}>
+              {fmtPrecio(totalSaldoDisponible)}
+            </span>
+          </div>
+        )}
         {totalSaldoPendiente > 0 && (
           <div className="flex justify-between items-center">
             <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-              Saldo pendiente total
+              Saldo pendiente (clientes deben)
             </span>
             <span className="text-sm font-semibold" style={{ color: "var(--color-danger, #dc2626)", fontFamily: "var(--font-data)" }}>
               {fmtPrecio(totalSaldoPendiente)}
@@ -439,7 +475,7 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
           </div>
         )}
         <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-          Efectivo físico − ventas caja = este monto
+          Efectivo físico − ventas caja = {fmtPrecio(totalBolsa)}
         </p>
       </div>
 

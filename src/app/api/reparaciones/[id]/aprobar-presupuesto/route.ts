@@ -3,6 +3,8 @@ import {
   aprobarPresupuesto,
   getOrdenReparacionById,
 } from "@/lib/db/reparaciones";
+import { guardarVersionPDF } from "@/lib/pdf/versiones-pdf";
+import { getAuthContext } from "@/lib/auth/server";
 
 /**
  * POST /api/reparaciones/[id]/aprobar-presupuesto
@@ -17,6 +19,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    let userId: string | undefined;
+    try { userId = (await getAuthContext()).userId ?? undefined; } catch { /* público */ }
     const { id } = await params;
 
     // Validar UUID
@@ -60,6 +64,15 @@ export async function POST(
 
     // Aprobar presupuesto
     const ordenActualizada = await aprobarPresupuesto(id);
+
+    // PDF v2 — aprobación presencial (fire-and-forget)
+    guardarVersionPDF(
+      id,
+      orden.folio,
+      "reaprobacion_presencial",
+      "Aprobación presencial registrada por empleado",
+      userId
+    ).catch(() => {});
 
     return NextResponse.json({
       success: true,

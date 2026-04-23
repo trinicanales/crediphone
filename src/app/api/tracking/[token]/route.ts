@@ -8,6 +8,7 @@ import {
   getHistorialEstadosOrden,
 } from "@/lib/db/reparaciones";
 import { crearNotificacionTecnico } from "@/lib/db/notificaciones";
+import { guardarVersionPDF } from "@/lib/pdf/versiones-pdf";
 
 /**
  * GET /api/tracking/[token]
@@ -317,6 +318,15 @@ export async function POST(
         // Continuar aunque falle la notificación
       }
 
+      // PDF v2 — aprobación digital del cliente (fire-and-forget)
+      guardarVersionPDF(
+        trackingData.orden_id,
+        orden.folio,
+        "aprobacion_cliente",
+        "Cliente aprobó el presupuesto completo vía tracking",
+        undefined
+      ).catch(() => {});
+
       return NextResponse.json({
         success: true,
         message:
@@ -337,6 +347,15 @@ export async function POST(
       } catch (error) {
         console.error("Error al crear notificación (no crítico):", error);
       }
+
+      // PDF v2 — aprobación parcial del cliente (fire-and-forget)
+      guardarVersionPDF(
+        trackingData.orden_id,
+        orden.folio,
+        "aprobacion_cliente",
+        "Cliente aprobó solo el problema original vía tracking",
+        undefined
+      ).catch(() => {});
 
       return NextResponse.json({
         success: true,

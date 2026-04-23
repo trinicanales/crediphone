@@ -12,6 +12,8 @@ import {
 } from "@/lib/db/reparaciones";
 import { getAuthContext } from "@/lib/auth/server";
 import { notificarResponsablesKassa } from "@/lib/db/notificaciones";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { guardarVersionPDF } from "@/lib/pdf/versiones-pdf";
 import type { EstadoOrdenReparacion } from "@/types";
 
 /**
@@ -225,27 +227,84 @@ export async function POST(request: Request) {
     }
     // ────────────────────────────────────────────────────────────────────
 
-    // ── NOTIFICACIÓN AL ADMIN CUANDO UN TÉCNICO CREA LA ORDEN ──────────
-    // Si quien crea es un técnico, el admin debe saberlo de inmediato.
-    // Si además el sistema auto-asignó al mismo técnico creador → alerta extra.
+    // ── PDF v1 — cotización inicial (fire-and-forget) ─────────────────────
+    guardarVersionPDF(
+      nuevaOrden.id,
+      nuevaOrden.folio,
+      "cotizacion_inicial",
+      "PDF generado al crear la orden",
+      userId
+    ).catch(() => {}); // no bloquea la respuesta
+    // ────────────────────────────────────────────────────────────────────
+
+    // ── PEDIDOS AUTOMÁTICOS para piezas sin stock (sin productoId) ────────
+    // Si la pieza no tiene productoId (libre o sin inventario), se genera
+    // automáticamente un pedido en estado "pendiente" para que el vendedor
+    // lo complete con el costo real y foto del comprobante.
+    const piezasSinStock = piezasCotizacion.filter((p) => !p.productoId);
+    const pedidosAutogenerados: string[] = [];
+
+    if (piezasSinStock.length > 0) {
+      const supabase = createAdminClient();
+      for (const pieza of piezasSinStock) {
+        const { error: pedidoErr } = await supabase
+          .from("pedidos_pieza_reparacion")
+          .insert({
+            orden_id: nuevaOrden.id,
+            distribuidor_id: filterDistribuidorId,
+            nombre_pieza: pieza.nombre,
+            costo_estimado: 0, // Pendiente: el vendedor capturará el costo real
+            costo_envio: 0,
+            estado: "pendiente",
+            creado_por: userId,
+            notas: `Auto-generado al crear orden. Precio cliente: $${Number(pieza.precioUnitario).toFixed(2)}. Confirmar costo real con proveedor.`,
+            financiado_por: "bolsa",
+            monto_de_caja: 0,
+          });
+        if (!pedidoErr) {
+          pedidosAutogenerados.push(pieza.nombre);
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────
+
+    // ── NOTIFICACIONES ────────────────────────────────────────────────────
+    const tienePiezasPendientes = pedidosAutogenerados.length > 0;
+    const resumenPiezas = tienePiezasPendientes
+      ? ` Piezas a pedir: ${pedidosAutogenerados.join(", ")}.`
+      : piezasReservadas.length > 0
+        ? ` Piezas reservadas: ${piezasReservadas.join(", ")}.`
+        : "";
+
+    // Notificación al admin si quien crea es técnico
     if (role === "tecnico") {
       const autoAsignado = nuevaOrden.tecnicoId === userId;
       const alertaAsignacion = autoAsignado
         ? " ⚠️ Auto-asignado al mismo técnico — revisar asignación."
         : "";
-      const resumen = piezasReservadas.length > 0
-        ? ` Piezas reservadas: ${piezasReservadas.join(", ")}.`
-        : "";
 
       notificarResponsablesKassa({
         distribuidorId: filterDistribuidorId ?? undefined,
         titulo: `📋 Técnico creó orden ${nuevaOrden.folio}`,
-        cuerpo: `${nuevaOrden.marcaDispositivo} ${nuevaOrden.modeloDispositivo} — "${body.problemaReportado}"${resumen}${alertaAsignacion}`,
+        cuerpo: `${nuevaOrden.marcaDispositivo} ${nuevaOrden.modeloDispositivo} — "${body.problemaReportado}"${resumenPiezas}${alertaAsignacion}`,
         url: `/dashboard/reparaciones`,
         tipo: "orden_actualizada",
         ordenId: nuevaOrden.id,
         soloAdmins: true,
-      }).catch(() => {}); // fire-and-forget — no bloquea la respuesta
+      }).catch(() => {});
+    }
+
+    // Notificación a vendedores cuando hay piezas por pedir al proveedor
+    if (tienePiezasPendientes) {
+      notificarResponsablesKassa({
+        distribuidorId: filterDistribuidorId ?? undefined,
+        titulo: `🔧 Nueva orden ${nuevaOrden.folio} necesita piezas`,
+        cuerpo: `${nuevaOrden.marcaDispositivo} ${nuevaOrden.modeloDispositivo}: ${pedidosAutogenerados.join(", ")}. Contactar proveedor y registrar costo real.`,
+        url: `/dashboard/reparaciones`,
+        tipo: "orden_actualizada",
+        ordenId: nuevaOrden.id,
+        soloAdmins: false, // incluye vendedores
+      }).catch(() => {});
     }
     // ────────────────────────────────────────────────────────────────────
 
@@ -255,6 +314,7 @@ export async function POST(request: Request) {
         data: nuevaOrden,
         message: `Orden ${nuevaOrden.folio} creada exitosamente`,
         piezasReservadas,
+        pedidosAutogenerados,
         piezasError: piezasError.length > 0 ? piezasError : undefined,
       },
       { status: 201 }

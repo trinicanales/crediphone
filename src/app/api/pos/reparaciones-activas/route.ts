@@ -63,7 +63,15 @@ export async function GET(request: NextRequest) {
       .neq("estado", "devuelto")
       .order("fecha_anticipo", { ascending: true });
 
-    // 3. Group anticipos by order
+    // 3. Fetch gastos de bolsa (costos de piezas pedidas) por orden
+    const { data: gastosBolsa } = await supabase
+      .from("movimientos_bolsa_virtual")
+      .select("orden_id, monto, concepto, created_at")
+      .in("orden_id", ordenIds)
+      .eq("tipo", "gasto_pieza")
+      .order("created_at", { ascending: true });
+
+    // 4. Group anticipos and gastos by order
     const anticiposPorOrden: Record<string, {
       id: string; monto: number; tipoPago: string;
       fechaAnticipo: string; recibidoPorNombre: string | null;
@@ -82,17 +90,25 @@ export async function GET(request: NextRequest) {
       totalPorOrden[a.orden_id] = (totalPorOrden[a.orden_id] || 0) + Number(a.monto || 0);
     }
 
+    const gastosPorOrden: Record<string, number> = {};
+    for (const g of (gastosBolsa || []) as any[]) {
+      gastosPorOrden[g.orden_id] = (gastosPorOrden[g.orden_id] || 0) + Number(g.monto || 0);
+    }
+
     if (soloResumen) {
       const totalBolsa = Object.values(totalPorOrden).reduce((s, v) => s + v, 0);
       const conteoOrdenes = Object.keys(totalPorOrden).filter((id) => totalPorOrden[id] > 0).length;
       return NextResponse.json({ success: true, data: { totalBolsa, conteoOrdenes } });
     }
 
-    // 4. Build response — only include orders that have anticipos OR saldo pendiente > 0
+    // 5. Build response — only include orders that have anticipos OR saldo pendiente > 0
     const result = (ordenes as any[]).map((o) => {
       const totalAnticipada = totalPorOrden[o.id] || 0;
+      const costosPiezas = gastosPorOrden[o.id] || 0;
       const presupuestoTotal = Number(o.precio_total || o.presupuesto_total || o.costo_total || 0);
       const saldoPendiente = Math.max(presupuestoTotal - totalAnticipada, 0);
+      const saldoDisponibleBolsa = Math.max(totalAnticipada - costosPiezas, 0);
+      const ingresoNetoEstimado = Math.max(presupuestoTotal - costosPiezas, 0);
       const cli = o.clientes as { nombre?: string; apellido?: string; telefono?: string } | null;
       return {
         ordenId: o.id,
@@ -104,7 +120,10 @@ export async function GET(request: NextRequest) {
         modeloDispositivo: o.modelo_dispositivo ?? "",
         presupuestoTotal,
         totalAnticipos: totalAnticipada,
+        costosPiezas,
         saldoPendiente,
+        saldoDisponibleBolsa,
+        ingresoNetoEstimado,
         anticipos: anticiposPorOrden[o.id] || [],
       };
     });

@@ -34,6 +34,7 @@ export async function GET(
       .select(`
         id, nombre_pieza, costo_estimado, costo_envio, estado,
         created_at, fecha_recibida, notas, producto_id,
+        foto_comprobante_url, financiado_por, monto_de_caja,
         creadoPor:creado_por (name),
         recibidoPor:recibido_por (name)
       `)
@@ -52,6 +53,9 @@ export async function GET(
       fechaRecibida: p.fecha_recibida,
       notas: p.notas,
       productoId: p.producto_id,
+      fotoComprobanteUrl: p.foto_comprobante_url ?? null,
+      financiadoPor: p.financiado_por ?? "bolsa",
+      montoDeCaja: Number(p.monto_de_caja || 0),
       creadoPorNombre: p.creadoPor?.name ?? null,
       recibidoPorNombre: p.recibidoPor?.name ?? null,
     }));
@@ -65,7 +69,12 @@ export async function GET(
 /**
  * POST /api/reparaciones/[id]/pedidos-pieza
  * Crea un nuevo pedido de pieza para la orden.
- * Body: { nombrePieza, costoEstimado, costoEnvio?, notas?, productoId?, recibirInmediatamente? }
+ * Body: { nombrePieza, costoEstimado, costoEnvio?, notas?, productoId?, recibirInmediatamente?, fotoComprobanteUrl? }
+ *
+ * Lógica de bolsa virtual:
+ * - Si anticipo disponible >= costo total → financiado_por='bolsa'
+ * - Si anticipo < costo total → diferencia la financia la caja (financiado_por='mixto' o 'caja')
+ * - Se registra movimiento tipo='gasto_pieza' en movimientos_bolsa_virtual
  */
 export async function POST(
   request: NextRequest,
@@ -77,7 +86,15 @@ export async function POST(
 
     const { id: ordenId } = await params;
     const body = await request.json();
-    const { nombrePieza, costoEstimado = 0, costoEnvio = 0, notas, productoId, recibirInmediatamente = false } = body;
+    const {
+      nombrePieza,
+      costoEstimado = 0,
+      costoEnvio = 0,
+      notas,
+      productoId,
+      recibirInmediatamente = false,
+      fotoComprobanteUrl,
+    } = body;
 
     if (!nombrePieza?.trim()) {
       return NextResponse.json({ success: false, error: "nombrePieza es requerido" }, { status: 400 });
@@ -97,6 +114,52 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Sin acceso" }, { status: 403 });
     }
 
+    // Calcular financiamiento (bolsa vs caja)
+    const costoTotal = (Number(costoEstimado) || 0) + (Number(costoEnvio) || 0);
+
+    // Total anticipos disponibles para esta orden
+    const { data: anticipos } = await supabase
+      .from("anticipos_reparacion")
+      .select("monto")
+      .eq("orden_id", ordenId)
+      .neq("estado", "devuelto");
+
+    const totalAnticipos = (anticipos || []).reduce(
+      (sum: number, a: any) => sum + Number(a.monto || 0),
+      0
+    );
+
+    // Gastos previos de bolsa para esta orden
+    const { data: gastosExistentes } = await supabase
+      .from("movimientos_bolsa_virtual")
+      .select("monto")
+      .eq("orden_id", ordenId)
+      .eq("tipo", "gasto_pieza");
+
+    const totalGastado = (gastosExistentes || []).reduce(
+      (sum: number, g: any) => sum + Number(g.monto || 0),
+      0
+    );
+
+    const saldoDisponible = Math.max(0, totalAnticipos - totalGastado);
+
+    let financiadoPor: "bolsa" | "caja" | "mixto" = "bolsa";
+    let montoDeCaja = 0;
+
+    if (costoTotal <= 0) {
+      financiadoPor = "bolsa";
+      montoDeCaja = 0;
+    } else if (saldoDisponible >= costoTotal) {
+      financiadoPor = "bolsa";
+      montoDeCaja = 0;
+    } else if (saldoDisponible <= 0) {
+      financiadoPor = "caja";
+      montoDeCaja = costoTotal;
+    } else {
+      financiadoPor = "mixto";
+      montoDeCaja = costoTotal - saldoDisponible;
+    }
+
     const estadoInicial = recibirInmediatamente ? "recibida" : "pendiente";
     const ahora = new Date().toISOString();
 
@@ -112,12 +175,28 @@ export async function POST(
         creado_por: userId,
         notas: notas?.trim() || null,
         producto_id: productoId || null,
+        foto_comprobante_url: fotoComprobanteUrl || null,
+        financiado_por: financiadoPor,
+        monto_de_caja: montoDeCaja,
         ...(recibirInmediatamente ? { fecha_recibida: ahora, recibido_por: userId } : {}),
       })
       .select()
       .single();
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+
+    // Registrar gasto en bolsa virtual
+    if (costoTotal > 0) {
+      await supabase.from("movimientos_bolsa_virtual").insert({
+        orden_id: ordenId,
+        distribuidor_id: orden.distribuidor_id,
+        tipo: "gasto_pieza",
+        monto: costoTotal,
+        concepto: `Pieza: ${nombrePieza.trim()} (costo $${Number(costoEstimado).toFixed(2)} + envío $${Number(costoEnvio).toFixed(2)})`,
+        pedido_pieza_id: pedido.id,
+        registrado_por: userId,
+      });
+    }
 
     // Si se recibe inmediatamente, agregar a reparacion_piezas
     if (recibirInmediatamente) {
@@ -129,13 +208,21 @@ export async function POST(
         producto_id: productoId || null,
       });
 
-      // Si tiene producto_id, incrementar stock
       if (productoId) {
         await supabase.rpc("incrementar_stock", { p_producto_id: productoId, p_cantidad: 1 }).maybeSingle();
       }
     }
 
-    return NextResponse.json({ success: true, data: { id: pedido.id, estado: pedido.estado } }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: pedido.id,
+        estado: pedido.estado,
+        financiadoPor,
+        montoDeCaja,
+        saldoDisponible,
+      },
+    }, { status: 201 });
   } catch {
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
   }

@@ -3,6 +3,9 @@
  *
  * Cobro final + entrega del equipo.
  * - Calcula saldo pendiente (total - anticipos aplicados)
+ * - Calcula ingreso_neto = precio_total - sum(costo_pieza + costo_envio)
+ * - Si caja financió piezas (monto_de_caja > 0) → registra reembolso a caja primero
+ * - Registra ingreso_neto en movimientos_bolsa_virtual
  * - Registra el saldo en caja
  * - Marca todos los anticipos pendientes como "aplicado"
  * - Cambia el estado de la orden a "entregado"
@@ -13,6 +16,7 @@ import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aplicarAnticiposOrden } from "@/lib/db/reparaciones";
 import { getSesionActiva } from "@/lib/db/caja";
+import { guardarVersionPDF } from "@/lib/pdf/versiones-pdf";
 import type { TipoPago } from "@/types";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,7 +47,7 @@ export async function POST(
     // 1. Obtener la orden
     const { data: orden, error: ordenError } = await supabase
       .from("ordenes_reparacion")
-      .select("id, folio, estado, precio_total, presupuesto_total")
+      .select("id, folio, estado, precio_total, presupuesto_total, distribuidor_id")
       .eq("id", id)
       .single();
 
@@ -73,14 +77,33 @@ export async function POST(
     const precioTotal = parseFloat(orden.precio_total || orden.presupuesto_total || 0);
     const saldoFinal = Math.max(0, precioTotal - totalAnticipos);
 
-    // 3. Sesión de caja activa
+    // 3. Calcular costos de piezas (para ingreso neto)
+    const { data: pedidosPieza } = await supabase
+      .from("pedidos_pieza_reparacion")
+      .select("costo_estimado, costo_envio, monto_de_caja, estado")
+      .eq("orden_id", id)
+      .neq("estado", "cancelada");
+
+    const costosPiezas = (pedidosPieza || []).reduce(
+      (sum: number, p: any) => sum + Number(p.costo_estimado || 0) + Number(p.costo_envio || 0),
+      0
+    );
+
+    const montoCajaAdvanced = (pedidosPieza || []).reduce(
+      (sum: number, p: any) => sum + Number(p.monto_de_caja || 0),
+      0
+    );
+
+    const ingresoNeto = Math.max(0, precioTotal - costosPiezas);
+
+    // 4. Sesión de caja activa
     let sesionCajaId: string | undefined;
     try {
       const sesion = await getSesionActiva(userId);
       sesionCajaId = sesion?.id;
     } catch { /* sin caja activa */ }
 
-    // 4. Aplicar anticipos + registrar saldo en caja
+    // 5. Aplicar anticipos + registrar saldo en caja
     await aplicarAnticiposOrden(
       id,
       orden.folio,
@@ -90,20 +113,60 @@ export async function POST(
       userId
     );
 
-    // 5. Cambiar estado a "entregado"
+    // 6. Registrar movimientos en bolsa virtual
+    const movimientosBolsa = [];
+
+    // Si la caja financió parte de la pieza → registrar reembolso
+    if (montoCajaAdvanced > 0) {
+      movimientosBolsa.push({
+        orden_id: id,
+        distribuidor_id: orden.distribuidor_id,
+        tipo: "reembolso_caja",
+        monto: montoCajaAdvanced,
+        concepto: `Reembolso a caja: adelanto por piezas $${montoCajaAdvanced.toFixed(2)}`,
+        sesion_caja_id: sesionCajaId || null,
+        registrado_por: userId,
+      });
+    }
+
+    // Ingreso neto del servicio → entra a caja
+    movimientosBolsa.push({
+      orden_id: id,
+      distribuidor_id: orden.distribuidor_id,
+      tipo: "ingreso_caja",
+      monto: ingresoNeto,
+      concepto: `Ingreso neto: precio $${precioTotal.toFixed(2)} - costos piezas $${costosPiezas.toFixed(2)}`,
+      sesion_caja_id: sesionCajaId || null,
+      registrado_por: userId,
+    });
+
+    if (movimientosBolsa.length > 0) {
+      await supabase.from("movimientos_bolsa_virtual").insert(movimientosBolsa);
+    }
+
+    // 7. Cambiar estado a "entregado"
     await supabase
       .from("ordenes_reparacion")
       .update({ estado: "entregado", fecha_entrega: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", id);
 
-    // 6. Registrar historial
+    // PDF final — acuse de entrega (fire-and-forget)
+    guardarVersionPDF(
+      id,
+      orden.folio,
+      "entrega",
+      `Acuse de entrega. Ingreso neto: $${ingresoNeto.toFixed(2)}`,
+      userId
+    ).catch(() => {});
+
+    // 8. Registrar historial
     await supabase.from("historial_estado_orden").insert({
       orden_id: id,
       estado_anterior: orden.estado,
       estado_nuevo: "entregado",
       comentario: saldoFinal > 0
-        ? `Equipo entregado. Saldo cobrado: $${saldoFinal.toFixed(2)} (${metodoPago})`
-        : "Equipo entregado. Pagado completamente con anticipo(s).",
+        ? `Equipo entregado. Saldo cobrado: $${saldoFinal.toFixed(2)} (${metodoPago}). Ingreso neto: $${ingresoNeto.toFixed(2)}`
+        : `Equipo entregado. Pagado completamente con anticipo(s). Ingreso neto: $${ingresoNeto.toFixed(2)}`,
       usuario_id: userId,
     });
 
@@ -115,6 +178,9 @@ export async function POST(
         precioTotal,
         totalAnticipos,
         saldoCobrado: saldoFinal,
+        costosPiezas,
+        ingresoNeto,
+        montoCajaAdvanced,
         registradoEnCaja: !!sesionCajaId,
         metodoPago,
       },

@@ -60,11 +60,8 @@ export async function POST(
     const motivo: string = body.motivo?.trim() || "Sin motivo especificado";
     const devolverAnticipos: boolean = body.devolverAnticipos ?? true;
     const sesionCajaId: string | undefined = body.sesionCajaId || undefined;
-    // Cargo de cancelación: monto retenido antes de devolver anticipos al cliente
-    const cargoCancelacion: number =
-      typeof body.cargoCancelacion === "number" ? Math.max(0, body.cargoCancelacion) : 0;
 
-    // Obtener la orden para validar que existe y no esté ya cancelada
+    // Obtener la orden PRIMERO para leer su cargoCancelacion
     const orden = await getOrdenReparacionById(id);
     if (!orden) {
       return NextResponse.json(
@@ -72,6 +69,12 @@ export async function POST(
         { status: 404 }
       );
     }
+
+    // Cargo de cancelación: usa el de la orden si no viene en el body
+    // Así no depende de que el frontend lo envíe correctamente
+    const cargoCancelacion: number = typeof body.cargoCancelacion === "number"
+      ? Math.max(0, body.cargoCancelacion)
+      : Math.max(0, orden.cargoCancelacion ?? 100);
 
     if (orden.estado === "cancelado") {
       return NextResponse.json(
@@ -87,77 +90,100 @@ export async function POST(
       );
     }
 
-    // ── 1. Cambiar estado a cancelado ────────────────────────────────────
+    const supabase = createAdminClient();
+
+    // ── 1. Analizar piezas pedidas para la bolsa virtual ────────────────
+    // - Piezas que YA LLEGARON (estado='recibida'): entran al inventario, NO se devuelve su costo
+    // - Piezas que NO HAN LLEGADO (estado='pendiente'/'en_camino'): se devuelve su costo al cliente
+    const { data: pedidosPieza } = await supabase
+      .from("pedidos_pieza_reparacion")
+      .select("id, nombre_pieza, costo_estimado, costo_envio, estado, monto_de_caja")
+      .eq("orden_id", id);
+
+    const piezasLlegadas = (pedidosPieza ?? []).filter((p: any) => p.estado === "recibida");
+    const costoPiezasLlegadas = piezasLlegadas.reduce(
+      (sum: number, p: any) => sum + Number(p.costo_estimado || 0) + Number(p.costo_envio || 0),
+      0
+    );
+
+    // ── 2. Cambiar estado a cancelado ────────────────────────────────────
     await cambiarEstadoOrden(id, "cancelado", `Cancelado: ${motivo}`);
 
-    // ── 2. Devolver piezas al inventario ─────────────────────────────────
-    // devolverTodasLasPiezas restaura el stock de cada pieza en reparacion_piezas
-    // y elimina los registros de la orden
+    // ── 3. Devolver piezas reservadas al inventario ──────────────────────
     await devolverTodasLasPiezas(id);
 
-    // ── 3. Devolver anticipos (opcional) ─────────────────────────────────
+    // ── 4. Calcular devolución considerando cargo y piezas llegadas ──────
     let totalDevuelto = 0;
     let cargoAplicado = 0;
 
     if (devolverAnticipos) {
-      if (cargoCancelacion > 0) {
-        // Devolución parcial: totalAnticipos - cargoCancelacion
-        const supabase = createAdminClient();
-        const ahora = new Date().toISOString();
+      const ahora = new Date().toISOString();
 
-        const { data: anticiposPendientes } = await supabase
+      const { data: anticiposPendientes } = await supabase
+        .from("anticipos_reparacion")
+        .select("id, monto")
+        .eq("orden_id", id)
+        .eq("estado", "pendiente");
+
+      const totalAnticipos = (anticiposPendientes ?? []).reduce(
+        (sum: number, a: any) => sum + parseFloat(a.monto),
+        0
+      );
+
+      if (totalAnticipos > 0) {
+        // Retenciones:
+        // 1. Cargo de cancelación (siempre, si aplica)
+        // 2. Costo de piezas que YA LLEGARON (quedan en inventario)
+        const totalRetenciones = Math.min(
+          cargoCancelacion + costoPiezasLlegadas,
+          totalAnticipos
+        );
+        cargoAplicado = Math.min(cargoCancelacion, totalAnticipos);
+        totalDevuelto = Math.max(0, totalAnticipos - totalRetenciones);
+
+        // Marcar anticipos como devueltos
+        await supabase
           .from("anticipos_reparacion")
-          .select("id, monto")
+          .update({ estado: "devuelto", fecha_devuelto: ahora, motivo_devolucion: motivo })
           .eq("orden_id", id)
           .eq("estado", "pendiente");
 
-        const totalAnticipos = (anticiposPendientes ?? []).reduce(
-          (sum: number, a: any) => sum + parseFloat(a.monto),
-          0
-        );
-
-        if (totalAnticipos > 0) {
-          cargoAplicado = Math.min(cargoCancelacion, totalAnticipos);
-          totalDevuelto = Math.max(0, totalAnticipos - cargoAplicado);
-
-          // Marcar anticipos como devueltos
-          await supabase
-            .from("anticipos_reparacion")
-            .update({ estado: "devuelto", fecha_devuelto: ahora, motivo_devolucion: motivo })
-            .eq("orden_id", id)
-            .eq("estado", "pendiente");
-
-          // Registrar devolución neta en caja
-          if (sesionCajaId && totalDevuelto > 0) {
-            await supabase.from("caja_movimientos").insert({
-              sesion_id: sesionCajaId,
-              tipo: "devolucion_anticipo",
-              monto: totalDevuelto,
-              concepto: `Devolución anticipo ${orden.folio} (menos cargo $${cargoAplicado.toFixed(2)}). Motivo: ${motivo}`,
-              autorizado_por: userId,
-            });
-          }
-
-          // El cargo de cancelación permanece en caja como ingreso
-          if (sesionCajaId && cargoAplicado > 0) {
-            await supabase.from("caja_movimientos").insert({
-              sesion_id: sesionCajaId,
-              tipo: "entrada_efectivo",
-              monto: cargoAplicado,
-              concepto: `Cargo cancelación reparación ${orden.folio}`,
-              autorizado_por: userId,
-            });
-          }
+        // Registrar devolución en caja
+        if (sesionCajaId && totalDevuelto > 0) {
+          await supabase.from("caja_movimientos").insert({
+            sesion_id: sesionCajaId,
+            tipo: "devolucion_anticipo",
+            monto: totalDevuelto,
+            concepto: `Devolución anticipo ${orden.folio}. Cargo: $${cargoAplicado.toFixed(2)}${costoPiezasLlegadas > 0 ? `, Piezas llegadas: $${costoPiezasLlegadas.toFixed(2)}` : ""}. Motivo: ${motivo}`,
+            autorizado_por: userId,
+          });
         }
-      } else {
-        // Devolución completa (flujo admin normal)
-        totalDevuelto = await devolverAnticiposOrden(
-          id,
-          orden.folio,
-          motivo,
-          sesionCajaId,
-          userId
-        );
+
+        // Cargo de cancelación → ingreso en caja
+        if (sesionCajaId && cargoAplicado > 0) {
+          await supabase.from("caja_movimientos").insert({
+            sesion_id: sesionCajaId,
+            tipo: "entrada_efectivo",
+            monto: cargoAplicado,
+            concepto: `Cargo cancelación reparación ${orden.folio}`,
+            autorizado_por: userId,
+          });
+        }
+
+        // Registrar en bolsa virtual: devolución al cliente
+        await supabase.from("movimientos_bolsa_virtual").insert({
+          orden_id: id,
+          distribuidor_id: orden.distribuidorId ?? null,
+          tipo: "devolucion_cliente",
+          monto: totalDevuelto,
+          concepto: `Cancelación ${orden.folio}: devuelto $${totalDevuelto.toFixed(2)} (retención cargo: $${cargoAplicado.toFixed(2)}, piezas llegadas: $${costoPiezasLlegadas.toFixed(2)})`,
+          sesion_caja_id: sesionCajaId || null,
+          registrado_por: userId,
+        });
+      } else if (totalAnticipos === 0) {
+        // Sin anticipos — nada que devolver; solo el cargo si aplica
+        cargoAplicado = 0;
+        totalDevuelto = 0;
       }
     }
 
