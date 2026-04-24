@@ -85,8 +85,10 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   // Pedidos de pieza
   interface PedidoPieza {
     id: string; nombrePieza: string; costoEstimado: number; costoEnvio: number;
-    estado: "pendiente" | "recibida" | "cancelada"; createdAt: string;
-    fechaRecibida: string | null; creadoPorNombre: string | null; recibidoPorNombre: string | null;
+    estado: "pendiente" | "en_camino" | "recibida" | "verificada_ok" | "defectuosa" | "instalada" | "cancelada";
+    createdAt: string; fechaRecibida: string | null; fechaEstimadaLlegada: string | null;
+    motivoDefecto: string | null; intentosReemplazo: number;
+    creadoPorNombre: string | null; recibidoPorNombre: string | null;
   }
   const [pedidosPieza, setPedidosPieza] = useState<PedidoPieza[]>([]);
   const [mostrarFormPedido, setMostrarFormPedido] = useState(false);
@@ -95,6 +97,11 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const [recibirInmediatamente, setRecibirInmediatamente] = useState(false);
   const [guardandoPedido, setGuardandoPedido] = useState(false);
   const [recibiendoPedido, setRecibiendoPedido] = useState<string | null>(null);
+  const [marcandoEnCamino, setMarcandoEnCamino] = useState<string | null>(null);
+  const [fechaLlegadaInput, setFechaLlegadaInput] = useState<Record<string, string>>({});
+  const [verificandoPedido, setVerificandoPedido] = useState<string | null>(null);
+  const [verifFormPedidoId, setVerifFormPedidoId] = useState<string | null>(null);
+  const [motivoDefectoInput, setMotivoDefectoInput] = useState("");
 
   // Solicitudes de cambio de precio
   interface SolicitudPrecio {
@@ -302,6 +309,50 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
       }
     } finally {
       setRecibiendoPedido(null);
+    }
+  }
+
+  async function handleMarcarEnCamino(pedidoId: string) {
+    if (!orden) return;
+    setMarcandoEnCamino(pedidoId);
+    try {
+      const fecha = fechaLlegadaInput[pedidoId];
+      const res = await fetch(`/api/reparaciones/${orden.id}/pedidos-pieza`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId, fechaEstimadaLlegada: fecha || undefined }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchPedidosPieza();
+      } else {
+        alert(data.error || "Error al marcar en camino");
+      }
+    } finally {
+      setMarcandoEnCamino(null);
+    }
+  }
+
+  async function handleVerificarPedido(pedidoId: string, llegoBien: boolean) {
+    if (!orden) return;
+    setVerificandoPedido(pedidoId);
+    try {
+      const res = await fetch(`/api/reparaciones/${orden.id}/pedidos-pieza/${pedidoId}/verificar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ llegoBien, motivo: llegoBien ? undefined : (motivoDefectoInput.trim() || "Sin especificar") }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setVerifFormPedidoId(null);
+        setMotivoDefectoInput("");
+        fetchPedidosPieza();
+        fetchOrden();
+      } else {
+        alert(data.error || "Error al verificar pieza");
+      }
+    } finally {
+      setVerificandoPedido(null);
     }
   }
 
@@ -628,33 +679,140 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
             {pedidosPieza.length === 0 && !mostrarFormPedido && (
               <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Sin piezas pedidas</p>
             )}
-            {pedidosPieza.map((p) => (
-              <div key={p.id} className="flex items-start justify-between gap-2 py-2 border-b last:border-b-0" style={{ borderColor: "var(--color-border-subtle)" }}>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    {p.estado === "recibida"
-                      ? <PackageCheck className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-success)" }} />
-                      : <PackagePlus className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-warning, #d97706)" }} />
-                    }
-                    <p className="text-sm truncate" style={{ color: "var(--color-text-primary)" }}>{p.nombrePieza}</p>
+            {pedidosPieza.map((p) => {
+              const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
+                pendiente:     { label: "Pendiente",    color: "#92400e", bg: "#fef3c7" },
+                en_camino:     { label: "En camino",    color: "#1d4ed8", bg: "#dbeafe" },
+                recibida:      { label: "Recibida",     color: "#0369a1", bg: "#e0f2fe" },
+                verificada_ok: { label: "Verificada",   color: "#166534", bg: "#dcfce7" },
+                instalada:     { label: "Instalada ✓",  color: "#166534", bg: "#dcfce7" },
+                defectuosa:    { label: "Defectuosa",   color: "#991b1b", bg: "#fee2e2" },
+                cancelada:     { label: "Cancelada",    color: "#6b7280", bg: "#f3f4f6" },
+              };
+              const badge = badgeConfig[p.estado] ?? { label: p.estado, color: "#6b7280", bg: "#f3f4f6" };
+              const isVerifOpen = verifFormPedidoId === p.id;
+
+              return (
+                <div key={p.id} className="flex flex-col gap-2 py-2 border-b last:border-b-0" style={{ borderColor: "var(--color-border-subtle)" }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {(p.estado === "instalada" || p.estado === "verificada_ok")
+                          ? <PackageCheck className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-success)" }} />
+                          : <PackagePlus className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-warning, #d97706)" }} />
+                        }
+                        <p className="text-sm truncate" style={{ color: "var(--color-text-primary)" }}>{p.nombrePieza}</p>
+                        <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ color: badge.color, background: badge.bg }}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                        {p.costoEstimado > 0 && `$${p.costoEstimado.toFixed(2)}`}
+                        {p.fechaEstimadaLlegada && ` · Llegada est. ${new Date(p.fechaEstimadaLlegada).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}`}
+                        {p.estado === "defectuosa" && p.motivoDefecto && ` · ${p.motivoDefecto}`}
+                        {p.intentosReemplazo > 0 && ` · ${p.intentosReemplazo} reemplazo(s)`}
+                      </p>
+                    </div>
+                    {/* Action buttons */}
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      {p.estado === "pendiente" && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleMarcarEnCamino(p.id)}
+                            disabled={marcandoEnCamino === p.id}
+                            className="text-xs px-2 py-1 rounded-lg font-medium"
+                            style={{ background: "#dbeafe", color: "#1d4ed8", opacity: marcandoEnCamino === p.id ? 0.7 : 1 }}
+                          >
+                            {marcandoEnCamino === p.id ? "..." : "En camino"}
+                          </button>
+                          <button
+                            onClick={() => handleRecibirPedido(p.id)}
+                            disabled={recibiendoPedido === p.id}
+                            className="text-xs px-2 py-1 rounded-lg font-medium"
+                            style={{ background: "var(--color-success)", color: "#fff", opacity: recibiendoPedido === p.id ? 0.7 : 1 }}
+                          >
+                            {recibiendoPedido === p.id ? "..." : "Recibida ✓"}
+                          </button>
+                        </div>
+                      )}
+                      {p.estado === "en_camino" && (
+                        <button
+                          onClick={() => handleRecibirPedido(p.id)}
+                          disabled={recibiendoPedido === p.id}
+                          className="text-xs px-2 py-1 rounded-lg font-medium"
+                          style={{ background: "var(--color-success)", color: "#fff", opacity: recibiendoPedido === p.id ? 0.7 : 1 }}
+                        >
+                          {recibiendoPedido === p.id ? "..." : "Recibida ✓"}
+                        </button>
+                      )}
+                      {p.estado === "recibida" && !isVerifOpen && (
+                        <button
+                          onClick={() => { setVerifFormPedidoId(p.id); setMotivoDefectoInput(""); }}
+                          className="text-xs px-2 py-1 rounded-lg font-medium"
+                          style={{ background: "#fef3c7", color: "#92400e" }}
+                        >
+                          Verificar pieza
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                    {p.estado === "recibida" ? `Recibida ${p.recibidoPorNombre ? `· ${p.recibidoPorNombre}` : ""}` : "⏳ En camino"}
-                    {p.costoEstimado > 0 && ` · $${p.costoEstimado.toFixed(2)}`}
-                  </p>
+
+                  {/* "En camino" — optional fecha estimada before confirming */}
+                  {p.estado === "pendiente" && (
+                    <div className="flex gap-1 items-center pl-5">
+                      <input
+                        type="date"
+                        value={fechaLlegadaInput[p.id] ?? ""}
+                        onChange={(e) => setFechaLlegadaInput(prev => ({ ...prev, [p.id]: e.target.value }))}
+                        className="text-xs px-2 py-1 rounded-lg"
+                        style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-secondary)" }}
+                      />
+                      <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>fecha estimada (opcional)</span>
+                    </div>
+                  )}
+
+                  {/* Verificar pieza inline form */}
+                  {isVerifOpen && (
+                    <div className="ml-5 p-3 rounded-lg space-y-2" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)" }}>
+                      <p className="text-xs font-medium" style={{ color: "var(--color-text-primary)" }}>¿La pieza llegó en buen estado?</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleVerificarPedido(p.id, true)}
+                          disabled={verificandoPedido === p.id}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-medium"
+                          style={{ background: "var(--color-success)", color: "#fff", opacity: verificandoPedido === p.id ? 0.7 : 1 }}
+                        >
+                          ✓ Llegó bien — instalar
+                        </button>
+                        <button
+                          onClick={() => handleVerificarPedido(p.id, false)}
+                          disabled={verificandoPedido === p.id}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-medium"
+                          style={{ background: "#fee2e2", color: "#991b1b", opacity: verificandoPedido === p.id ? 0.7 : 1 }}
+                        >
+                          ✗ Llegó defectuosa
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Motivo del defecto (si aplica)"
+                        value={motivoDefectoInput}
+                        onChange={(e) => setMotivoDefectoInput(e.target.value)}
+                        className="w-full px-2 py-1.5 rounded-lg text-xs"
+                        style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
+                      />
+                      <button
+                        onClick={() => setVerifFormPedidoId(null)}
+                        className="text-xs"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {p.estado === "pendiente" && (
-                  <button
-                    onClick={() => handleRecibirPedido(p.id)}
-                    disabled={recibiendoPedido === p.id}
-                    className="flex-shrink-0 text-xs px-2 py-1 rounded-lg font-medium"
-                    style={{ background: "var(--color-success)", color: "#fff", opacity: recibiendoPedido === p.id ? 0.7 : 1 }}
-                  >
-                    {recibiendoPedido === p.id ? "..." : "Recibida ✓"}
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
 
             {mostrarFormPedido ? (
               <div className="space-y-2 pt-2">
