@@ -146,6 +146,19 @@ export async function GET(
       }
     }
 
+    // Piezas en camino — visibles al cliente para dar seguimiento
+    const { data: piezasEnCaminoDb } = await supabase
+      .from("pedidos_pieza_reparacion")
+      .select("nombre_pieza, estado, fecha_estimada_llegada")
+      .eq("orden_id", trackingData.orden_id)
+      .in("estado", ["pendiente", "en_camino"]);
+
+    const piezasEnCamino = (piezasEnCaminoDb ?? []).map((p: any) => ({
+      nombre: p.nombre_pieza,
+      estado: p.estado,
+      fechaEstimadaLlegada: p.fecha_estimada_llegada ?? null,
+    }));
+
     // Puntos de loyalty (solo si la orden ya está entregada)
     let puntosData: { saldoDisponible: number; totalGanado: number; puntosUltimaReparacion: number } | null = null;
     if (orden.estado === "entregado" && orden.clienteId) {
@@ -204,6 +217,7 @@ export async function GET(
         anticipos: anticipos || [],
         fotos,
         puntos: puntosData,
+        piezasEnCamino,
       },
     });
   } catch (error) {

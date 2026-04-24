@@ -96,6 +96,7 @@ interface TrackingData {
     totalGanado: number;
     puntosUltimaReparacion: number;
   } | null;
+  piezasEnCamino?: { nombre: string; estado: string; fechaEstimadaLlegada: string | null }[];
 }
 
 /* ── Estado visual mapping ──────────────────────────────────── */
@@ -556,7 +557,7 @@ export default function TrackingPublicoPage() {
   if (loading) return <TrackingSkeleton />;
   if (error || !data) return <TrackingError message={error ?? ""} />;
 
-  const { orden, tecnico, historial, anticipos, fotos = [] } = data;
+  const { orden, tecnico, historial, anticipos, fotos = [], piezasEnCamino = [] } = data;
   const estadoInfo = getEstadoInfo(orden.estado);
   const StatusIcon = estadoInfo.icon;
 
@@ -1353,6 +1354,39 @@ export default function TrackingPublicoPage() {
                   </span>
                 </div>
               )}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* ── Piezas en camino ─────────────────────────────── */}
+        {piezasEnCamino.length > 0 && (
+          <SectionCard title="Estado de tu refacción">
+            <div className="space-y-2">
+              {piezasEnCamino.map((pieza, i) => (
+                <div key={i} className="flex items-start justify-between gap-3 rounded-lg px-3 py-2.5" style={{ background: "var(--color-bg-elevated)" }}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-base">{pieza.estado === "en_camino" ? "🚚" : "⏳"}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--color-text-primary)" }}>{pieza.nombre}</p>
+                      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                        {pieza.estado === "en_camino" ? "En camino" : "Pendiente de envío"}
+                        {pieza.fechaEstimadaLlegada && (
+                          <> · Llega aprox. <strong style={{ color: "var(--color-text-secondary)" }}>
+                            {new Date(pieza.fechaEstimadaLlegada).toLocaleDateString("es-MX", { day: "numeric", month: "long" })}
+                          </strong></>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style={
+                    pieza.estado === "en_camino"
+                      ? { background: "#dbeafe", color: "#1d4ed8" }
+                      : { background: "#fef3c7", color: "#92400e" }
+                  }>
+                    {pieza.estado === "en_camino" ? "En camino" : "Por enviar"}
+                  </span>
+                </div>
+              ))}
             </div>
           </SectionCard>
         )}

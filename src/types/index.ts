@@ -572,6 +572,10 @@ export interface OrdenReparacionDetallada extends OrdenReparacion {
   tecnicoNombre: string;
   /** Suma de anticipos no devueltos — cargado en la lista para mostrar badge en tarjeta */
   totalAnticipos?: number;
+  /** Piezas en estado 'recibida' esperando verificación del técnico */
+  piezasPorVerificar?: number;
+  /** Piezas en estado 'en_camino' — distribuidor las envió, aún no llegan */
+  piezasEnCamino?: number;
 }
 
 // ─── FASE 56: Multi-diagnóstico ─────────────────────────────────────────────

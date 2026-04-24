@@ -370,10 +370,26 @@ interface BolsaVirtualPanelProps {
   onClose: () => void;
 }
 
+interface MovimientoDisputa {
+  id: string;
+  monto: number;
+  concepto: string;
+  createdAt: string;
+  ordenId: string;
+  folio: string;
+  dispositivo: string;
+  clienteNombre: string;
+  pieza: { nombre: string; estado: string; motivoDefecto: string | null; intentosReemplazo: number };
+}
+
 export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
+  const [activeTab, setActiveTab] = useState<"ordenes" | "disputa">("ordenes");
   const [ordenes, setOrdenes] = useState<OrdenBolsa[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [disputas, setDisputas] = useState<MovimientoDisputa[]>([]);
+  const [totalDisputa, setTotalDisputa] = useState(0);
+  const [cargandoDisputa, setCargandoDisputa] = useState(false);
 
   const cargarDatos = useCallback(async () => {
     setCargando(true);
@@ -393,9 +409,23 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
     }
   }, []);
 
+  const cargarDisputas = useCallback(async () => {
+    setCargandoDisputa(true);
+    try {
+      const res = await fetch("/api/pos/bolsa-disputa");
+      const data = await res.json();
+      if (data.success) {
+        setDisputas(data.data);
+        setTotalDisputa(data.totalDisputa ?? 0);
+      }
+    } catch { /* silencioso */ }
+    finally { setCargandoDisputa(false); }
+  }, []);
+
   useEffect(() => {
     cargarDatos();
-  }, [cargarDatos]);
+    cargarDisputas();
+  }, [cargarDatos, cargarDisputas]);
 
   const totalBolsa = ordenes.reduce((s, o) => s + o.totalAnticipos, 0);
   const totalSaldoPendiente = ordenes.reduce((s, o) => s + o.saldoPendiente, 0);
@@ -433,6 +463,82 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
           </button>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex border-b" style={{ borderColor: "var(--color-border)" }}>
+        <button
+          onClick={() => setActiveTab("ordenes")}
+          className="flex-1 py-2 text-xs font-semibold transition-colors"
+          style={{
+            color: activeTab === "ordenes" ? "var(--color-accent)" : "var(--color-text-muted)",
+            borderBottom: activeTab === "ordenes" ? "2px solid var(--color-accent)" : "2px solid transparent",
+          }}
+        >
+          Órdenes activas
+        </button>
+        <button
+          onClick={() => setActiveTab("disputa")}
+          className="flex-1 py-2 text-xs font-semibold transition-colors relative"
+          style={{
+            color: activeTab === "disputa" ? "#dc2626" : "var(--color-text-muted)",
+            borderBottom: activeTab === "disputa" ? "2px solid #dc2626" : "2px solid transparent",
+          }}
+        >
+          En disputa
+          {disputas.length > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold" style={{ background: "#fee2e2", color: "#dc2626" }}>
+              {disputas.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === "disputa" ? (
+        /* ── Tab En disputa ────────────────────────────────────────────── */
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {totalDisputa > 0 && (
+            <div className="flex justify-between items-center px-3 py-2 rounded-lg" style={{ background: "#fee2e2" }}>
+              <span className="text-sm font-medium" style={{ color: "#991b1b" }}>⚠️ Total retenido en disputa</span>
+              <span className="text-sm font-bold" style={{ color: "#dc2626", fontFamily: "var(--font-data)" }}>{fmtPrecio(totalDisputa)}</span>
+            </div>
+          )}
+          {cargandoDisputa && (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#dc2626", borderTopColor: "transparent" }} />
+            </div>
+          )}
+          {!cargandoDisputa && disputas.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Sin montos en disputa 🎉</p>
+              <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>Aquí aparecen piezas defectuosas cuyo dinero está retenido hasta resolver con el distribuidor</p>
+            </div>
+          )}
+          {!cargandoDisputa && disputas.map((d) => (
+            <div key={d.id} className="rounded-xl p-3 space-y-1.5" style={{ background: "var(--color-bg-elevated)", border: "1px solid #fecaca" }}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}>{d.folio}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>{d.clienteNombre} · {d.dispositivo}</p>
+                </div>
+                <span className="text-sm font-bold flex-shrink-0" style={{ color: "#dc2626", fontFamily: "var(--font-data)" }}>{fmtPrecio(d.monto)}</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "#fee2e2", color: "#991b1b" }}>
+                  🔧 {d.pieza.nombre}
+                </span>
+                {d.pieza.motivoDefecto && (
+                  <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>— {d.pieza.motivoDefecto}</span>
+                )}
+              </div>
+              {d.pieza.intentosReemplazo > 0 && (
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{d.pieza.intentosReemplazo} intento(s) de reemplazo</p>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+      /* ── Tab Órdenes activas ────────────────────────────────────────── */
+      <>
 
       {/* Totales — para cuadre de caja */}
       <div className="px-4 py-3 border-b space-y-2" style={{ borderColor: "var(--color-border)" }}>
@@ -507,6 +613,8 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
           <OrdenCard key={o.ordenId} orden={o} onAnticipoAgregado={cargarDatos} />
         ))}
       </div>
+      </>
+      )}
     </div>
   );
 }

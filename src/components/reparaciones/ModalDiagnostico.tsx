@@ -64,6 +64,7 @@ export function ModalDiagnostico({
     nombre: string;
     precio: number;
     productoId?: string;
+    stockDisponible?: number;
   }
   const [sugerencias, setSugerencias] = useState<SugerenciaParte[]>([]);
   const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
@@ -140,6 +141,7 @@ export function ModalDiagnostico({
               nombre: [p.nombre, p.marca, p.modelo].filter(Boolean).join(" — "),
               precio: Number(p.precio ?? 0),
               productoId: p.id,
+              stockDisponible: Number(p.stock ?? 0),
             });
           }
         }
@@ -548,17 +550,24 @@ export function ModalDiagnostico({
                       style={{
                         background: yaAgregada
                           ? "var(--color-success-bg)"
+                          : (sug.stockDisponible ?? 0) > 0
+                          ? "var(--color-info-bg, #e0f2fe)"
                           : "var(--color-bg-surface)",
-                        border: `1px solid ${yaAgregada ? "var(--color-success)" : "var(--color-border-strong)"}`,
+                        border: `1px solid ${yaAgregada ? "var(--color-success)" : (sug.stockDisponible ?? 0) > 0 ? "var(--color-info, #0ea5e9)" : "var(--color-border-strong)"}`,
                         color: yaAgregada
                           ? "var(--color-success-text)"
                           : "var(--color-text-primary)",
                         cursor: yaAgregada ? "default" : "pointer",
                       }}
-                      title={`${sug.nombre} — $${sug.precio.toLocaleString("es-MX")}`}
+                      title={`${sug.nombre} — $${sug.precio.toLocaleString("es-MX")}${(sug.stockDisponible ?? 0) > 0 ? ` · ${sug.stockDisponible} en inventario` : ""}`}
                     >
                       {yaAgregada ? <CheckCircle className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
                       <span className="max-w-[140px] truncate">{sug.nombre}</span>
+                      {(sug.stockDisponible ?? 0) > 0 && !yaAgregada && (
+                        <span className="font-bold" style={{ color: "var(--color-info, #0369a1)" }}>
+                          ✓{sug.stockDisponible}
+                        </span>
+                      )}
                       <span style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
                         ${sug.precio.toLocaleString("es-MX")}
                       </span>

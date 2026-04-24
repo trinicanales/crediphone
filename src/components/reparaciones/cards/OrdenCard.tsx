@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   Phone, MessageCircle, Copy, ChevronDown, MoreVertical,
   Wrench, Clock, Image as ImageIcon, DollarSign, Shield, Circle,
-  Banknote,
+  Banknote, PackageCheck, Truck,
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { StepperReparacion } from "@/components/reparaciones/StepperReparacion";
@@ -428,13 +428,33 @@ export function OrdenCard({
         })()}
       </div>
 
-      {/* ── Badge de anticipo (si existe) ── */}
-      {(orden.totalAnticipos ?? 0) > 0 && (
-        <div className="px-4 pb-2 flex items-center gap-1.5">
-          <Banknote className="w-3.5 h-3.5" style={{ color: "var(--color-success)" }} />
-          <span className="text-xs font-medium" style={{ color: "var(--color-success)" }}>
-            Anticipo: {formatCurrency(orden.totalAnticipos ?? 0)}
-          </span>
+      {/* ── Badges de anticipo y piezas ── */}
+      {((orden.totalAnticipos ?? 0) > 0 || (orden.piezasPorVerificar ?? 0) > 0 || (orden.piezasEnCamino ?? 0) > 0) && (
+        <div className="px-4 pb-2 flex flex-wrap items-center gap-2">
+          {(orden.totalAnticipos ?? 0) > 0 && (
+            <div className="flex items-center gap-1">
+              <Banknote className="w-3.5 h-3.5" style={{ color: "var(--color-success)" }} />
+              <span className="text-xs font-medium" style={{ color: "var(--color-success)" }}>
+                {formatCurrency(orden.totalAnticipos ?? 0)}
+              </span>
+            </div>
+          )}
+          {(orden.piezasPorVerificar ?? 0) > 0 && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: "#fef3c7" }}>
+              <PackageCheck className="w-3 h-3" style={{ color: "#92400e" }} />
+              <span className="text-xs font-medium" style={{ color: "#92400e" }}>
+                {orden.piezasPorVerificar} por verificar
+              </span>
+            </div>
+          )}
+          {(orden.piezasEnCamino ?? 0) > 0 && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: "#dbeafe" }}>
+              <Truck className="w-3 h-3" style={{ color: "#1d4ed8" }} />
+              <span className="text-xs font-medium" style={{ color: "#1d4ed8" }}>
+                {orden.piezasEnCamino} en camino
+              </span>
+            </div>
+          )}
         </div>
       )}
 

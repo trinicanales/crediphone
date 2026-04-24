@@ -246,6 +246,26 @@ export async function getOrdenesReparacionDetalladas(distribuidorId?: string): P
         o.totalAnticipos = anticiposPorOrden[o.id] || 0;
       });
     }
+
+    // Batch-fetch conteos de piezas por estado (para badges en tarjeta)
+    const { data: piezas } = await supabase
+      .from("pedidos_pieza_reparacion")
+      .select("orden_id, estado")
+      .in("orden_id", ordenIds)
+      .in("estado", ["recibida", "en_camino"]);
+
+    if (piezas && piezas.length > 0) {
+      const porVerificar: Record<string, number> = {};
+      const enCamino: Record<string, number> = {};
+      piezas.forEach((p: { orden_id: string; estado: string }) => {
+        if (p.estado === "recibida") porVerificar[p.orden_id] = (porVerificar[p.orden_id] || 0) + 1;
+        if (p.estado === "en_camino") enCamino[p.orden_id] = (enCamino[p.orden_id] || 0) + 1;
+      });
+      ordenesMapeadas.forEach((o) => {
+        o.piezasPorVerificar = porVerificar[o.id] || 0;
+        o.piezasEnCamino = enCamino[o.id] || 0;
+      });
+    }
   }
 
   return ordenesMapeadas;
