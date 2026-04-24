@@ -264,11 +264,29 @@ export async function PUT(
         console.error("Error al enviar notificaciones (no bloquea):", notifError);
       }
 
+      // Si es no_reparable, verificar si hay piezas pendientes de resolución
+      let piezasPendientesResolucion: { id: string; nombre: string; estado: string }[] = [];
+      if (body.estado === "no_reparable") {
+        const supabase = createAdminClient();
+        const { data: piezasPendientes } = await supabase
+          .from("pedidos_pieza_reparacion")
+          .select("id, nombre_pieza, estado")
+          .eq("orden_id", id)
+          .in("estado", ["pendiente", "en_camino", "recibida", "defectuosa"]);
+
+        piezasPendientesResolucion = (piezasPendientes ?? []).map((p: any) => ({
+          id: p.id,
+          nombre: p.nombre_pieza,
+          estado: p.estado,
+        }));
+      }
+
       return NextResponse.json({
         success: true,
         data: ordenActualizada,
         message: `Estado actualizado a "${body.estado}"`,
         notificaciones,
+        ...(piezasPendientesResolucion.length > 0 ? { piezasPendientesResolucion } : {}),
       });
     }
 

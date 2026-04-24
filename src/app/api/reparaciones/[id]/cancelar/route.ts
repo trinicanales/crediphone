@@ -100,11 +100,27 @@ export async function POST(
       .select("id, nombre_pieza, costo_estimado, costo_envio, estado, monto_de_caja")
       .eq("orden_id", id);
 
-    const piezasLlegadas = (pedidosPieza ?? []).filter((p: any) => p.estado === "recibida");
+    const piezasLlegadas = (pedidosPieza ?? []).filter(
+      (p: any) => ["recibida", "verificada_ok", "instalada"].includes(p.estado)
+    );
     const costoPiezasLlegadas = piezasLlegadas.reduce(
       (sum: number, p: any) => sum + Number(p.costo_estimado || 0) + Number(p.costo_envio || 0),
       0
     );
+
+    // Piezas recibidas/instaladas sin producto_id → quedan físicamente en la tienda
+    // Se informa al frontend para que el admin pueda agregarlas al catálogo
+    const piezasSinCatalogo = piezasLlegadas.filter((p: any) => !p.producto_id);
+
+    // Marcar pedidos de piezas en camino como cancelados
+    const estadosCancelables = ["pendiente", "en_camino"];
+    const pedidosCancelables = (pedidosPieza ?? []).filter((p: any) => estadosCancelables.includes(p.estado));
+    if (pedidosCancelables.length > 0) {
+      await supabase
+        .from("pedidos_pieza_reparacion")
+        .update({ estado: "cancelada" })
+        .in("id", pedidosCancelables.map((p: any) => p.id));
+    }
 
     // ── 2. Cambiar estado a cancelado ────────────────────────────────────
     await cambiarEstadoOrden(id, "cancelado", `Cancelado: ${motivo}`);
@@ -195,6 +211,13 @@ export async function POST(
       anticiposDevueltos: devolverAnticipos,
       totalAnticipoDevuelto: totalDevuelto,
       cargoAplicado,
+      // Piezas recibidas sin producto_id: la tienda las tiene físicamente
+      // El admin debe agregarlas al catálogo manualmente
+      piezasSinCatalogo: piezasSinCatalogo.map((p: any) => ({
+        id: p.id,
+        nombre: p.nombre_pieza,
+        costoEstimado: Number(p.costo_estimado || 0),
+      })),
     });
   } catch (error) {
     console.error("Error en POST /api/reparaciones/[id]/cancelar:", error);

@@ -33,8 +33,10 @@ export async function GET(
       .from("pedidos_pieza_reparacion")
       .select(`
         id, nombre_pieza, costo_estimado, costo_envio, estado,
-        created_at, fecha_recibida, notas, producto_id,
+        created_at, fecha_recibida, fecha_estimada_llegada, notas, producto_id,
         foto_comprobante_url, financiado_por, monto_de_caja,
+        motivo_defecto, intentos_reemplazo,
+        verificado_por, fecha_verificacion, instalado_por, fecha_instalacion,
         creadoPor:creado_por (name),
         recibidoPor:recibido_por (name)
       `)
@@ -51,11 +53,15 @@ export async function GET(
       estado: p.estado,
       createdAt: p.created_at,
       fechaRecibida: p.fecha_recibida,
+      fechaEstimadaLlegada: p.fecha_estimada_llegada ?? null,
       notas: p.notas,
       productoId: p.producto_id,
       fotoComprobanteUrl: p.foto_comprobante_url ?? null,
       financiadoPor: p.financiado_por ?? "bolsa",
       montoDeCaja: Number(p.monto_de_caja || 0),
+      motivoDefecto: p.motivo_defecto ?? null,
+      intentosReemplazo: p.intentos_reemplazo ?? 0,
+      fechaInstalacion: p.fecha_instalacion ?? null,
       creadoPorNombre: p.creadoPor?.name ?? null,
       recibidoPorNombre: p.recibidoPor?.name ?? null,
     }));
@@ -160,7 +166,8 @@ export async function POST(
       montoDeCaja = costoTotal - saldoDisponible;
     }
 
-    const estadoInicial = recibirInmediatamente ? "recibida" : "pendiente";
+    // recibirInmediatamente = "instalada" (verificado en el momento), normal = "pendiente"
+    const estadoInicial = recibirInmediatamente ? "instalada" : "pendiente";
     const ahora = new Date().toISOString();
 
     const { data: pedido, error } = await supabase
@@ -178,7 +185,14 @@ export async function POST(
         foto_comprobante_url: fotoComprobanteUrl || null,
         financiado_por: financiadoPor,
         monto_de_caja: montoDeCaja,
-        ...(recibirInmediatamente ? { fecha_recibida: ahora, recibido_por: userId } : {}),
+        ...(recibirInmediatamente ? {
+          fecha_recibida: ahora,
+          recibido_por: userId,
+          verificado_por: userId,
+          fecha_verificacion: ahora,
+          instalado_por: userId,
+          fecha_instalacion: ahora,
+        } : {}),
       })
       .select()
       .single();
@@ -223,6 +237,69 @@ export async function POST(
         saldoDisponible,
       },
     }, { status: 201 });
+  } catch {
+    return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/reparaciones/[id]/pedidos-pieza
+ * Actualiza el estado de un pedido específico a "en_camino" con fecha estimada.
+ * Body: { pedidoId: string; fechaEstimadaLlegada?: string }
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+
+    const { id: ordenId } = await params;
+    const body = await request.json().catch(() => ({}));
+    const { pedidoId, fechaEstimadaLlegada } = body as {
+      pedidoId?: string;
+      fechaEstimadaLlegada?: string;
+    };
+
+    if (!pedidoId) {
+      return NextResponse.json({ success: false, error: "Falta pedidoId" }, { status: 400 });
+    }
+
+    const supabase = createAdminClient();
+
+    const { data: pedido } = await supabase
+      .from("pedidos_pieza_reparacion")
+      .select("id, estado, ordenes_reparacion!inner(distribuidor_id)")
+      .eq("id", pedidoId)
+      .eq("orden_id", ordenId)
+      .single();
+
+    if (!pedido) return NextResponse.json({ success: false, error: "Pedido no encontrado" }, { status: 404 });
+
+    const distId = (pedido as any).ordenes_reparacion?.distribuidor_id;
+    if (!isSuperAdmin && distribuidorId && distId !== distribuidorId) {
+      return NextResponse.json({ success: false, error: "Sin acceso" }, { status: 403 });
+    }
+
+    if (pedido.estado !== "pendiente") {
+      return NextResponse.json(
+        { success: false, error: "Solo se puede marcar 'en_camino' un pedido en estado 'pendiente'" },
+        { status: 409 }
+      );
+    }
+
+    const { error } = await supabase
+      .from("pedidos_pieza_reparacion")
+      .update({
+        estado: "en_camino",
+        ...(fechaEstimadaLlegada ? { fecha_estimada_llegada: fechaEstimadaLlegada } : {}),
+      })
+      .eq("id", pedidoId);
+
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+
+    return NextResponse.json({ success: true, message: "Pieza marcada como en camino" });
   } catch {
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
   }

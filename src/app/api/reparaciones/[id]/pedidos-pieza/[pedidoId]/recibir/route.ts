@@ -4,10 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * POST /api/reparaciones/[id]/pedidos-pieza/[pedidoId]/recibir
- * Marca un pedido de pieza como recibido con un solo clic.
- * - Actualiza estado → "recibida" + recibido_por + fecha_recibida
- * - Agrega a reparacion_piezas de la orden (como parte instalada)
- * - Si tiene producto_id → intenta incrementar stock
+ * Marca una pieza como RECIBIDA físicamente (aún pendiente de verificación).
+ * NO agrega a reparacion_piezas todavía — eso ocurre en /verificar.
  * Body opcional: { costoReal?, costoEnvio?, notas? }
  */
 export async function POST(
@@ -43,11 +41,9 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Sin acceso" }, { status: 403 });
     }
 
-    if (pedido.estado === "recibida") {
-      return NextResponse.json({ success: false, error: "Este pedido ya fue recibido" }, { status: 409 });
-    }
-    if (pedido.estado === "cancelada") {
-      return NextResponse.json({ success: false, error: "No se puede recibir un pedido cancelado" }, { status: 409 });
+    const estadosNoReceivable = ["recibida", "verificada_ok", "instalada", "defectuosa", "cancelada"];
+    if (estadosNoReceivable.includes(pedido.estado)) {
+      return NextResponse.json({ success: false, error: `No se puede recibir: estado actual es '${pedido.estado}'` }, { status: 409 });
     }
 
     const costoFinal = costoReal !== undefined ? Number(costoReal) : Number(pedido.costo_estimado || 0);
@@ -71,24 +67,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
     }
 
-    // 2. Agregar a reparacion_piezas (parte instalada en la orden)
-    await supabase.from("reparacion_piezas").insert({
-      orden_id: ordenId,
-      nombre_pieza: pedido.nombre_pieza,
-      cantidad: 1,
-      costo_unitario: costoFinal,
-      producto_id: pedido.producto_id || null,
-    });
-
-    // 3. Si tiene producto_id, incrementar stock
-    if (pedido.producto_id) {
-      await supabase.rpc("incrementar_stock", {
-        p_producto_id: pedido.producto_id,
-        p_cantidad: 1,
-      }).maybeSingle();
-    }
-
-    return NextResponse.json({ success: true, message: "Pieza recibida y agregada a la orden" });
+    return NextResponse.json({ success: true, message: "Pieza marcada como recibida. Pendiente de verificación por el técnico." });
   } catch {
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
   }
