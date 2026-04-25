@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         created_at,
         clientes:cliente_id (nombre, apellido, telefono)
       `)
-      .not("estado", "in", `(${ESTADOS_INACTIVOS.map((e) => `"${e}"`).join(",")})`)
+      .not("estado", "in", `(${ESTADOS_INACTIVOS.join(",")})`)
       .order("created_at", { ascending: false });
 
     if (estadoFiltro) {

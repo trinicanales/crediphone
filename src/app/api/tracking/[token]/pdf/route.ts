@@ -46,7 +46,7 @@ export async function GET(
       }
     }
 
-    const host  = request.headers.get("host")              || "crediphone.vercel.app";
+    const host  = request.headers.get("host")              || "crediphone.com.mx";
     const proto = request.headers.get("x-forwarded-proto") || "https";
 
     let buffer: Buffer;

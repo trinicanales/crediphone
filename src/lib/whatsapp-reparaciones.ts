@@ -18,7 +18,7 @@ export function generarMensajePresupuesto(
     ? `${orden.clienteNombre} ${orden.clienteApellido || ""}`.trim()
     : "Cliente";
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone-one.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone.com.mx";
   const linkSeguimiento = trackingUrl || `${baseUrl}/reparacion/${orden.folio}`;
 
   const mensaje = `
@@ -205,7 +205,7 @@ ${
     : ""
 }
 🔗 *Seguimiento en tiempo real:*
-${(process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone-one.vercel.app")}/reparacion/${orden.folio}
+${(process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone.com.mx")}/reparacion/${orden.folio}
 
 ¿Tienes dudas? ¡Contáctanos!
 📱 CREDIPHONE
@@ -402,7 +402,7 @@ Queremos informarte que ${pieza ? `la pieza *${pieza}*` : "una de las piezas nec
 ⏳ Te notificaremos en cuanto tengamos novedades. Agradecemos mucho tu paciencia.
 
 🔗 Puedes consultar el estado de tu reparación en cualquier momento:
-${(process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone-one.vercel.app")}/reparacion/${orden.folio}
+${(process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone.com.mx")}/reparacion/${orden.folio}
 
 ¿Tienes alguna pregunta? Con gusto te atendemos.
 📱 CREDIPHONE
@@ -439,7 +439,7 @@ La refacción que requiere tu dispositivo ya fue solicitada a nuestro proveedor,
 Lamentamos los inconvenientes que esto pueda ocasionarte. Tu equipo está seguro con nosotros y tan pronto llegue la pieza, procederemos de inmediato.
 
 🔗 Seguimiento en línea:
-${(process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone-one.vercel.app")}/reparacion/${orden.folio}
+${(process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone.com.mx")}/reparacion/${orden.folio}
 
 Cualquier duda estamos a tus órdenes.
 📱 CREDIPHONE

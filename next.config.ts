@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    unoptimized: true,
     remotePatterns: [
       // Cloudflare R2 — público (pub-*.r2.dev y dominio propio)
       {

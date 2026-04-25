@@ -288,7 +288,7 @@ async function crearTrackingToken(
     }
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone-one.vercel.app";
+      process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone.com.mx";
     return `${baseUrl}/tracking/${token}`;
   } catch (err) {
     console.error("Error en crearTrackingToken:", err);
@@ -366,7 +366,7 @@ async function obtenerPdfUrlParaOrden(
     if (!data?.token) return undefined;
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone-one.vercel.app";
+      process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone.com.mx";
     return `${baseUrl}/api/tracking/${data.token}/pdf`;
   } catch {
     return undefined;
