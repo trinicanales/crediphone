@@ -100,6 +100,15 @@ export default function CajaPage() {
   const [notasCierre, setNotasCierre] = useState("");
   const [payjoyStats, setPayjoyStats] = useState<CajaSesion["payjoyStats"]>(undefined);
 
+  // Bolsas cobradas en esta sesión (reparaciones entregadas)
+  interface BolsaCobrada {
+    ordenId: string; folio: string; dispositivo: string;
+    clienteNombre: string; costoTotal: number; totalAnticipos: number;
+    ingresoNeto: number; reembolsoCaja: number;
+  }
+  const [bolsasCobradas, setBolsasCobradas] = useState<BolsaCobrada[]>([]);
+  const [totalBolsasCobradas, setTotalBolsasCobradas] = useState(0);
+
   // Modal Pay In / Pay Out
   const [showMovimientoModal, setShowMovimientoModal] = useState(false);
   const [tipoMovimiento, setTipoMovimiento] = useState<TipoMovUI>("pay_in");
@@ -503,7 +512,20 @@ export default function CajaPage() {
                 <FileText className="w-4 h-4 mr-2" />
                 {generandoReporte ? "Generando..." : "Reporte X"}
               </Button>
-              <Button variant="danger" onClick={() => { setConteoDenom(CONTEO_INICIAL); setShowCerrarModal(true); }}>
+              <Button variant="danger" onClick={async () => {
+                setConteoDenom(CONTEO_INICIAL);
+                setShowCerrarModal(true);
+                if (sesionActiva) {
+                  try {
+                    const res = await fetch(`/api/pos/caja/${sesionActiva.id}/bolsas-cobradas`);
+                    const data = await res.json();
+                    if (data.success) {
+                      setBolsasCobradas(data.data);
+                      setTotalBolsasCobradas(data.totalIngresado ?? 0);
+                    }
+                  } catch { /* no bloquea */ }
+                }
+              }}>
                 <XCircle className="w-4 h-4 mr-2" />
                 Cerrar Caja
               </Button>
@@ -907,6 +929,44 @@ export default function CajaPage() {
                 </div>
               ))}
             </div>
+
+            {/* ── Bolsas cobradas hoy ── */}
+            {bolsasCobradas.length > 0 && (
+              <div className="rounded-lg overflow-hidden mb-5" style={{ border: "1px solid var(--color-border)" }}>
+                <div className="px-4 py-2 flex items-center justify-between" style={{ background: "var(--color-success-bg)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🛍️</span>
+                    <p className="text-sm font-semibold" style={{ color: "var(--color-success-text)" }}>
+                      Reparaciones cobradas este turno ({bolsasCobradas.length})
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold" style={{ color: "var(--color-success)", fontFamily: "var(--font-data)" }}>
+                    +${totalBolsasCobradas.toFixed(2)}
+                  </span>
+                </div>
+                <div className="divide-y" style={{ borderColor: "var(--color-border-subtle)" }}>
+                  {bolsasCobradas.map((b) => (
+                    <div key={b.ordenId} className="px-4 py-2.5 flex items-center justify-between gap-2 text-sm">
+                      <div className="min-w-0">
+                        <span className="font-medium" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}>{b.folio}</span>
+                        <span className="mx-2 text-xs" style={{ color: "var(--color-text-muted)" }}>·</span>
+                        <span className="text-xs truncate" style={{ color: "var(--color-text-secondary)" }}>{b.clienteNombre}</span>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs font-semibold" style={{ color: "var(--color-success)", fontFamily: "var(--font-data)" }}>
+                          +${(b.ingresoNeto - b.reembolsoCaja).toFixed(2)}
+                        </p>
+                        {b.totalAnticipos > 0 && (
+                          <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                            Anticipo: ${b.totalAnticipos.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── Conteo por denominación ── */}
             <div

@@ -266,19 +266,35 @@ export async function PUT(
 
       // Si es no_reparable, verificar si hay piezas pendientes de resolución
       let piezasPendientesResolucion: { id: string; nombre: string; estado: string }[] = [];
-      if (body.estado === "no_reparable") {
+      let piezasSinCatalogo: { id: string; nombre: string; costoEstimado: number }[] = [];
+
+      if (body.estado === "no_reparable" || body.estado === "cancelado") {
         const supabase = createAdminClient();
         const { data: piezasPendientes } = await supabase
           .from("pedidos_pieza_reparacion")
-          .select("id, nombre_pieza, estado")
+          .select("id, nombre_pieza, estado, producto_id, costo_estimado")
           .eq("orden_id", id)
           .in("estado", ["pendiente", "en_camino", "recibida", "defectuosa"]);
 
-        piezasPendientesResolucion = (piezasPendientes ?? []).map((p: any) => ({
-          id: p.id,
-          nombre: p.nombre_pieza,
-          estado: p.estado,
-        }));
+        if (body.estado === "no_reparable") {
+          piezasPendientesResolucion = (piezasPendientes ?? []).map((p: any) => ({
+            id: p.id,
+            nombre: p.nombre_pieza,
+            estado: p.estado,
+          }));
+        }
+
+        if (body.estado === "cancelado") {
+          // Piezas ya llegadas (recibida/defectuosa) sin producto_id → sin catálogo
+          const llegadas = (piezasPendientes ?? []).filter(
+            (p: any) => ["recibida", "defectuosa"].includes(p.estado) && !p.producto_id
+          );
+          piezasSinCatalogo = llegadas.map((p: any) => ({
+            id: p.id,
+            nombre: p.nombre_pieza,
+            costoEstimado: Number(p.costo_estimado ?? 0),
+          }));
+        }
       }
 
       return NextResponse.json({
@@ -287,6 +303,7 @@ export async function PUT(
         message: `Estado actualizado a "${body.estado}"`,
         notificaciones,
         ...(piezasPendientesResolucion.length > 0 ? { piezasPendientesResolucion } : {}),
+        ...(piezasSinCatalogo.length > 0 ? { piezasSinCatalogo } : {}),
       });
     }
 
