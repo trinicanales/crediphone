@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notificarResponsablesKassa } from "@/lib/db/notificaciones";
 
 /**
  * GET /api/reparaciones/[id]/pedidos-pieza
@@ -37,6 +38,7 @@ export async function GET(
         foto_comprobante_url, financiado_por, monto_de_caja,
         motivo_defecto, intentos_reemplazo,
         verificado_por, fecha_verificacion, instalado_por, fecha_instalacion,
+        calidad, proveedor_id,
         creadoPor:creado_por (name),
         recibidoPor:recibido_por (name)
       `)
@@ -63,6 +65,8 @@ export async function GET(
       motivoDefecto: p.motivo_defecto ?? null,
       intentosReemplazo: p.intentos_reemplazo ?? 0,
       fechaInstalacion: p.fecha_instalacion ?? null,
+      calidad: p.calidad ?? null,
+      proveedorId: p.proveedor_id ?? null,
       creadoPorNombre: p.creadoPor?.name ?? null,
       recibidoPorNombre: p.recibidoPor?.name ?? null,
     }));
@@ -103,6 +107,9 @@ export async function POST(
       fotoComprobanteUrl,
       // Precio que ve el cliente (cotización). Si no se envía, usa costoEstimado como fallback.
       precioCliente,
+      // F5a: calidad y proveedor del pedido
+      calidad,
+      proveedorId,
     } = body;
 
     if (!nombrePieza?.trim()) {
@@ -114,7 +121,7 @@ export async function POST(
     // Verify order access
     const { data: orden } = await supabase
       .from("ordenes_reparacion")
-      .select("id, distribuidor_id")
+      .select("id, distribuidor_id, folio, tecnico_id")
       .eq("id", ordenId)
       .single();
 
@@ -186,6 +193,8 @@ export async function POST(
         notas: notas?.trim() || null,
         producto_id: productoId || null,
         foto_comprobante_url: fotoComprobanteUrl || null,
+        calidad: calidad || null,
+        proveedor_id: proveedorId || null,
         financiado_por: financiadoPor,
         monto_de_caja: montoDeCaja,
         ...(recibirInmediatamente ? {
@@ -201,6 +210,34 @@ export async function POST(
       .single();
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+
+    // F5b: Si la pieza no tiene productoId (libre), auto-crear en catálogo con stock=0
+    let productoIdFinal = productoId || null;
+    if (!productoId && nombrePieza?.trim()) {
+      const { data: nuevoProd } = await supabase
+        .from("productos")
+        .insert({
+          distribuidor_id: orden.distribuidor_id,
+          nombre: nombrePieza.trim(),
+          tipo: "pieza_reparacion",
+          stock: 0,
+          precio: Number(precioCliente ?? costoEstimado) || 0,
+          costo: Number(costoEstimado) || 0,
+          proveedor_id: proveedorId || null,
+          calidad: calidad || null,
+        })
+        .select("id")
+        .single();
+
+      if (nuevoProd?.id) {
+        productoIdFinal = nuevoProd.id;
+        // Vincular el pedido al producto recién creado
+        await supabase
+          .from("pedidos_pieza_reparacion")
+          .update({ producto_id: productoIdFinal })
+          .eq("id", pedido.id);
+      }
+    }
 
     // Registrar gasto en bolsa virtual
     if (costoTotal > 0) {
@@ -228,12 +265,17 @@ export async function POST(
       const nuevaPieza = {
         id: `ped-${pedido.id}`,
         nombre: nombrePieza.trim(),
-        esLibre: !productoId,
+        esLibre: !productoId,      // sigue siendo "libre" si no se seleccionó del inventario
         cantidad: 1,
-        tieneStock: !!productoId,
-        productoId: productoId ?? null,
+        tieneStock: !!productoId,  // stock real solo si se seleccionó del catálogo
+        productoId: productoIdFinal ?? null,
         precioUnitario: precioUnitarioCliente,
         precioTotal: precioUnitarioCliente,
+        // F5a: costos internos + calidad + proveedor para cuadre de cuentas
+        costoInterno: Number(costoEstimado) || 0,
+        costoEnvio: Number(costoEnvio) || 0,
+        calidad: calidad ?? null,
+        proveedorId: proveedorId ?? null,
       };
       const nuevaCotizacion = [...cotizacionActual, nuevaPieza];
       const nuevoPrecioPiezas = nuevaCotizacion.reduce((s: number, p: any) => s + (p.precioTotal ?? 0), 0);
@@ -259,6 +301,36 @@ export async function POST(
       if (productoId) {
         await supabase.rpc("incrementar_stock", { p_producto_id: productoId, p_cantidad: 1 }).maybeSingle();
       }
+    }
+
+    // F5c: Notificar a todos los roles (admin + vendedores + técnico asignado) — fire-and-forget
+    const ordenFolio = (orden as any).folio as string;
+    const tecnicoId = (orden as any).tecnico_id as string | undefined;
+
+    void notificarResponsablesKassa({
+      distribuidorId: orden.distribuidor_id,
+      titulo: `Pieza agregada — ${ordenFolio}`,
+      cuerpo: `Se agregó "${nombrePieza.trim()}" a la orden ${ordenFolio}`,
+      url: `/dashboard/reparaciones?orden=${ordenId}`,
+      tipo: "pieza_agregada",
+      ordenId,
+    });
+
+    if (tecnicoId && tecnicoId !== userId) {
+      supabase.from("notificaciones").insert({
+        orden_reparacion_id: ordenId,
+        tipo: "pieza_agregada",
+        canal: "sistema",
+        mensaje: `Pieza agregada a tu orden ${ordenFolio}: "${nombrePieza.trim()}"`,
+        destinatario_id: tecnicoId,
+        estado: "pendiente",
+        datos_adicionales: {
+          folio: ordenFolio,
+          nombrePieza: nombrePieza.trim(),
+          costoEstimado: Number(costoEstimado) || 0,
+          calidad: calidad ?? null,
+        },
+      }).then(() => {/* silencioso */}, () => {/* silencioso */});
     }
 
     return NextResponse.json({

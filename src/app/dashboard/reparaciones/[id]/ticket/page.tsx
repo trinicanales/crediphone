@@ -143,7 +143,56 @@ function Ticket({ orden, baseUrl }: { orden: OrdenReparacionDetallada; baseUrl: 
 
       <div className="ticket-sep" />
 
+      {/* Piezas cotizadas */}
+      {orden.piezasCotizacion && orden.piezasCotizacion.length > 0 && (
+        <>
+          <div className="ticket-sep" />
+          <div className="ticket-section">
+            <div className="ticket-label">PIEZAS / SERVICIO</div>
+            {orden.piezasCotizacion.map((p, i) => (
+              <div key={i} className="ticket-pieza-row">
+                <span className="ticket-pieza-nombre">{p.nombre}</span>
+                <span className="ticket-pieza-precio">${Number(p.precioTotal ?? p.precioUnitario ?? 0).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Presupuesto / anticipo */}
+      {(orden.costoTotal > 0 || (orden.totalAnticipos ?? 0) > 0) && (
+        <>
+          <div className="ticket-sep" />
+          <div className="ticket-section">
+            {orden.costoTotal > 0 && (
+              <div className="ticket-row">
+                <span className="ticket-key">Presupuesto:</span>
+                <span className="ticket-val ticket-bold">${Number(orden.costoTotal).toFixed(2)}</span>
+              </div>
+            )}
+            {(orden.totalAnticipos ?? 0) > 0 && (
+              <div className="ticket-row">
+                <span className="ticket-key">Anticipo:</span>
+                <span className="ticket-val ticket-bold">${Number(orden.totalAnticipos).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Notas del técnico */}
+      {orden.notasTecnico && (
+        <>
+          <div className="ticket-sep" />
+          <div className="ticket-section">
+            <div className="ticket-label">NOTAS TÉCNICO</div>
+            <div className="ticket-problema">{orden.notasTecnico}</div>
+          </div>
+        </>
+      )}
+
       {/* Técnico + prioridad */}
+      <div className="ticket-sep" />
       <div className="ticket-footer-row">
         <div>
           <span className="ticket-key">Técnico: </span>
@@ -243,6 +292,9 @@ export default function TicketPage() {
           padding: 5mm 3mm;
           border: 1px solid #ddd;
           box-shadow: 0 2px 8px rgba(0,0,0,.12);
+          /* Texto más oscuro y grueso — mejor en térmicas */
+          -webkit-font-smoothing: antialiased;
+          font-weight: 600;
         }
 
         /* Header: brand a la izquierda, QR a la derecha */
@@ -257,19 +309,19 @@ export default function TicketPage() {
           flex: 1;
         }
         .ticket-brand {
-          font-size: 18px;
+          font-size: 20px;
           font-weight: 900;
           letter-spacing: 3px;
           color: #000;
           line-height: 1.1;
         }
         .ticket-subtitle {
-          font-size: 9px;
+          font-size: 10px;
           letter-spacing: 1.5px;
           text-transform: uppercase;
           color: #444;
           margin-top: 2px;
-          font-weight: 700;
+          font-weight: 800;
         }
         .ticket-qr-block {
           display: flex;
@@ -278,10 +330,10 @@ export default function TicketPage() {
           gap: 2px;
         }
         .ticket-qr-label {
-          font-size: 6px;
-          color: #777;
+          font-size: 8px;
+          color: #666;
           text-align: center;
-          letter-spacing: 0.3px;
+          font-weight: 700;
           line-height: 1.2;
           max-width: 56px;
         }
@@ -292,132 +344,151 @@ export default function TicketPage() {
           margin: 5px 0 4px;
         }
         .ticket-folio-label {
-          font-size: 9px;
+          font-size: 11px;
           letter-spacing: 3px;
           color: #555;
           text-transform: uppercase;
-          font-weight: 700;
+          font-weight: 800;
         }
         .ticket-folio {
-          font-size: 28px;
+          font-size: 30px;
           font-weight: 900;
           letter-spacing: 1px;
           color: #000;
           line-height: 1.1;
         }
         .ticket-fecha {
-          font-size: 10px;
-          color: #333;
-          font-weight: 600;
+          font-size: 12px;
+          color: #222;
+          font-weight: 700;
           margin-top: 2px;
         }
 
         .ticket-sep {
-          border-top: 2px dashed #888;
-          margin: 6px 0;
+          border-top: 2px dashed #666;
+          margin: 7px 0;
         }
 
         /* Secciones */
-        .ticket-section { margin: 4px 0; }
+        .ticket-section { margin: 5px 0; }
 
         .ticket-label {
-          font-size: 10px;
-          font-weight: 800;
+          font-size: 11px;
+          font-weight: 900;
           letter-spacing: 1.5px;
           text-transform: uppercase;
-          color: #222;
-          margin-bottom: 3px;
+          color: #000;
+          margin-bottom: 4px;
         }
 
         .ticket-row {
           display: flex;
           gap: 3px;
           margin: 3px 0;
-          line-height: 1.4;
+          line-height: 1.5;
         }
         .ticket-key {
-          color: #333;
-          font-size: 11px;
-          font-weight: 700;
+          color: #222;
+          font-size: 12px;
+          font-weight: 800;
           flex-shrink: 0;
           white-space: nowrap;
         }
         .ticket-val {
           color: #000;
-          font-size: 12px;
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 700;
           word-break: break-word;
-          line-height: 1.4;
+          line-height: 1.5;
         }
-        .ticket-lg    { font-size: 14px; }
-        .ticket-bold  { font-weight: 800; }
+        .ticket-lg    { font-size: 15px; }
+        .ticket-bold  { font-weight: 900; }
         .ticket-mono  { letter-spacing: 0.5px; }
 
         .ticket-problema {
-          font-size: 13px;
-          font-weight: 700;
+          font-size: 14px;
+          font-weight: 800;
           color: #000;
           line-height: 1.5;
           margin-top: 3px;
           padding: 5px 7px;
           border-left: 4px solid #000;
-          background: #ebebeb;
+          background: #e8e8e8;
         }
 
         .ticket-acceso {
           background: #fff8e1;
           padding: 5px 7px;
-          border-left: 4px solid #f59e0b;
+          border-left: 4px solid #d97706;
+        }
+
+        /* Piezas */
+        .ticket-pieza-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 4px;
+          margin: 3px 0;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .ticket-pieza-nombre {
+          flex: 1;
+          color: #000;
+        }
+        .ticket-pieza-precio {
+          font-weight: 800;
+          white-space: nowrap;
+          color: #000;
         }
 
         .ticket-footer-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          font-size: 11px;
+          font-size: 12px;
           margin-top: 4px;
         }
 
         .ticket-prioridad {
-          font-size: 10px;
-          font-weight: 800;
+          font-size: 11px;
+          font-weight: 900;
           letter-spacing: 1px;
-          padding: 2px 7px;
+          padding: 3px 8px;
           border-radius: 3px;
         }
         .ticket-prioridad-normal  { background: #e5e7eb; color: #374151; }
-        .ticket-prioridad-urgente { background: #fef3c7; color: #92400e; }
-        .ticket-prioridad-express { background: #fee2e2; color: #991b1b; }
+        .ticket-prioridad-urgente { background: #fef3c7; color: #78350f; }
+        .ticket-prioridad-express { background: #fee2e2; color: #7f1d1d; }
 
         .ticket-garantia {
           text-align: center;
-          font-size: 10px;
-          font-weight: 800;
+          font-size: 11px;
+          font-weight: 900;
           letter-spacing: 2px;
           color: #1d4ed8;
-          margin-top: 4px;
+          margin-top: 5px;
         }
 
         /* Firma */
         .ticket-firma-section {
-          margin: 5px 0 2px;
+          margin: 6px 0 2px;
         }
         .ticket-firma-linea {
           border-top: 1.5px solid #000;
-          margin: 12px 4px 4px;
+          margin: 14px 4px 5px;
         }
         .ticket-firma-sub {
           text-align: center;
-          font-size: 9px;
-          color: #555;
-          font-weight: 600;
+          font-size: 11px;
+          color: #444;
+          font-weight: 700;
           letter-spacing: 0.5px;
         }
 
         .ticket-cut {
           text-align: center;
-          color: #bbb;
-          font-size: 9px;
+          color: #999;
+          font-size: 10px;
           margin-top: 6px;
           letter-spacing: 2px;
         }
