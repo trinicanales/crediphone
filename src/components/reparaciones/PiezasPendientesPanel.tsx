@@ -11,10 +11,17 @@ interface PedidoPendiente {
   costoEnvio: number;
   precioCliente: number | null;
   productoId: string | null;
+  calidad: string | null;
   notas: string | null;
   financiadoPor: string;
   createdAt: string;
   creadoPorNombre: string | null;
+  proveedor: {
+    id: string;
+    nombre: string;
+    contacto: string | null;
+    telefono: string | null;
+  } | null;
   orden: {
     id: string | null;
     folio: string | null;
@@ -378,6 +385,32 @@ function PedidoRow({
               title="WhatsApp al cliente — pieza en espera"
             >
               <MessageCircle className="w-4 h-4" />
+            </button>
+          )}
+          {pedido.proveedor?.telefono && (
+            <button
+              className="p-1.5 rounded-lg"
+              style={{ color: "var(--color-accent)", background: "transparent" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-accent-light)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              onClick={() => {
+                const clean = pedido.proveedor!.telefono!.replace(/\D/g, "");
+                const pieza = pedido.nombrePieza;
+                const equipo = `${pedido.orden.marcaDispositivo} ${pedido.orden.modeloDispositivo}`.trim();
+                const msg = encodeURIComponent(
+                  `Hola ${pedido.proveedor!.contacto || pedido.proveedor!.nombre}, te contacto de *CREDIPHONE*.\n\n` +
+                  `¿Tienes disponible la siguiente pieza?\n\n` +
+                  `📦 *Pieza:* ${pieza}\n` +
+                  `📱 *Equipo:* ${equipo}\n` +
+                  (pedido.calidad ? `⭐ *Calidad requerida:* ${pedido.calidad}\n` : "") +
+                  (pedido.costoEstimado > 0 ? `💰 *Precio estimado:* $${pedido.costoEstimado.toFixed(2)}\n` : "") +
+                  `\nFavor de confirmar disponibilidad, precio y tiempo de entrega. Gracias.`
+                );
+                window.open(`https://wa.me/52${clean}?text=${msg}`, "_blank");
+              }}
+              title={`WhatsApp al proveedor — ${pedido.proveedor.nombre}`}
+            >
+              <PackagePlus className="w-4 h-4" />
             </button>
           )}
           {onAbrirOrden && pedido.orden.id && (
