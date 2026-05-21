@@ -35,6 +35,8 @@ export function SelectorPiezasCotizacion({
     nombre: "",
     cantidad: 1,
     precioUnitario: 0,
+    costoInterno: 0,
+    costoEnvio: 0,
   });
   const dropdownRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,22 +65,58 @@ export function SelectorPiezasCotizacion({
 
     const marcaQ = encodeURIComponent(marcaDispositivo);
     const modeloQ = modeloDispositivo ? `&modelo=${encodeURIComponent(modeloDispositivo)}` : "";
+    // FASE 80: búsqueda por modelos_compatibles (GIN index)
+    const modeloCompatibleQ = modeloDispositivo
+      ? encodeURIComponent(`${marcaDispositivo} ${modeloDispositivo}`.trim())
+      : encodeURIComponent(marcaDispositivo);
 
     setCargandoSugerencias(true);
 
     Promise.all([
-      fetch(`/api/productos?marca=${marcaQ}${modeloQ}&tipo=pieza_reparacion`).then((r) =>
+      // FASE 80: endpoint de compatibilidad (usa modelos_compatibles[])
+      fetch(`/api/productos/compatibles?modelo=${modeloCompatibleQ}`).then((r) =>
+        r.ok ? r.json() : { success: false }
+      ),
+      // Fallback: búsqueda clásica por marca/modelo del producto (mantener compatibilidad)
+      fetch(`/api/productos?marca=${marcaQ}${modeloQ}&tipo=pieza_reparacion&limit=6`).then((r) =>
         r.ok ? r.json() : { success: false }
       ),
       fetch(`/api/catalogo-servicios?marca=${marcaQ}${modeloQ}`).then((r) =>
         r.ok ? r.json() : { success: false }
       ),
     ])
-      .then(([prodData, svcData]) => {
+      .then(([compatData, prodData, svcData]) => {
         const lista: PiezaCotizacion[] = [];
+        const idsAgregados = new Set<string>();
 
+        // Primero: piezas compatibles por modelos_compatibles (FASE 80)
+        if (compatData.success && Array.isArray(compatData.data)) {
+          for (const p of compatData.data as any[]) {
+            if (idsAgregados.has(p.id)) continue;
+            idsAgregados.add(p.id);
+            lista.push({
+              id: `sug-compat-${p.id}`,
+              productoId: p.id,
+              nombre: p.nombre,
+              cantidad: 1,
+              precioUnitario: Number(p.precio ?? 0),
+              precioTotal: Number(p.precio ?? 0),
+              tieneStock: p.hayStock,
+              stockActual: p.stock ?? 0,
+              esLibre: false,
+              costoInterno: Number(p.costo ?? 0),
+              costoEnvio: 0,
+              proveedorId: p.proveedor?.id,
+              calidad: p.calidad ?? undefined,
+            });
+          }
+        }
+
+        // Segundo: piezas por marca/modelo del producto (fallback clásico)
         if (prodData.success && Array.isArray(prodData.data)) {
           for (const p of prodData.data as Producto[]) {
+            if (idsAgregados.has(p.id)) continue;
+            idsAgregados.add(p.id);
             lista.push({
               id: `sug-prod-${p.id}`,
               productoId: p.id,
@@ -89,6 +127,10 @@ export function SelectorPiezasCotizacion({
               tieneStock: (p.stock ?? 0) > 0,
               stockActual: p.stock ?? 0,
               esLibre: false,
+              costoInterno: Number(p.costo ?? 0),
+              costoEnvio: 0,
+              proveedorId: p.proveedorId,
+              calidad: p.calidad ?? undefined,
             });
           }
         }
@@ -188,6 +230,11 @@ export function SelectorPiezasCotizacion({
         tieneStock: (producto.stock ?? 0) > 0,
         stockActual: producto.stock ?? 0,
         esLibre: false,
+        // FASE 80: pre-llenar costo interno desde catálogo
+        costoInterno: Number(producto.costo ?? 0),
+        costoEnvio: 0,
+        proveedorId: producto.proveedorId,
+        calidad: producto.calidad ?? undefined,
       };
       onChange([...piezas, nueva]);
     }
@@ -205,9 +252,12 @@ export function SelectorPiezasCotizacion({
       precioTotal: piezaLibre.cantidad * piezaLibre.precioUnitario,
       tieneStock: false,
       esLibre: true,
+      // FASE 80: costos internos capturados en la entrada libre
+      costoInterno: piezaLibre.costoInterno || undefined,
+      costoEnvio: piezaLibre.costoEnvio || undefined,
     };
     onChange([...piezas, nueva]);
-    setPiezaLibre({ nombre: "", cantidad: 1, precioUnitario: 0 });
+    setPiezaLibre({ nombre: "", cantidad: 1, precioUnitario: 0, costoInterno: 0, costoEnvio: 0 });
     setModoLibre(false);
   };
 
@@ -310,10 +360,18 @@ export function SelectorPiezasCotizacion({
                         : "var(--color-text-primary)",
                       cursor: yaAgregada ? "default" : "pointer",
                     }}
-                    title={`${sug.nombre} — $${sug.precioUnitario.toLocaleString("es-MX")}`}
+                    title={`${sug.nombre}${sug.calidad ? ` (${sug.calidad})` : ""} — $${sug.precioUnitario.toLocaleString("es-MX")}`}
                   >
                     {yaAgregada ? <CheckCircle className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                    <span className="max-w-[140px] truncate">{sug.nombre}</span>
+                    <span className="max-w-[120px] truncate">{sug.nombre}</span>
+                    {sug.calidad && (
+                      <span
+                        className="text-[10px] px-1 rounded"
+                        style={{ background: "var(--color-bg-surface)", color: "var(--color-text-muted)", border: "1px solid var(--color-border)" }}
+                      >
+                        {sug.calidad}
+                      </span>
+                    )}
                     <span style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
                       ${sug.precioUnitario.toLocaleString("es-MX")}
                     </span>
@@ -545,6 +603,63 @@ export function SelectorPiezasCotizacion({
               </div>
             </div>
           </div>
+          {/* FASE 80: Costos internos (no visibles al cliente) */}
+          <div
+            className="rounded-lg p-2.5 space-y-2"
+            style={{ background: "var(--color-bg-sunken)", border: "1px solid var(--color-border)" }}
+          >
+            <p className="text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>
+              Costos internos (solo para control de utilidad — el cliente no los ve)
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>
+                  Costo de la pieza
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold" style={{ color: "var(--color-text-muted)" }}>$</span>
+                  <input
+                    type="number"
+                    value={piezaLibre.costoInterno || ""}
+                    onChange={(e) => setPiezaLibre({ ...piezaLibre, costoInterno: parseFloat(e.target.value) || 0 })}
+                    onFocus={(e) => e.target.select()}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full pl-6 pr-2 py-1.5 rounded-lg text-sm focus:outline-none"
+                    style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)" }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>
+                  Costo de envío
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold" style={{ color: "var(--color-text-muted)" }}>$</span>
+                  <input
+                    type="number"
+                    value={piezaLibre.costoEnvio || ""}
+                    onChange={(e) => setPiezaLibre({ ...piezaLibre, costoEnvio: parseFloat(e.target.value) || 0 })}
+                    onFocus={(e) => e.target.select()}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full pl-6 pr-2 py-1.5 rounded-lg text-sm focus:outline-none"
+                    style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)", color: "var(--color-text-primary)" }}
+                  />
+                </div>
+              </div>
+            </div>
+            {(piezaLibre.costoInterno > 0 || piezaLibre.costoEnvio > 0) && piezaLibre.precioUnitario > 0 && (
+              <p className="text-xs" style={{ color: "var(--color-success-text)" }}>
+                Utilidad estimada: {formatMXN(piezaLibre.precioUnitario - (piezaLibre.costoInterno + piezaLibre.costoEnvio))} / pieza
+              </p>
+            )}
+          </div>
+
           <div className="flex gap-2 pt-1">
             <button
               type="button"
