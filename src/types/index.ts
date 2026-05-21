@@ -385,11 +385,16 @@ export interface PiezaCotizacion {
   productoId?: string;         // si viene del catálogo
   nombre: string;              // nombre de la pieza
   cantidad: number;
-  precioUnitario: number;
+  precioUnitario: number;      // precio cobrado al cliente (all-in: pieza + instalación + envío)
   precioTotal: number;
   tieneStock: boolean;         // false = sin existencia (solo cotización)
   stockActual?: number;        // cantidad actual en inventario
   esLibre: boolean;            // true = agregada manualmente sin catálogo
+  // FASE 80: Costos internos (no visibles al cliente)
+  costoInterno?: number;       // costo de compra de la pieza (lo que le cuesta a la tienda)
+  costoEnvio?: number;         // costo de envío del proveedor
+  proveedorId?: string;        // proveedor que surte esta pieza
+  calidad?: string;            // tipo de calidad: original, generica, premium, oem, refurbished
 }
 
 // Pieza de inventario usada en una reparación (con tracking completo)
