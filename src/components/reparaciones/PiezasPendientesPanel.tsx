@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PackagePlus, RefreshCw, AlertCircle, ExternalLink, Clock, MessageCircle, BookPlus, X, Check, Search } from "lucide-react";
+import { generarMensajePiezaEnEspera } from "@/lib/whatsapp-reparaciones";
 
 interface PedidoPendiente {
   id: string;
@@ -370,11 +371,11 @@ function PedidoRow({
               onClick={() => {
                 const clean = pedido.orden.clienteTelefono!.replace(/\D/g, "");
                 const msg = encodeURIComponent(
-                  `⏳ *ESPERA DE REFACCIÓN - CREDIPHONE*\n\nHola *${pedido.orden.clienteNombre}*, gracias por tu paciencia.\n\nTe informamos sobre tu ${pedido.orden.marcaDispositivo} ${pedido.orden.modeloDispositivo} (Folio: ${pedido.orden.folio}).\n\nLa refacción ya fue pedida al proveedor y estamos esperando su llegada. Te notificaremos en cuanto esté lista.\n\nCualquier duda estamos a tus órdenes. 📱 CREDIPHONE`
+                  generarMensajePiezaEnEspera(pedido.orden as any)
                 );
                 window.open(`https://wa.me/52${clean}?text=${msg}`, "_blank");
               }}
-              title="WhatsApp al cliente"
+              title="WhatsApp al cliente — pieza en espera"
             >
               <MessageCircle className="w-4 h-4" />
             </button>
