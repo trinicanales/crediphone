@@ -1,6 +1,6 @@
 # Sesión Activa — CREDIPHONE
 
-## Estado: LIBRE — sin tarea activa (2026-05-17)
+## Estado: EN PROGRESO — Plan unificación piezas (2026-05-21)
 
 **Última sesión:** 2026-05-17 — Plan auditoría inventario COMPLETO. Mergeado a master y pusheado.
 
@@ -38,6 +38,50 @@
 | N2 ✅ | Ya cubierto en P5-P8 | Hoyos de auditoría cerrados |
 
 **movimientos_stock ahora se registra en TODAS las operaciones de stock del sistema.**
+
+---
+
+## Implementado 2026-05-21 — Plan unificación del flujo de piezas (Fases 80+)
+
+### Fase 1 ✅ — Base: compatibilidad y calidad en catálogo
+| Cambio | Archivos |
+|--------|---------|
+| Migración BD: `modelos_compatibles text[]` (GIN) + `calidad` en `productos` | Supabase |
+| Tipo `Producto`: `modelosCompatibles` + `calidad` union type | `src/types/index.ts` |
+| Mapper: convierte DB → camelCase | `src/lib/db/productos.ts` |
+| API `GET /api/productos/compatibles?modelo=...` | `src/app/api/productos/compatibles/route.ts` |
+| UI catálogo: sección pieza_reparacion con calidad + tags de modelos | `src/app/dashboard/productos/page.tsx` |
+
+### Fases 2+3 ✅ — Autosugerencia mejorada + costos internos en cotización
+| Cambio | Archivos |
+|--------|---------|
+| `PiezaCotizacion`: nuevos campos `costoInterno`, `costoEnvio`, `proveedorId`, `calidad` | `src/types/index.ts` |
+| Fetch doble (compatibles GIN + fallback clásico), deduplicado | `SelectorPiezasCotizacion.tsx` |
+| Pre-llena `costoInterno` desde catálogo al agregar inventario | `SelectorPiezasCotizacion.tsx` |
+| Formulario libre: campos costo pieza + envío + utilidad en tiempo real | `SelectorPiezasCotizacion.tsx` |
+| Badge calidad en chips de sugerencias | `SelectorPiezasCotizacion.tsx` |
+
+### Utilidad visible ✅ — Todos los roles ven la rentabilidad
+| Cambio | Archivos |
+|--------|---------|
+| Quita restricción `isAdmin` de sección rentabilidad | `OrdenDrawer.tsx` |
+| Elimina referencias a `presupuestoTotal` (columna inexistente) | `OrdenDrawer.tsx` |
+| Mensaje si no hay piezas pedidas aún | `OrdenDrawer.tsx` |
+
+### Fase 4 ✅ — Calidad visible al cliente en tracking
+| Cambio | Archivos |
+|--------|---------|
+| `PiezaTrackingRow`: botón "Ver detalles" expandible por pieza | `tracking/[token]/page.tsx` |
+| Muestra calidad en lenguaje amigable (Original, Genérica, OEM...) | `tracking/[token]/page.tsx` |
+| Solo aparece si la pieza tiene calidad registrada | `tracking/[token]/page.tsx` |
+
+### Pendiente — Fase 5: conectar downstream
+- PDF/contrato: agregar nota discreta de calidad "(tipo: genérica)"
+- `pedidos_pieza_reparacion` al crear pedido: propagar `calidad` y `proveedorId` de `piezasCotizacion`
+- Notificación a todos los roles cuando técnico modifica pieza en diagnóstico
+- Pieza cotizada sin inventario → precargar con stock 0 automáticamente al guardar
+
+**Para continuar:** Di "continúa" y retomo desde Fase 5.
 
 
 **Historial:** `ARCHIVO/HISTORIAL-SESIONES.md`
