@@ -359,6 +359,63 @@ function TrackingSkeleton() {
 
 /* ── Error state ─────────────────────────────────────────────── */
 
+// FASE 80: Fila de pieza en tracking con calidad expandible
+function PiezaTrackingRow({ pieza }: { pieza: any }) {
+  const [verDetalle, setVerDetalle] = useState(false);
+  const CALIDAD_LABEL: Record<string, string> = {
+    original: "Original",
+    premium: "Premium",
+    oem: "OEM (Compatible oficial)",
+    generica: "Genérica",
+    refurbished: "Refurbished",
+  };
+  return (
+    <div
+      className="rounded-lg px-3 py-2"
+      style={{ background: "var(--color-bg-elevated)" }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--color-success)" }} />
+          <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+            {pieza.nombre}
+            {pieza.cantidad > 1 && (
+              <span className="ml-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>× {pieza.cantidad}</span>
+            )}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
+            {formatCurrency(pieza.precioTotal ?? pieza.precioUnitario * (pieza.cantidad ?? 1))}
+          </span>
+          {pieza.calidad && (
+            <button
+              type="button"
+              onClick={() => setVerDetalle(!verDetalle)}
+              className="text-xs px-2 py-0.5 rounded-full transition-all"
+              style={{
+                background: verDetalle ? "var(--color-info-bg)" : "var(--color-bg-surface)",
+                color: "var(--color-info-text)",
+                border: "1px solid var(--color-info)",
+              }}
+            >
+              {verDetalle ? "Ocultar" : "Ver detalles"}
+            </button>
+          )}
+        </div>
+      </div>
+      {verDetalle && pieza.calidad && (
+        <div
+          className="mt-1.5 px-2 py-1.5 rounded-lg text-xs"
+          style={{ background: "var(--color-info-bg)", color: "var(--color-info-text)" }}
+        >
+          Tipo de refacción: <strong>{CALIDAD_LABEL[pieza.calidad] ?? pieza.calidad}</strong>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TrackingError({ message }: { message: string }) {
   return (
     <div
@@ -1259,24 +1316,7 @@ export default function TrackingPublicoPage() {
             {orden.piezasCotizacion && orden.piezasCotizacion.length > 0 ? (
               <div className="space-y-1">
                 {orden.piezasCotizacion.map((p, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-lg px-3 py-2"
-                    style={{ background: "var(--color-bg-elevated)" }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--color-success)" }} />
-                      <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                        {p.nombre}
-                        {p.cantidad > 1 && (
-                          <span className="ml-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>× {p.cantidad}</span>
-                        )}
-                      </span>
-                    </div>
-                    <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
-                      {formatCurrency(p.precioTotal ?? p.precioUnitario * (p.cantidad ?? 1))}
-                    </span>
-                  </div>
+                  <PiezaTrackingRow key={i} pieza={p} />
                 ))}
               </div>
             ) : orden.partesReemplazadas && orden.partesReemplazadas.length > 0 ? (
