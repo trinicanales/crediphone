@@ -95,7 +95,7 @@
 | P1 ✅ | Migración almacenaje — ya estaba aplicada en BD | Supabase (verificado) |
 | P2 ✅ | Nota de calidad discreta en PDF, sección PIEZAS UTILIZADAS | `src/lib/pdf/orden-pdf.ts` |
 | P3 ✅ | BUG-PIEZAS-001: WhatsApp usa `generarMensajePiezaEnEspera` centralizado | `PiezasPendientesPanel.tsx` |
-| P4 🔄 | Venta de teléfonos en POS (contado vs crédito con IMEI) | Pendiente |
+| P4 ✅ | Venta de teléfonos en POS a crédito con IMEI | `VentaCreditoModal.tsx` + `api/pos/venta-credito/route.ts` + `pos/page.tsx` |
 | P5 ✅ | RLS habilitado en 3 tablas sin protección: `pedidos_pieza_reparacion`, `solicitudes_cambio_precio`, `versiones_pdf_reparacion` | Supabase migration |
 | P6 ✅ | WhatsApp al proveedor desde panel piezas pendientes — botón por pieza con mensaje pre-compuesto | `PiezasPendientesPanel.tsx` + `api/reparaciones/piezas-pendientes/route.ts` |
 
