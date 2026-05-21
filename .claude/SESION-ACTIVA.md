@@ -75,13 +75,27 @@
 | Muestra calidad en lenguaje amigable (Original, Genérica, OEM...) | `tracking/[token]/page.tsx` |
 | Solo aparece si la pieza tiene calidad registrada | `tracking/[token]/page.tsx` |
 
-### Pendiente — Fase 5: conectar downstream
-- PDF/contrato: agregar nota discreta de calidad "(tipo: genérica)"
-- `pedidos_pieza_reparacion` al crear pedido: propagar `calidad` y `proveedorId` de `piezasCotizacion`
-- Notificación a todos los roles cuando técnico modifica pieza en diagnóstico
-- Pieza cotizada sin inventario → precargar con stock 0 automáticamente al guardar
+### Fase 5 ✅ — Conectar downstream (2026-05-21)
+| Cambio | Archivos |
+|--------|---------|
+| BD: columnas `calidad` + `proveedor_id` en `pedidos_pieza_reparacion` | Supabase migration |
+| POST `/pedidos-pieza`: acepta calidad + proveedorId, propaga a INSERT y piezas_cotizacion | `api/reparaciones/[id]/pedidos-pieza/route.ts` |
+| F5b: pieza libre → auto-crea producto en catálogo con stock=0 y vincula al pedido | idem |
+| F5c: notificación fire-and-forget a admin+vendedores + técnico asignado al agregar pieza | idem |
+| Ticket 58mm: fuentes +20% (11-15px), más peso; piezas, presupuesto, anticipo, notas técnico | `reparaciones/[id]/ticket/page.tsx` |
 
-**Para continuar:** Di "continúa" y retomo desde Fase 5.
+**Plan unificación piezas: COMPLETO.** Todas las fases 1–5 implementadas.
+
+---
+
+## Implementado 2026-05-21 — Puntos pendientes post-auditoría
+
+| Punto | Descripción | Archivos |
+|-------|-------------|---------|
+| P1 ✅ | Migración almacenaje — ya estaba aplicada en BD | Supabase (verificado) |
+| P2 ✅ | Nota de calidad discreta en PDF, sección PIEZAS UTILIZADAS | `src/lib/pdf/orden-pdf.ts` |
+| P3 ✅ | BUG-PIEZAS-001: WhatsApp usa `generarMensajePiezaEnEspera` centralizado | `PiezasPendientesPanel.tsx` |
+| P4 🔄 | Venta de teléfonos en POS (contado vs crédito con IMEI) | En progreso |
 
 
 **Historial:** `ARCHIVO/HISTORIAL-SESIONES.md`

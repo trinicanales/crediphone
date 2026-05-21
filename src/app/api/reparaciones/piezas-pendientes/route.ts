@@ -22,8 +22,9 @@ export async function GET(request: NextRequest) {
       .from("pedidos_pieza_reparacion")
       .select(`
         id, nombre_pieza, costo_estimado, costo_envio, precio_cliente, producto_id, estado,
-        created_at, notas, financiado_por, monto_de_caja,
+        created_at, notas, financiado_por, monto_de_caja, calidad,
         creadoPor:creado_por (name),
+        proveedor:proveedor_id (id, nombre, contacto, telefono),
         orden:ordenes_reparacion!inner (
           id, folio, estado, marca_dispositivo, modelo_dispositivo,
           distribuidor_id,
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
       .map((p: any) => {
         const ord = p.orden as any;
         const cli = ord?.clientes as any;
+        const prov = p.proveedor as any;
         return {
           id: p.id,
           nombrePieza: p.nombre_pieza,
@@ -59,12 +61,19 @@ export async function GET(request: NextRequest) {
           costoEnvio: Number(p.costo_envio || 0),
           precioCliente: p.precio_cliente !== null && p.precio_cliente !== undefined ? Number(p.precio_cliente) : null,
           productoId: p.producto_id ?? null,
+          calidad: p.calidad ?? null,
           estado: p.estado,
           createdAt: p.created_at,
           notas: p.notas,
           financiadoPor: p.financiado_por ?? "bolsa",
           montoDeCaja: Number(p.monto_de_caja || 0),
           creadoPorNombre: p.creadoPor?.name ?? null,
+          proveedor: prov ? {
+            id: prov.id,
+            nombre: prov.nombre ?? "",
+            contacto: prov.contacto ?? null,
+            telefono: prov.telefono ?? null,
+          } : null,
           orden: {
             id: ord?.id ?? null,
             folio: ord?.folio ?? null,
