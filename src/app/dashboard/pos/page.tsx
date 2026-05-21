@@ -11,12 +11,13 @@ import { ReparacionesPOSPanel } from "@/components/pos/ReparacionesPOSPanel";
 import { BolsaVirtualPanel } from "@/components/pos/BolsaVirtualPanel";
 import { KitsPOSPanel } from "@/components/pos/KitsPOSPanel";
 import { PaymentMethodSelector } from "@/components/pos/PaymentMethodSelector";
+import { VentaCreditoModal } from "@/components/pos/VentaCreditoModal";
 import { ReciboModal } from "@/components/pos/ReciboModal";
 import { DescuentoPOS } from "@/components/pos/DescuentoPOS";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
-import { ShoppingCart as CartIcon, DollarSign, Receipt, LogOut as CloseIcon, X, LayoutGrid, Search as SearchIcon, User, ScanLine, FileText, Tag, Wrench, Package2, UserCheck, Clock as ClockIn, ShoppingBag, Star } from "lucide-react";
+import { ShoppingCart as CartIcon, DollarSign, Receipt, LogOut as CloseIcon, X, LayoutGrid, Search as SearchIcon, User, ScanLine, FileText, Tag, Wrench, Package2, UserCheck, Clock as ClockIn, ShoppingBag, Star, CreditCard } from "lucide-react";
 import { generarReporteX, abrirReporte } from "@/lib/utils/reportes";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { OfflineBanner } from "@/components/pos/OfflineBanner";
@@ -116,6 +117,9 @@ export default function POSPage() {
   // Bolsa Virtual
   const [showBolsaVirtual, setShowBolsaVirtual] = useState(false);
   const [bolsaTotal, setBolsaTotal] = useState(0);
+
+  // Venta a crédito
+  const [showCreditoModal, setShowCreditoModal] = useState(false);
 
   // Panel extras compacto: qué sección está expandida (null = todas cerradas)
   const [extrasPanel, setExtrasPanel] = useState<"descuento" | "cliente" | "notas" | "puntos" | null>(null);
@@ -1964,6 +1968,24 @@ export default function POSPage() {
                 {processingVenta ? "Procesando..." : `Completar Venta — $${total.toFixed(2)}`}
               </Button>
 
+              {/* Botón Venta a Crédito — solo si hay equipo serializado y cliente seleccionado */}
+              {cartItems.some(i => i.imei) && clienteSeleccionado && (
+                <button
+                  onClick={() => setShowCreditoModal(true)}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+                  style={{
+                    background: "var(--color-bg-elevated)",
+                    border: "1px solid var(--color-accent)",
+                    color: "var(--color-accent)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-accent-light)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--color-bg-elevated)"; }}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Venta a crédito
+                </button>
+              )}
+
               {/* Botón oculto F12 pago rápido */}
               <button
                 id="btn-pago-rapido-f12"
@@ -2466,6 +2488,25 @@ export default function POSPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal: Venta a Crédito */}
+      {showCreditoModal && clienteSeleccionado && (
+        <VentaCreditoModal
+          cartItems={cartItems}
+          total={total}
+          cliente={clienteSeleccionado}
+          onClose={() => setShowCreditoModal(false)}
+          onSuccess={(creditoId) => {
+            setShowCreditoModal(false);
+            setCartItems([]);
+            setDescuento(0);
+            setClienteSeleccionado(null);
+            setBusquedaCliente("");
+            setNotasVenta("");
+            alert(`✓ Venta a crédito registrada. ID: ${creditoId}`);
+          }}
+        />
       )}
     </div>
   );
