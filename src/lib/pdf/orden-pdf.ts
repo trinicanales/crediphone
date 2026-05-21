@@ -218,9 +218,16 @@ export async function generarOrdenPDF(
 
   const { data: piezas } = await supabase
     .from("reparacion_piezas")
-    .select("nombre_pieza, cantidad, costo_unitario, productos(nombre)")
+    .select("nombre_pieza, cantidad, costo_unitario, producto_id, productos(nombre)")
     .eq("orden_id", ordenId)
     .order("created_at", { ascending: true });
+
+  // Calidad de piezas: viene de pedidos_pieza_reparacion (confirmada al recibir)
+  const { data: pedidosCalidad } = await supabase
+    .from("pedidos_pieza_reparacion")
+    .select("nombre_pieza, producto_id, calidad")
+    .eq("orden_id", ordenId)
+    .not("calidad", "is", null);
 
   const { data: garantiaRecord } = await supabase
     .from("garantias_reparacion")
@@ -667,14 +674,37 @@ export async function generarOrdenPDF(
     doc.line(ML, y, PW - MR, y);
     y += 3;
 
+    const CALIDAD_LABEL: Record<string, string> = {
+      original:    "Original",
+      generica:    "Genérica",
+      premium:     "Premium",
+      oem:         "OEM",
+      refurbished: "Reacondicionada",
+    };
+
+    // Índice de calidad por producto_id o nombre_pieza
+    const calidadMap = new Map<string, string>();
+    (pedidosCalidad || []).forEach((p: any) => {
+      if (p.calidad) {
+        if (p.producto_id) calidadMap.set(p.producto_id, p.calidad);
+        if (p.nombre_pieza) calidadMap.set(p.nombre_pieza.trim().toLowerCase(), p.calidad);
+      }
+    });
+
     let totalPiezasReal = 0;
-    (piezas as Array<{ nombre_pieza?: string; cantidad?: number; costo_unitario?: unknown; productos?: { nombre?: string } | null }>)
+    (piezas as Array<{ nombre_pieza?: string; cantidad?: number; costo_unitario?: unknown; producto_id?: string | null; productos?: { nombre?: string } | null }>)
       .forEach((p) => {
         const nombre = p.nombre_pieza || (p.productos?.nombre ?? "Pieza sin nombre");
         const cant = p.cantidad ?? 1;
         const cu = Number(p.costo_unitario || 0);
         const subtotal = cant * cu;
         totalPiezasReal += subtotal;
+
+        // Buscar calidad: primero por producto_id, luego por nombre
+        const calidadKey = p.producto_id
+          ? calidadMap.get(p.producto_id)
+          : calidadMap.get(nombre.trim().toLowerCase());
+        const calidadLabel = calidadKey ? CALIDAD_LABEL[calidadKey] ?? calidadKey : null;
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
@@ -685,6 +715,18 @@ export async function generarOrdenPDF(
         doc.text(`$${cu.toFixed(2)}`,         pzX[2], y);
         doc.text(`$${subtotal.toFixed(2)}`,   pzX[3], y);
         y += Math.max(nomLines.length * 4, 4.5);
+
+        // Nota discreta de calidad (solo si está confirmada)
+        if (calidadLabel) {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(6);
+          tc(doc, C.grayLight);
+          doc.text(`  tipo: ${calidadLabel}`, pzX[0], y - 1.5);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          tc(doc, C.gray);
+          y += 1.5;
+        }
       });
 
     dc(doc, C.grayLine);
