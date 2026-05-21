@@ -1,14 +1,14 @@
 # Sesión Activa — CREDIPHONE
 
-## Estado: AUDITORÍA INVENTARIO ✅ COMPLETO (2026-05-17)
+## Estado: LIBRE — sin tarea activa (2026-05-17)
 
-**Última sesión:** 2026-05-17 — Auditoría inventario completa + 8 fixes implementados y pusheados
+**Última sesión:** 2026-05-17 — Plan auditoría inventario COMPLETO. Mergeado a master y pusheado.
 
-## Implementado 2026-05-17 — Auditoría área de inventario
+## Implementado 2026-05-17 — Auditoría área de inventario (COMPLETO)
 
+### Fase 1 — Bugs críticos
 | Fix | Archivo | Descripción |
 |-----|---------|-------------|
-| P1 ✅ | `inventario/verificar/page.tsx` | Progreso por ubicación + tab Contados agrupado |
 | P2 ✅ | `inventario/series/page.tsx` | Validación IMEI 15-17 dígitos estricta |
 | P3 ✅ | `lib/db/ventas.ts` | movimientos_stock fire-and-forget → await |
 | P4 ✅ | `inventario/verificar/page.tsx` | Búsqueda en lista de faltantes |
@@ -17,14 +17,27 @@
 | P7 ✅ | `lib/db/ordenes-compra.ts` | movimientos_stock al recibir mercancía de OC |
 | P8 ✅ | `lib/db/reparaciones.ts` | movimientos_stock al usar/devolver piezas |
 
-Rama: `claude/elated-kapitsa` — pendiente merge a master.
+### Fase 2 — Consolidación UI
+| Fix | Archivo | Descripción |
+|-----|---------|-------------|
+| U1 ✅ | `productos/page.tsx` | Historial de movimientos en modal del producto |
+| U2 ✅ | `inventario/verificar/page.tsx` | Tab "Historial" con verificaciones pasadas (lazy load) |
+| U3 ✅ | Ya existía | Catálogo unificado con filtros de tipo |
 
-**Hoyos de auditoría resueltos:** movimientos_stock ahora se registra en TODAS las operaciones de stock.
+### Fase 3 — Delegación a empleados
+| Fix | Archivo | Descripción |
+|-----|---------|-------------|
+| D1 ✅ | `inventario/alertas/page.tsx` | Vendedor ve alertas (lectura); solo admin puede actuar |
+| D2 ✅ | `pos/page.tsx` | Alerta de stock bajo post-venta, auto-cierra 15s |
+| D3 ✅ | `inventario/verificar/page.tsx` | Técnico puede acceder a verificación física |
 
-**Pendiente consolidación UI (no prioritario):**
-- U1: historial de movimientos en drawer del producto
-- U2: tab Discrepancias dentro de Verificación
-- U3: catálogo unificado con filtros de tipo
+### Fase 4 — Funcionalidades nuevas
+| Fix | Archivo | Descripción |
+|-----|---------|-------------|
+| N1 ✅ | `compras/page.tsx` + `api/inventario/movimientos/route.ts` | Entrada directa sin OC formal |
+| N2 ✅ | Ya cubierto en P5-P8 | Hoyos de auditoría cerrados |
+
+**movimientos_stock ahora se registra en TODAS las operaciones de stock del sistema.**
 
 
 **Historial:** `ARCHIVO/HISTORIAL-SESIONES.md`
