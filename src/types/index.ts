@@ -237,6 +237,10 @@ export interface Producto {
   almacenamiento?: string;// Almacenamiento: "128GB", "256GB", "512GB"
   folioRemision?: string; // Folio del ticket de compra: "WINDCEL-19/11/2025"
 
+  // FASE 80: Compatibilidad de modelos y calidad (piezas de reparación)
+  modelosCompatibles?: string[]; // Modelos de dispositivo compatibles: ["Samsung A05", "Samsung A05s"]
+  calidad?: "original" | "generica" | "premium" | "oem" | "refurbished"; // Solo pieza_reparacion
+
   createdAt: Date;
   updatedAt: Date;
 }

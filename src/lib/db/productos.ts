@@ -44,6 +44,10 @@ function mapProductoFromDB(db: any): Producto {
     almacenamiento:   db.almacenamiento    ?? undefined,
     folioRemision:    db.folio_remision    ?? undefined,
 
+    // FASE 80: Compatibilidad de modelos y calidad
+    modelosCompatibles: db.modelos_compatibles ?? [],
+    calidad:          db.calidad           ?? undefined,
+
     createdAt:        db.created_at        ? new Date(db.created_at)  : new Date(),
     updatedAt:        db.updated_at        ? new Date(db.updated_at)  : new Date(),
   };
@@ -183,6 +187,9 @@ export async function createProducto(producto: Omit<Producto, "id" | "createdAt"
       ram: producto.ram || null,
       almacenamiento: producto.almacenamiento || null,
       folio_remision: producto.folioRemision || null,
+      // FASE 80: Compatibilidad y calidad
+      modelos_compatibles: producto.modelosCompatibles ?? [],
+      calidad: producto.calidad || null,
     })
     .select()
     .single();
@@ -225,6 +232,9 @@ export async function updateProducto(id: string, producto: Partial<Producto>, di
   if (producto.ram !== undefined) updates.ram = producto.ram || null;
   if (producto.almacenamiento !== undefined) updates.almacenamiento = producto.almacenamiento || null;
   if (producto.folioRemision !== undefined) updates.folio_remision = producto.folioRemision || null;
+  // FASE 80 Fields
+  if (producto.modelosCompatibles !== undefined) updates.modelos_compatibles = producto.modelosCompatibles;
+  if (producto.calidad !== undefined) updates.calidad = producto.calidad || null;
 
   let query = supabase
     .from("productos")

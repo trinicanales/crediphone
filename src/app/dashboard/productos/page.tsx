@@ -1189,6 +1189,10 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
     color:           producto?.color              || "",
     ram:             producto?.ram                || "",
     almacenamiento:  producto?.almacenamiento     || "",
+    // FASE 80: compatibilidad de modelos y calidad
+    calidad:         producto?.calidad            || "",
+    modelosCompatibles: producto?.modelosCompatibles ?? [],
+    nuevoModelo:     "", // campo temporal para agregar modelos compatible (no se guarda)
   });
   const stockOriginal = useRef<number>(producto?.stock ?? 0);
   const [motivoAjuste, setMotivoAjuste] = useState("");
@@ -1443,6 +1447,9 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
           color:           formData.color           || undefined,
           ram:             formData.ram             || undefined,
           almacenamiento:  formData.almacenamiento  || undefined,
+          // FASE 80: compatibilidad y calidad
+          calidad:         formData.calidad         || undefined,
+          modelosCompatibles: formData.modelosCompatibles,
         }),
       });
       if (res.ok) {
@@ -1710,6 +1717,125 @@ function ProductoForm({ mode, producto, onSuccess, onCancel, productosExistentes
               onChange={handleChange}
               placeholder="64GB, 128GB, 256GB..."
             />
+          </div>
+        </div>
+      )}
+
+      {/* FASE 80: Campos exclusivos para piezas de reparación */}
+      {formData.tipo === "pieza_reparacion" && (
+        <div
+          className="p-4 rounded-xl space-y-3"
+          style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-border)" }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-warning-text)" }}>
+            Datos de la Pieza de Reparación
+          </p>
+
+          {/* Calidad */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+              Tipo de calidad
+            </label>
+            <select
+              name="calidad"
+              value={formData.calidad}
+              onChange={handleChange}
+              className="w-full h-9 rounded-lg px-3 text-sm"
+              style={{
+                background: "var(--color-bg-input)",
+                border: "1px solid var(--color-border)",
+                color: "var(--color-text-primary)",
+              }}
+            >
+              <option value="">Sin especificar</option>
+              <option value="original">Original</option>
+              <option value="premium">Premium</option>
+              <option value="oem">OEM (Compatible oficial)</option>
+              <option value="generica">Genérica</option>
+              <option value="refurbished">Refurbished</option>
+            </select>
+          </div>
+
+          {/* Modelos compatibles */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+              Modelos de dispositivo compatibles
+            </label>
+            {/* Tags de modelos existentes */}
+            {formData.modelosCompatibles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {formData.modelosCompatibles.map((m: string) => (
+                  <span
+                    key={m}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium"
+                    style={{ background: "var(--color-warning)", color: "#fff" }}
+                  >
+                    {m}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          modelosCompatibles: prev.modelosCompatibles.filter((x: string) => x !== m),
+                        }))
+                      }
+                      className="ml-0.5 hover:opacity-70"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {/* Input para agregar nuevo modelo */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                name="nuevoModelo"
+                value={formData.nuevoModelo}
+                onChange={handleChange}
+                placeholder="Ej: Samsung A05, Samsung A05s"
+                className="flex-1 h-9 rounded-lg px-3 text-sm"
+                style={{
+                  background: "var(--color-bg-input)",
+                  border: "1px solid var(--color-border)",
+                  color: "var(--color-text-primary)",
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    const val = formData.nuevoModelo.trim();
+                    if (val && !formData.modelosCompatibles.includes(val)) {
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        modelosCompatibles: [...prev.modelosCompatibles, val],
+                        nuevoModelo: "",
+                      }));
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="px-3 h-9 rounded-lg text-sm font-medium"
+                style={{ background: "var(--color-warning)", color: "#fff" }}
+                onClick={() => {
+                  const val = formData.nuevoModelo.trim();
+                  if (val && !formData.modelosCompatibles.includes(val)) {
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      modelosCompatibles: [...prev.modelosCompatibles, val],
+                      nuevoModelo: "",
+                    }));
+                  }
+                }}
+              >
+                + Agregar
+              </button>
+            </div>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Escribe el modelo y presiona Enter o coma para agregar. Ej: "Samsung A05"
+            </p>
           </div>
         </div>
       )}
