@@ -2549,12 +2549,13 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
 
         <PresupuestoSummary orden={orden} />
 
-        {/* D1: Margen de utilidad — solo admin/super_admin */}
-        {isAdmin && (() => {
+        {/* D1 / FASE 80: Utilidad del servicio — visible para todos los roles (admin, vendedor, técnico) */}
+        {(() => {
           const costosPiezas = pedidosPieza
             .filter((p) => p.estado !== "cancelada")
             .reduce((s, p) => s + (p.costoEstimado ?? 0) + (p.costoEnvio ?? 0), 0);
-          const ingresos = orden.costoTotal ?? orden.presupuestoTotal ?? 0;
+          // NUNCA usar presupuestoTotal — columna inexistente. Solo precio_total / costo_total.
+          const ingresos = orden.costoTotal ?? 0;
           if (ingresos === 0 && costosPiezas === 0) return null;
           const ingresoNeto = ingresos - costosPiezas;
           const margenPct = ingresos > 0 ? Math.round((ingresoNeto / ingresos) * 100) : 0;
@@ -2566,11 +2567,11 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
               style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}
             >
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-muted)" }}>
-                Rentabilidad (solo tú ves esto)
+                Utilidad del servicio
               </p>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
-                  <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Ingresos</p>
+                  <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Total cobrado</p>
                   <p className="text-sm font-semibold" style={{ color: "var(--color-success)", fontFamily: "var(--font-data)" }}>{fmtMXN(ingresos)}</p>
                 </div>
                 <div>
@@ -2585,6 +2586,11 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                   </p>
                 </div>
               </div>
+              {costosPiezas === 0 && pedidosPieza.length === 0 && (
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  Sin piezas pedidas aún — los costos se registran al agregar piezas al proveedor.
+                </p>
+              )}
             </div>
           );
         })()}
@@ -3196,7 +3202,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
 
         {/* ── Financial summary strip ── */}
         {orden && (() => {
-          const total = orden.costoTotal ?? orden.presupuestoTotal ?? 0;
+          const total = orden.costoTotal ?? 0; // NUNCA usar presupuestoTotal — columna inexistente
           const anticipos = orden.totalAnticipos ?? 0;
           const saldo = total - anticipos;
           const tieneDatos = total > 0 || anticipos > 0;
@@ -3214,7 +3220,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                 <DollarSign className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-text-muted)" }} />
                 <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Total:</span>
                 <span className="text-xs font-bold font-mono" style={{ color: "var(--color-text-primary)" }}>{fmt(total)}</span>
-                {!orden.costoTotal && orden.presupuestoTotal && (
+                {!orden.costoTotal && (
                   <span className="text-xs px-1 rounded" style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)" }}>est.</span>
                 )}
               </div>
