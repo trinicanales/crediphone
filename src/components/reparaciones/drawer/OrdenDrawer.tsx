@@ -7,7 +7,7 @@ import {
   X, ExternalLink, Edit, Loader2, Wrench, Clock, AlertCircle,
   MessageSquare, Package, Timer, FileText, Image as ImageIcon,
   DollarSign, Phone, CheckCircle, GitBranch, Printer, Plus, PackageCheck, PackagePlus,
-  Download, History, ShieldAlert, UserCog, Link2, Copy, MessageCircle,
+  Download, History, ShieldAlert, UserCog, Link2, Copy, MessageCircle, RotateCcw,
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { PresupuestoSummary } from "@/components/reparaciones/detail/PresupuestoSummary";
@@ -208,6 +208,10 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const [mostrarFormReingreso, setMostrarFormReingreso] = useState(false);
   const [motivoReingreso, setMotivoReingreso] = useState("");
   const [reingresando, setReingresando] = useState(false);
+  // C3: Revertir estado (solo admin)
+  const [revertirModalOpen, setRevertirModalOpen] = useState(false);
+  const [motivoRevertir, setMotivoRevertir] = useState("");
+  const [reviertendoEstado, setRevirtiendoEstado] = useState(false);
   // M2: tracking link
   const [trackingCopiado, setTrackingCopiado] = useState(false);
   // E5: teléfono copiado
@@ -3069,6 +3073,20 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                 <span className="hidden sm:inline ml-1">Estado</span>
               </button>
             )}
+            {/* C3: Revertir estado — solo admin, solo estados reversibles */}
+            {isAdmin && orden && !["entregado", "cancelado", "no_reparable", "recibido"].includes(orden.estado) && (
+              <button
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+                style={{ color: "var(--color-danger, #dc2626)", background: "var(--color-danger-bg, #fee2e2)", border: "1px solid transparent" }}
+                onMouseEnter={(e) => (e.currentTarget.style.border = "1px solid var(--color-danger, #dc2626)")}
+                onMouseLeave={(e) => (e.currentTarget.style.border = "1px solid transparent")}
+                onClick={() => { setMotivoRevertir(""); setRevertirModalOpen(true); }}
+                title="Revertir estado al paso anterior"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline ml-1">Revertir</span>
+              </button>
+            )}
             {orden && (
               <button
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
@@ -3398,6 +3416,91 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
             />
           )}
         </>
+      )}
+
+      {/* C3: Modal revertir estado */}
+      {revertirModalOpen && orden && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => !reviertendoEstado && setRevertirModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-5 flex flex-col gap-4"
+            style={{ background: "var(--color-bg-surface)", border: "1px solid var(--color-border-subtle)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 flex-shrink-0" style={{ color: "var(--color-danger, #dc2626)" }} />
+              <h3 className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                Revertir estado
+              </h3>
+            </div>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              La orden pasará de <strong>{orden.estado}</strong> al estado anterior.
+              Esta acción queda registrada en el historial.
+            </p>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>
+                Motivo (obligatorio)
+              </label>
+              <textarea
+                rows={3}
+                className="w-full text-xs rounded-lg px-3 py-2 resize-none"
+                style={{
+                  background: "var(--color-bg-input)",
+                  border: "1px solid var(--color-border)",
+                  color: "var(--color-text-primary)",
+                }}
+                placeholder="Ej: Se marcó como listo por error, falta verificar la pantalla"
+                value={motivoRevertir}
+                onChange={(e) => setMotivoRevertir(e.target.value)}
+                disabled={reviertendoEstado}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: "var(--color-bg-subtle)", color: "var(--color-text-secondary)" }}
+                onClick={() => setRevertirModalOpen(false)}
+                disabled={reviertendoEstado}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1"
+                style={{ background: "var(--color-danger, #dc2626)", color: "#fff", opacity: !motivoRevertir.trim() || reviertendoEstado ? 0.5 : 1 }}
+                disabled={!motivoRevertir.trim() || reviertendoEstado}
+                onClick={async () => {
+                  if (!motivoRevertir.trim()) return;
+                  setRevirtiendoEstado(true);
+                  try {
+                    const res = await fetch(`/api/reparaciones/${orden.id}/revertir-estado`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ motivo: motivoRevertir }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      setRevertirModalOpen(false);
+                      setMotivoRevertir("");
+                      handleSuccess();
+                    } else {
+                      alert(data.error || "Error al revertir el estado");
+                    }
+                  } catch {
+                    alert("Error de red al revertir estado");
+                  } finally {
+                    setRevirtiendoEstado(false);
+                  }
+                }}
+              >
+                {reviertendoEstado && <Loader2 className="w-3 h-3 animate-spin" />}
+                Revertir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
