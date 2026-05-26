@@ -19,14 +19,15 @@ export async function PATCH(
 
     const { id: ordenId, pedidoId } = await params;
     const body = await request.json().catch(() => ({}));
-    const { fechaEstimadaLlegada, motivoRetraso, nombrePieza, productoId } = body as {
+    const { fechaEstimadaLlegada, motivoRetraso, nombrePieza, productoId, accion } = body as {
       fechaEstimadaLlegada?: string;
       motivoRetraso?: string;
       nombrePieza?: string;
       productoId?: string;
+      accion?: "bloquear" | "desbloquear";
     };
 
-    if (!fechaEstimadaLlegada && !motivoRetraso && !nombrePieza && productoId === undefined) {
+    if (!fechaEstimadaLlegada && !motivoRetraso && !nombrePieza && productoId === undefined && !accion) {
       return NextResponse.json(
         { success: false, error: "Se requiere al menos un campo a actualizar" },
         { status: 400 }
@@ -37,7 +38,7 @@ export async function PATCH(
 
     const { data: pedido } = await supabase
       .from("pedidos_pieza_reparacion")
-      .select("id, estado, notas, nombre_pieza, ordenes_reparacion!inner(distribuidor_id)")
+      .select("id, estado, notas, nombre_pieza, bloqueado_por, bloqueado_at, ordenes_reparacion!inner(distribuidor_id)")
       .eq("id", pedidoId)
       .eq("orden_id", ordenId)
       .single();
@@ -60,6 +61,37 @@ export async function PATCH(
         { success: false, error: "Solo se puede reportar retraso en piezas pendiente o en_camino" },
         { status: 409 }
       );
+    }
+
+    // G2-G5: Soft lock — bloquear/desbloquear edición colaborativa
+    if (accion === "bloquear") {
+      const LOCK_TTL_MIN = 5;
+      const ahora = new Date();
+      const bloqueadoAt = pedido.bloqueado_at ? new Date(pedido.bloqueado_at) : null;
+      const lockExpirado = !bloqueadoAt || (ahora.getTime() - bloqueadoAt.getTime()) > LOCK_TTL_MIN * 60 * 1000;
+
+      if (pedido.bloqueado_por && pedido.bloqueado_por !== userId && !lockExpirado) {
+        return NextResponse.json({ success: false, error: "bloqueado", code: "LOCKED" }, { status: 409 });
+      }
+      const { error: lockErr } = await supabase
+        .from("pedidos_pieza_reparacion")
+        .update({ bloqueado_por: userId, bloqueado_at: ahora.toISOString() })
+        .eq("id", pedidoId);
+      if (lockErr) return NextResponse.json({ success: false, error: lockErr.message }, { status: 500 });
+      return NextResponse.json({ success: true, message: "Bloque adquirido" });
+    }
+
+    if (accion === "desbloquear") {
+      // Solo puede desbloquear quien lo bloqueó (o admin)
+      if (pedido.bloqueado_por && pedido.bloqueado_por !== userId && role !== "admin" && role !== "super_admin") {
+        return NextResponse.json({ success: false, error: "Sin permiso para desbloquear" }, { status: 403 });
+      }
+      const { error: unlockErr } = await supabase
+        .from("pedidos_pieza_reparacion")
+        .update({ bloqueado_por: null, bloqueado_at: null })
+        .eq("id", pedidoId);
+      if (unlockErr) return NextResponse.json({ success: false, error: unlockErr.message }, { status: 500 });
+      return NextResponse.json({ success: true, message: "Bloque liberado" });
     }
 
     const updateData: Record<string, unknown> = {};

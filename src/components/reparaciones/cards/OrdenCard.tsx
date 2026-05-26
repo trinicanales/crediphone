@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   Phone, MessageCircle, Copy, ChevronDown, MoreVertical,
   Wrench, Clock, Image as ImageIcon, DollarSign, Shield, Circle,
-  Banknote, PackageCheck, Truck,
+  Banknote, PackageCheck, Truck, CheckCircle2,
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { StepperReparacion } from "@/components/reparaciones/StepperReparacion";
@@ -353,9 +353,19 @@ export function OrdenCard({
           </p>
         )}
         {orden.problemaReportado && (
-          <p className="text-xs mt-1 line-clamp-1" style={{ color: "var(--color-text-secondary)" }}>
+          <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--color-text-secondary)" }}>
             {orden.problemaReportado}
           </p>
+        )}
+        {/* F4-B: Badge de diagnóstico capturado */}
+        {orden.diagnosticoTecnico && (
+          <span
+            className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full mt-1"
+            style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}
+          >
+            <CheckCircle2 className="w-2.5 h-2.5" />
+            Diagnóstico capturado
+          </span>
         )}
       </div>
 
@@ -423,28 +433,29 @@ export function OrdenCard({
           </span>
         </div>
 
-        {/* Precio: muestra costo real si existe, si no la cotización inicial */}
+        {/* F4-C: Precio all-in al cliente (precio_total), fallback a costo_total */}
         {(() => {
-          const costoReal = orden.costoTotal || 0;
-          const cotizacion = orden.presupuestoTotal || 0;
-          if (costoReal > 0) {
+          const precioCliente = orden.presupuestoTotal || orden.costoTotal || 0;
+          const tieneDiagnostico = !!orden.diagnosticoTecnico;
+          if (precioCliente > 0) {
             return (
-              <div className="flex items-center gap-1.5 ml-auto" title="Costo real del servicio">
-                <DollarSign className="w-3.5 h-3.5" style={{ color: "var(--color-success)" }} />
-                <span className="text-xs font-semibold" style={{ color: "var(--color-success)", fontFamily: "var(--font-data)" }}>
-                  {formatCurrency(costoReal)}
+              <div
+                className="flex items-center gap-1.5 ml-auto"
+                title={tieneDiagnostico ? "Precio total al cliente" : "Presupuesto estimado (sin diagnóstico aún)"}
+              >
+                <DollarSign
+                  className="w-3.5 h-3.5"
+                  style={{ color: tieneDiagnostico ? "var(--color-success)" : "var(--color-warning-text)" }}
+                />
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: tieneDiagnostico ? "var(--color-success)" : "var(--color-warning-text)", fontFamily: "var(--font-data)" }}
+                >
+                  {formatCurrency(precioCliente)}
                 </span>
-              </div>
-            );
-          }
-          if (cotizacion > 0) {
-            return (
-              <div className="flex items-center gap-1.5 ml-auto" title="Cotización inicial (sin diagnóstico técnico aún)">
-                <DollarSign className="w-3.5 h-3.5" style={{ color: "var(--color-warning-text)" }} />
-                <span className="text-xs font-semibold" style={{ color: "var(--color-warning-text)", fontFamily: "var(--font-data)" }}>
-                  {formatCurrency(cotizacion)}
-                </span>
-                <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>est.</span>
+                {!tieneDiagnostico && (
+                  <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>est.</span>
+                )}
               </div>
             );
           }

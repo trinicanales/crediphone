@@ -655,19 +655,40 @@ export async function updateDiagnostico(
   const costoRep = diagnosticoData.costoReparacion ?? 0;
   const costoPar = diagnosticoData.costoPartes ?? 0;
 
+  // F2-A: Convertir partesReemplazadas → PiezaCotizacion[] para mantener piezas_cotizacion actualizada
+  let piezasCotizacionUpdate: import("@/types").PiezaCotizacion[] | null = null;
+  let precioCalculadoPiezas = costoPar; // fallback al total manual del form
+
+  if (diagnosticoData.partesReemplazadas && diagnosticoData.partesReemplazadas.length > 0) {
+    piezasCotizacionUpdate = diagnosticoData.partesReemplazadas.map((parte, index) => ({
+      id: `diag-${Date.now()}-${index}`,
+      productoId: parte.productoId,
+      nombre: parte.parte,
+      cantidad: parte.cantidad,
+      precioUnitario: parte.costo,          // precio all-in al cliente por unidad
+      precioTotal: parte.costo * parte.cantidad,
+      tieneStock: false,
+      esLibre: !parte.productoId,
+    }));
+    // Recalcular precio_piezas desde las piezas itemizadas (más preciso que el total manual)
+    precioCalculadoPiezas = piezasCotizacionUpdate.reduce((sum, p) => sum + p.precioTotal, 0);
+  }
+
   const { data, error } = await supabase
     .from("ordenes_reparacion")
     .update({
       diagnostico_tecnico: diagnosticoData.diagnosticoTecnico,
       // Sistema antiguo (costos internos — aún se mantiene para historial)
       costo_reparacion: costoRep,
-      costo_partes: costoPar,
+      costo_partes: precioCalculadoPiezas,
       // costo_total es GENERATED ALWAYS AS (costo_reparacion + costo_partes) — no actualizar
       // Sistema nuevo (precio al cliente — usado por POS, bolsa virtual y tracking)
       precio_mano_obra: costoRep,
-      precio_piezas: costoPar,
-      precio_total: costoRep + costoPar,
+      precio_piezas: precioCalculadoPiezas,
+      precio_total: costoRep + precioCalculadoPiezas,
       partes_reemplazadas: diagnosticoData.partesReemplazadas,
+      // F2-A: actualizar piezas_cotizacion solo si el técnico capturó partes itemizadas
+      ...(piezasCotizacionUpdate ? { piezas_cotizacion: piezasCotizacionUpdate } : {}),
       fecha_estimada_entrega: diagnosticoData.fechaEstimadaEntrega || null,
       notas_tecnico: diagnosticoData.notasTecnico || null,
       requiere_aprobacion: diagnosticoData.requiereAprobacion,
@@ -683,6 +704,39 @@ export async function updateDiagnostico(
   }
 
   return mapOrdenFromDB(data);
+}
+
+// =====================================================
+// F2-D: RECALCULAR TOTALES DESDE piezas_cotizacion
+// =====================================================
+
+/**
+ * Recalcula precio_piezas y precio_total de una orden usando piezas_cotizacion como fuente de verdad.
+ * Llamar desde cualquier función que modifique piezas (diagnóstico, pedidos, instalación).
+ */
+export async function recalcularTotalesOrden(ordenId: string): Promise<void> {
+  const supabase = createAdminClient();
+
+  const { data: orden } = await supabase
+    .from("ordenes_reparacion")
+    .select("precio_mano_obra, piezas_cotizacion")
+    .eq("id", ordenId)
+    .single();
+
+  if (!orden) return;
+
+  const piezas = (orden.piezas_cotizacion as import("@/types").PiezaCotizacion[] | null) ?? [];
+  const precioPiezas = piezas.reduce((sum: number, p: import("@/types").PiezaCotizacion) => sum + (p.precioTotal ?? 0), 0);
+  const precioManoObra = Number(orden.precio_mano_obra ?? 0);
+
+  await supabase
+    .from("ordenes_reparacion")
+    .update({
+      precio_piezas: precioPiezas,
+      costo_partes: precioPiezas,
+      precio_total: precioManoObra + precioPiezas,
+    })
+    .eq("id", ordenId);
 }
 
 // =====================================================

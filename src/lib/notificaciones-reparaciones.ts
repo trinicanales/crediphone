@@ -16,6 +16,7 @@ import {
   generarMensajeListoEntrega,
   generarMensajeNoReparable,
   generarMensajeCancelacion,
+  generarMensajePiezaFaltante,
 } from "@/lib/whatsapp-reparaciones";
 
 import { sendWhatsApp, generarLinkWa } from "@/lib/whatsapp-api";
@@ -245,6 +246,13 @@ function getConfiguracionNotificacion(
       destinos: [{ tipo: "tecnico", canal: "sistema" }],
       generarMensaje: (orden) =>
         `Orden ${orden.folio} APROBADA: ${orden.marcaDispositivo} ${orden.modeloDispositivo} - Cliente autorizó la reparación. Presupuesto: $${(orden.costoTotal || 0).toFixed(2)}`,
+    },
+
+    // F5-C: Notificar al cliente cuando se pasan a estado "esperando_piezas"
+    esperando_piezas: {
+      tipoNotificacion: "orden_actualizada",
+      destinos: [{ tipo: "cliente", canal: "whatsapp" }],
+      generarMensaje: (orden) => generarMensajePiezaFaltante(orden),
     },
 
     en_reparacion: {
