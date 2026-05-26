@@ -49,22 +49,26 @@ interface MovStock {
   stock_antes: number;
   stock_despues: number;
   referencia_tipo?: string;
+  referencia_id?: string;
   referencia_folio?: string;
   notas?: string;
   created_at: string;
 }
 
 const TIPO_MOV_LABEL: Record<string, string> = {
-  venta_pos:            "Venta POS",
-  devolucion:           "Devolución",
-  entrada_lote:         "Ingreso Lote",
-  recepcion_oc:         "Recepción OC",
-  uso_reparacion:       "Uso Reparación",
-  devolucion_reparacion:"Dev. Reparación",
-  ajuste_inventario:    "Ajuste",
-  ajuste_manual:        "Ajuste Manual",
-  entrada_manual:       "Entrada Manual",
-  salida_manual:        "Salida Manual",
+  venta_pos:              "Venta POS",
+  devolucion:             "Devolución",
+  entrada_lote:           "Ingreso Lote",
+  recepcion_oc:           "Recepción OC",
+  uso_reparacion:         "Uso Reparación",
+  devolucion_reparacion:  "Dev. Reparación",
+  ajuste_inventario:      "Ajuste",
+  ajuste_manual:          "Ajuste Manual",
+  entrada_manual:         "Entrada Manual",
+  salida_manual:          "Salida Manual",
+  // E3: trazabilidad de piezas reservadas en reparaciones
+  apartado_reparacion:    "Apartado Rep.",
+  liberado_reparacion:    "Liberado Rep.",
 };
 
 // ─── Página principal ──────────────────────────────────────────────────────────
@@ -699,11 +703,20 @@ function HistorialMovimientosModal({ producto, movimientos, cargando, onClose }:
     new Date(iso).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
 
   const tipoBadgeStyle = (tipo: string): CSSProperties => {
-    if (tipo.includes("venta"))    return { background: "var(--color-success-bg)", color: "var(--color-success-text)" };
-    if (tipo.includes("devolucion")) return { background: "var(--color-warning-bg)", color: "var(--color-warning-text)" };
-    if (tipo.includes("uso"))      return { background: "var(--color-danger-bg)",  color: "var(--color-danger-text)" };
-    if (tipo.includes("ajuste"))   return { background: "var(--color-accent-light)", color: "var(--color-accent)" };
+    if (tipo.includes("venta"))       return { background: "var(--color-success-bg)", color: "var(--color-success-text)" };
+    if (tipo.includes("devolucion"))  return { background: "var(--color-warning-bg)", color: "var(--color-warning-text)" };
+    if (tipo.includes("uso"))         return { background: "var(--color-danger-bg)",  color: "var(--color-danger-text)" };
+    if (tipo.includes("ajuste"))      return { background: "var(--color-accent-light)", color: "var(--color-accent)" };
+    if (tipo === "apartado_reparacion") return { background: "var(--color-warning-bg)", color: "var(--color-warning-text)" };
+    if (tipo === "liberado_reparacion") return { background: "var(--color-bg-elevated)", color: "var(--color-text-secondary)" };
     return { background: "var(--color-info-bg)", color: "var(--color-info-text)" };
+  };
+
+  // E3: Referencia normalizada para mostrar
+  const formatReferencia = (mov: MovStock) => {
+    if (!mov.referencia_folio) return null;
+    const tipoLabel = mov.referencia_tipo === "orden_reparacion" ? "" : (mov.referencia_tipo ? `${mov.referencia_tipo} ` : "");
+    return { tipoLabel, folio: mov.referencia_folio, ordenId: mov.referencia_tipo === "orden_reparacion" ? mov.referencia_id : undefined };
   };
 
   return (
@@ -750,10 +763,25 @@ function HistorialMovimientosModal({ producto, movimientos, cargando, onClose }:
                       {mov.stock_antes} → {mov.stock_despues}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-xs" style={{ color: "var(--color-text-secondary)" }}>
-                      {mov.referencia_folio
-                        ? <span>{mov.referencia_tipo ? `${mov.referencia_tipo} ` : ""}<span className="font-mono">{mov.referencia_folio}</span></span>
-                        : <span style={{ color: "var(--color-text-muted)" }}>—</span>
-                      }
+                      {(() => {
+                        const ref = formatReferencia(mov);
+                        if (!ref) return <span style={{ color: "var(--color-text-muted)" }}>—</span>;
+                        if (ref.ordenId) {
+                          return (
+                            <a
+                              href={`/dashboard/reparaciones?orden=${ref.ordenId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline font-mono"
+                              style={{ color: "var(--color-accent)" }}
+                              title="Ver reparación"
+                            >
+                              {ref.folio}
+                            </a>
+                          );
+                        }
+                        return <span>{ref.tipoLabel}<span className="font-mono">{ref.folio}</span></span>;
+                      })()}
                     </td>
                     <td className="px-3 py-2 text-xs max-w-[180px] truncate" style={{ color: "var(--color-text-muted)" }}>
                       {mov.notas ?? "—"}
