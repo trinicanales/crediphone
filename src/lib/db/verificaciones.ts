@@ -504,11 +504,22 @@ export async function getProductosFaltantes(
   // Get all products that should be verified
   let query = supabase
     .from("productos")
-    .select("id, nombre, marca, modelo, imagen, stock, ubicacion_id")
+    .select("id, nombre, marca, modelo, imagen, stock, ubicacion_id, ubicacion_fisica")
     .eq("activo", true);
 
   if (verificacion.ubicacion_id) {
-    query = query.eq("ubicacion_id", verificacion.ubicacion_id);
+    // C4-fix: también incluir productos con ubicacion_fisica que coincidan con el nombre
+    // de la ubicación estructurada (para no perder productos migrados parcialmente)
+    const { data: ub } = await supabase
+      .from("ubicaciones")
+      .select("nombre")
+      .eq("id", verificacion.ubicacion_id)
+      .single();
+    if (ub?.nombre) {
+      query = query.or(`ubicacion_id.eq.${verificacion.ubicacion_id},ubicacion_fisica.ilike.${ub.nombre}`);
+    } else {
+      query = query.eq("ubicacion_id", verificacion.ubicacion_id);
+    }
   }
 
   const { data: allProductos } = await query;

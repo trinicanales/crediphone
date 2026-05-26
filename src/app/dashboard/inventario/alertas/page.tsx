@@ -28,7 +28,7 @@ function suggeridoQty(p: Producto) {
 
 // ── tipos internos ────────────────────────────────────────────────────────────
 
-interface LineaResurtido { productoId: string; nombre: string; proveedor: string | undefined; stock: number; stockMinimo: number | undefined; cantidad: number; }
+interface LineaResurtido { productoId: string; nombre: string; proveedor: string | undefined; proveedorId: string | undefined; stock: number; stockMinimo: number | undefined; cantidad: number; }
 
 // ── modal resurtido ───────────────────────────────────────────────────────────
 
@@ -860,24 +860,22 @@ export default function AlertasPage() {
 
   // Crear orden de compra
   const handleCrearOrden = async (items: LineaResurtido[], notas: string) => {
-    // Agrupar por proveedor y crear una orden por proveedor (o una global si no hay proveedor)
+    // C5-fix: Agrupar por proveedorId (no por nombre) para evitar enviar OC al proveedor equivocado
     const grupos: Record<string, LineaResurtido[]> = {};
     for (const l of items) {
-      const k = l.proveedor ?? "sin_proveedor";
+      const k = l.proveedorId ?? "sin_proveedor";
       if (!grupos[k]) grupos[k] = [];
       grupos[k].push(l);
     }
 
     for (const gLineas of Object.values(grupos)) {
-      const proveedorId = gLineas[0].proveedor
-        ? productos.find((p) => p.nombre === gLineas[0].nombre)?.proveedorId
-        : undefined;
+      const proveedorId = gLineas[0].proveedorId ?? null;
 
       await fetch("/api/ordenes-compra", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          proveedorId: proveedorId ?? null,
+          proveedorId,
           notas: notas || undefined,
           items: gLineas.map((l) => ({
             productoId: l.productoId,
@@ -911,6 +909,7 @@ export default function AlertasPage() {
         productoId: p.id,
         nombre: p.nombre,
         proveedor: undefined,
+        proveedorId: p.proveedor_id ?? undefined,
         stock: p.stock,
         stockMinimo: p.stock_minimo,
         cantidad: p.cantidadSugerida,
@@ -950,7 +949,8 @@ export default function AlertasPage() {
     .map((p) => ({
       productoId: p.id,
       nombre: p.nombre,
-      proveedor: undefined, // proveedor se resuelve via join si es necesario
+      proveedor: undefined,
+      proveedorId: p.proveedorId,
       stock: p.stock,
       stockMinimo: p.stockMinimo,
       cantidad: suggeridoQty(p),
