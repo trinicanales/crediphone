@@ -3202,7 +3202,10 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
 
         {/* ── Financial summary strip ── */}
         {orden && (() => {
-          const total = orden.costoTotal ?? 0; // NUNCA usar presupuestoTotal — columna inexistente
+          // Usar precio_total (lo que cobra al cliente) → si no existe aún, fallback a costo_total
+          const total = (orden.presupuestoTotal && orden.presupuestoTotal > 0)
+            ? orden.presupuestoTotal
+            : (orden.costoTotal ?? 0);
           const anticipos = orden.totalAnticipos ?? 0;
           const saldo = total - anticipos;
           const tieneDatos = total > 0 || anticipos > 0;
@@ -3220,7 +3223,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                 <DollarSign className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-text-muted)" }} />
                 <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Total:</span>
                 <span className="text-xs font-bold font-mono" style={{ color: "var(--color-text-primary)" }}>{fmt(total)}</span>
-                {!orden.costoTotal && (
+                {!total && (
                   <span className="text-xs px-1 rounded" style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)" }}>est.</span>
                 )}
               </div>
