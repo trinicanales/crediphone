@@ -4,27 +4,21 @@
 
 ---
 
-## BUG-TRACK-001 — Token de tracking no se genera si se salta estado "presupuesto"
-**Severidad:** Alta | **Estado:** Pendiente de implementar
-**Descripción:** `crearTrackingToken()` solo se invoca al transicionar a `"presupuesto"`. Si el técnico avanza directamente de `recibido` → `aprobado` o `en_reparacion` (cliente aprobó en tienda, o `requiereAprobacion = false`), nunca se genera el token. El cliente no tiene link de seguimiento.
-**Archivo afectado:** `src/app/api/reparaciones/[id]/route.ts` (PUT handler)
-**Fix propuesto:** Al cambiar a cualquier estado > recibido, si no existe token, generarlo automáticamente.
+## ✅ BUG-TRACK-001 — Token de tracking no se genera si se salta estado "presupuesto"
+**Severidad:** Alta | **Estado:** ✅ Resuelto (verificado 2026-05-20)
+**Descripción:** Ya implementado en `src/app/api/reparaciones/[id]/route.ts`. Genera token automáticamente para cualquier estado > recibido (excepto cancelado/no_reparable) si aún no existe. El estado "presupuesto" lo genera vía `notificarCambioEstado()` para evitar duplicados.
 
 ---
 
-## BUG-TRACK-002 — Costo y cotización ocultos en tracking cuando requiereAprobacion = false
-**Severidad:** Media | **Estado:** Pendiente de implementar
-**Descripción:** Cuando `requiereAprobacion = false` y la orden está en estado `presupuesto`, el cliente accede al tracking pero ve una página casi vacía: el panel de autorización no aparece (porque `requiereAprobacion = false`) y el costo total tampoco (porque `mostrarCosto = tieneCosto && estado !== "presupuesto"`). Tampoco ve los servicios contizados.
-**Archivo afectado:** `src/app/tracking/[token]/page.tsx` (líneas ~1206, ~1260)
-**Fix propuesto:** Mostrar costo siempre si existe. Mostrar `piezasCotizacion` también en estado `presupuesto`.
+## ✅ BUG-TRACK-002 — Costo y cotización ocultos en tracking cuando requiereAprobacion = false
+**Severidad:** Media | **Estado:** ✅ Resuelto (verificado 2026-05-20)
+**Descripción:** Ya implementado en `src/app/tracking/[token]/page.tsx`. `clienteAprobado = aprobadoPorCliente || !requiereAprobacion` unifica la lógica. `mostrarCosto` y `piezasCotizacion` usan esta bandera correctamente.
 
 ---
 
-## BUG-WA-001 — WhatsApp en OrdenCard abre sin mensaje precargado
-**Severidad:** Media | **Estado:** Pendiente de implementar
-**Descripción:** El botón WhatsApp en el PhoneMenu de OrdenCard abre `wa.me/52${phone}` sin mensaje. Anteriormente sí cargaba un mensaje de contexto. La función `generarMensajeSeguimiento(orden)` existe en `whatsapp-reparaciones.ts` y puede usarse.
-**Archivo afectado:** `src/components/reparaciones/cards/OrdenCard.tsx` (PhoneMenu, línea ~71)
-**Fix propuesto:** Importar `generarMensajeSeguimiento` y `generarLinkWhatsApp`, usarlos en el href del botón WA.
+## ✅ BUG-WA-001 — WhatsApp en OrdenCard abre sin mensaje precargado
+**Severidad:** Media | **Estado:** ✅ Resuelto (verificado 2026-05-20)
+**Descripción:** Ya implementado en `src/components/reparaciones/cards/OrdenCard.tsx`. `generarMensajeSeguimiento` y `generarLinkWhatsApp` importados y usados en el href del PhoneMenu (línea ~393).
 
 ---
 
