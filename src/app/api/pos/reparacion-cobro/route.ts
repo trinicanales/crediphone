@@ -71,7 +71,40 @@ async function ejecutarEntregaCompleta(
       await supabase.from("movimientos_bolsa_virtual").insert(movimientosBolsa);
     }
 
-    // 4. Descontar stock de piezas del catálogo instaladas en esta reparación
+    // 4a. Consumir stock de piezas reservadas en reparacion_piezas
+    //     (estas fueron apartadas al agregarPiezaReparacion — ahora salen físicamente)
+    const { data: piezasApartadas } = await supabase
+      .from("reparacion_piezas")
+      .select("producto_id, nombre_pieza, cantidad")
+      .eq("orden_id", ordenId)
+      .not("producto_id", "is", null);
+
+    for (const pieza of piezasApartadas || []) {
+      const { data: prodAp } = await supabase
+        .from("productos")
+        .select("stock, stock_apartado")
+        .eq("id", pieza.producto_id)
+        .single();
+      if (!prodAp) continue;
+      const nuevoStock = Math.max(0, (prodAp.stock ?? 0) - pieza.cantidad);
+      const nuevoApartado = Math.max(0, (prodAp.stock_apartado ?? 0) - pieza.cantidad);
+      await supabase.from("productos").update({ stock: nuevoStock, stock_apartado: nuevoApartado }).eq("id", pieza.producto_id);
+      await supabase.from("movimientos_stock").insert({
+        producto_id: pieza.producto_id,
+        distribuidor_id: distribuidorId,
+        tipo: "uso_reparacion",
+        cantidad: -pieza.cantidad,
+        stock_antes: prodAp.stock ?? 0,
+        stock_despues: nuevoStock,
+        referencia_id: ordenId,
+        referencia_tipo: "orden_reparacion",
+        referencia_folio: folio,
+        registrado_por: userId,
+        notas: `Pieza "${pieza.nombre_pieza}" consumida al entregar ${folio}`,
+      });
+    }
+
+    // 4b. Descontar stock de piezas del catálogo instaladas en esta reparación (pedidos_pieza_reparacion)
     const { data: piezasCatalogo } = await supabase
       .from("pedidos_pieza_reparacion")
       .select("id, producto_id, nombre_pieza")
