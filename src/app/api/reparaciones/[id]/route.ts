@@ -488,6 +488,31 @@ export async function PUT(
       return NextResponse.json({ success: true, data });
     }
 
+    // Caso 5: Editar problema reportado o notas internas (C5+C6)
+    if (body.problemaReportado !== undefined || body.notasInternas !== undefined) {
+      if (role !== "admin" && role !== "super_admin" && role !== "tecnico") {
+        return NextResponse.json({ success: false, error: "Sin permiso para editar" }, { status: 403 });
+      }
+      const supabase = createAdminClient();
+      const patchData: Record<string, unknown> = {};
+      if (body.problemaReportado !== undefined) {
+        patchData.problema_reportado = body.problemaReportado;
+      }
+      if (body.notasInternas !== undefined) {
+        patchData.notas_internas = body.notasInternas;
+      }
+      const { data, error } = await supabase
+        .from("ordenes_reparacion")
+        .update(patchData)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, data, message: "Orden actualizada" });
+    }
+
     // Caso 4: Actualizar piezas cotizadas (B3) + recalcular precio_total
     if (body.piezasCotizacion !== undefined) {
       if (role !== "admin" && role !== "super_admin" && role !== "tecnico") {
@@ -529,7 +554,7 @@ export async function PUT(
         success: false,
         error: "Datos insuficientes",
         message:
-          "Debe proporcionar 'diagnostico', 'estado', 'fechaEstimadaEntrega', 'requiereAprobacion', 'tecnicoId' o 'piezasCotizacion' para actualizar la orden",
+          "Debe proporcionar 'diagnostico', 'estado', 'fechaEstimadaEntrega', 'requiereAprobacion', 'tecnicoId', 'piezasCotizacion', 'problemaReportado' o 'notasInternas' para actualizar la orden",
       },
       { status: 400 }
     );
