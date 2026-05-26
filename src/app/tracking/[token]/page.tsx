@@ -1383,6 +1383,37 @@ export default function TrackingPublicoPage() {
           </SectionCard>
         )}
 
+        {/* ── Banner: Presupuesto actualizado (F3-D) ─────────── */}
+        {orden.snapshotCotizacionInicial && orden.snapshotCotizacionInicial.length > 0 && orden.piezasCotizacion && orden.piezasCotizacion.length > 0 && (() => {
+          // Comparar totales del snapshot vs cotización actual
+          const totalSnapshot = orden.snapshotCotizacionInicial.reduce((s, p) => s + p.precioUnitario * p.cantidad, 0);
+          const totalActual = orden.piezasCotizacion.reduce((s, p) => s + p.precioUnitario * p.cantidad, 0);
+          const diferencia = totalActual - totalSnapshot;
+          if (Math.abs(diferencia) < 0.01) return null;
+          return (
+            <div
+              className="rounded-2xl p-4"
+              style={{ background: "#FEF3C7", border: "1.5px solid #F59E0B" }}
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#D97706" }} />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
+                    El presupuesto fue actualizado
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: "#B45309" }}>
+                    El costo de las piezas cambió de{" "}
+                    <span className="font-mono font-semibold">{formatCurrency(totalSnapshot)}</span>
+                    {" "}a{" "}
+                    <span className="font-mono font-semibold">{formatCurrency(totalActual)}</span>
+                    {diferencia > 0 ? " (+incremento)" : " (reducción)"}.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Costo total ───────────────────────────────────── */}
         {mostrarCosto && (
           <SectionCard>

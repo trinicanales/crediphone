@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import type { OrdenReparacionDetallada, ParteReemplazada, AnticipoReparacion } from "@/types";
-import { Plus, Trash2, AlertCircle } from "lucide-react";
+import type { OrdenReparacionDetallada, PiezaCotizacion } from "@/types";
+import { Plus, Trash2, AlertCircle, MessageCircle } from "lucide-react";
+import { generarMensajePresupuesto, generarLinkWhatsApp } from "@/lib/whatsapp-reparaciones";
 
 interface ModalEditarPresupuestoProps {
   isOpen: boolean;
@@ -14,26 +15,36 @@ interface ModalEditarPresupuestoProps {
   onSuccess: () => void;
 }
 
+/** Convierte piezasCotizacion en filas editables. Si no hay, retorna vacío. */
+function initPiezas(orden: OrdenReparacionDetallada): PiezaCotizacion[] {
+  if (orden.piezasCotizacion && orden.piezasCotizacion.length > 0) {
+    return orden.piezasCotizacion.map((p) => ({ ...p }));
+  }
+  return [];
+}
+
 export function ModalEditarPresupuesto({
   isOpen,
   onClose,
   orden,
   onSuccess,
 }: ModalEditarPresupuestoProps) {
-  const [costoManoObra, setCostoManoObra] = useState(orden.costoReparacion || 0);
-  const [partes, setPartes] = useState<ParteReemplazada[]>(
-    orden.partesReemplazadas || []
-  );
-  const [anticipos, setAnticipos] = useState<AnticipoReparacion[]>([]);
+  const [precioManoObra, setPrecioManoObra] = useState(orden.costoReparacion || 0);
+  const [piezas, setPiezas] = useState<PiezaCotizacion[]>(() => initPiezas(orden));
+  const [anticipoTotal, setAnticipoTotal] = useState(0);
   const [loadingAnticipos, setLoadingAnticipos] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [savedTotal, setSavedTotal] = useState<number | null>(null);
+  const [showWA, setShowWA] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      // Resetear valores cuando se abre el modal
-      setCostoManoObra(orden.costoReparacion || 0);
-      setPartes(orden.partesReemplazadas || []);
+      setPrecioManoObra(orden.costoReparacion || 0);
+      setPiezas(initPiezas(orden));
+      setSavedTotal(null);
+      setShowWA(false);
+      setErrors({});
       fetchAnticipos();
     }
   }, [isOpen, orden]);
@@ -41,100 +52,85 @@ export function ModalEditarPresupuesto({
   async function fetchAnticipos() {
     try {
       setLoadingAnticipos(true);
-      const response = await fetch(`/api/reparaciones/${orden.id}/anticipos`);
-      const result = await response.json();
-
+      const res = await fetch(`/api/reparaciones/${orden.id}/anticipos`);
+      const result = await res.json();
       if (result.success) {
-        setAnticipos(result.data || []);
+        const total = (result.data || []).reduce((s: number, a: { monto: number }) => s + a.monto, 0);
+        setAnticipoTotal(total);
       }
-    } catch (error) {
-      console.error("Error al cargar anticipos:", error);
-      setAnticipos([]);
+    } catch {
+      setAnticipoTotal(0);
     } finally {
       setLoadingAnticipos(false);
     }
   }
 
-  // Cálculos automáticos
-  const costoPartes = partes.reduce(
-    (sum, parte) => sum + (parte.costo || 0) * (parte.cantidad || 0),
-    0
-  );
-  const costoTotal = costoManoObra + costoPartes;
-  const totalAnticipos = anticipos.reduce((sum, a) => sum + a.monto, 0);
-  const saldoPendiente = costoTotal - totalAnticipos;
+  // Cálculos
+  const totalPiezas = piezas.reduce((s, p) => s + p.precioUnitario * p.cantidad, 0);
+  const totalGeneral = precioManoObra + totalPiezas;
+  const saldoPendiente = totalGeneral - anticipoTotal;
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-      minimumFractionDigits: 2,
-    }).format(value);
-  };
+  const fmt = (v: number) =>
+    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(v);
 
-  function handleAgregarParte() {
-    setPartes([
-      ...partes,
-      { parte: "", costo: 0, cantidad: 1, proveedor: "" },
+  function handleAgregarPieza() {
+    setPiezas([
+      ...piezas,
+      {
+        id: String(Date.now()),
+        nombre: "",
+        cantidad: 1,
+        precioUnitario: 0,
+        precioTotal: 0,
+        tieneStock: false,
+        esLibre: true,
+      },
     ]);
   }
 
-  function handleEliminarParte(index: number) {
-    setPartes(partes.filter((_, i) => i !== index));
+  function handleEliminarPieza(index: number) {
+    // No se pueden eliminar piezas instaladas
+    if (piezas[index].instalada) return;
+    setPiezas(piezas.filter((_, i) => i !== index));
   }
 
-  function handleActualizarParte(
-    index: number,
-    field: keyof ParteReemplazada,
-    value: string | number
-  ) {
-    const nuevasPartes = [...partes];
-    nuevasPartes[index] = { ...nuevasPartes[index], [field]: value };
-    setPartes(nuevasPartes);
+  function handleUpdateNombre(index: number, value: string) {
+    const next = [...piezas];
+    next[index] = { ...next[index], nombre: value };
+    setPiezas(next);
+  }
+
+  function handleUpdateCantidad(index: number, value: number) {
+    const next = [...piezas];
+    next[index] = { ...next[index], cantidad: value, precioTotal: next[index].precioUnitario * value };
+    setPiezas(next);
+  }
+
+  function handleUpdatePrecio(index: number, value: number) {
+    const next = [...piezas];
+    next[index] = { ...next[index], precioUnitario: value, precioTotal: value * next[index].cantidad };
+    setPiezas(next);
   }
 
   function validate(): Record<string, string> {
-    const errors: Record<string, string> = {};
-
-    if (costoManoObra < 0) {
-      errors.costoManoObra = "El costo no puede ser negativo";
+    const errs: Record<string, string> = {};
+    if (precioManoObra < 0) errs.manoObra = "No puede ser negativo";
+    if (totalGeneral < anticipoTotal) {
+      errs.total = `Total (${fmt(totalGeneral)}) no puede ser menor que anticipos pagados (${fmt(anticipoTotal)})`;
     }
-
-    // Validar que no se reduzca el total por debajo de anticipos pagados
-    if (costoTotal < totalAnticipos) {
-      errors.total = `El costo total (${formatCurrency(costoTotal)}) no puede ser menor que los anticipos pagados (${formatCurrency(totalAnticipos)})`;
-    }
-
-    // Validar partes
-    partes.forEach((parte, index) => {
-      if (!parte.parte.trim()) {
-        errors[`parte_${index}`] = "El nombre de la parte es requerido";
-      }
-      if (parte.costo < 0) {
-        errors[`costo_${index}`] = "El costo no puede ser negativo";
-      }
-      if (parte.cantidad <= 0) {
-        errors[`cantidad_${index}`] = "La cantidad debe ser mayor a 0";
-      }
+    piezas.forEach((p, i) => {
+      if (!p.nombre.trim()) errs[`nombre_${i}`] = "Requerido";
+      if (p.precioUnitario < 0) errs[`precio_${i}`] = "No puede ser negativo";
+      if (p.cantidad <= 0) errs[`cantidad_${i}`] = "Debe ser > 0";
     });
-
-    return errors;
+    return errs;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      return;
-    }
-
-    // Validar estado de la orden
-    if (orden.estado === "entregado" || orden.estado === "cancelado") {
-      setErrors({
-        submit: "No se puede editar el presupuesto de una orden entregada o cancelada",
-      });
       return;
     }
 
@@ -142,267 +138,318 @@ export function ModalEditarPresupuesto({
       setSubmitting(true);
       setErrors({});
 
-      const payload = {
-        diagnostico: {
-          diagnosticoTecnico: orden.diagnosticoTecnico || "",
-          costoReparacion: costoManoObra,
-          costoPartes: costoPartes,
-          partesReemplazadas: partes.filter((p) => p.parte.trim() !== ""),
-          notasTecnico: orden.notasTecnico,
-          requiereAprobacion: orden.requiereAprobacion,
-        },
+      const totalAntes = orden.costoTotal || 0;
+
+      const payload: { precioManoObra: number; piezasCotizacion?: PiezaCotizacion[] } = {
+        precioManoObra,
       };
 
-      const response = await fetch(`/api/reparaciones/${orden.id}`, {
-        method: "PUT",
+      // Solo enviar piezasCotizacion si el modal las muestra (si no hay piezas cotizacion, solo actualizar mano obra)
+      if (orden.piezasCotizacion && orden.piezasCotizacion.length > 0) {
+        payload.piezasCotizacion = piezas.map((p) => ({
+          ...p,
+          precioTotal: p.precioUnitario * p.cantidad,
+        }));
+      } else if (piezas.length > 0) {
+        payload.piezasCotizacion = piezas.map((p) => ({
+          ...p,
+          precioTotal: p.precioUnitario * p.cantidad,
+        }));
+      }
+
+      const res = await fetch(`/api/reparaciones/${orden.id}/presupuesto`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || "Error al actualizar");
 
-      if (!result.success) {
-        throw new Error(result.error || "Error al actualizar presupuesto");
+      setSavedTotal(totalGeneral);
+
+      // Si el cliente ya aprobó y el total cambió → ofrecer WA
+      if (orden.aprobadoPorCliente && Math.abs(totalGeneral - totalAntes) > 0.01) {
+        setShowWA(true);
+      } else {
+        onSuccess();
+        onClose();
       }
-
-      onSuccess();
-      onClose();
     } catch (error) {
-      console.error("Error al actualizar presupuesto:", error);
       setErrors({
-        submit:
-          error instanceof Error
-            ? error.message
-            : "Error al actualizar presupuesto",
+        submit: error instanceof Error ? error.message : "Error al actualizar presupuesto",
       });
     } finally {
       setSubmitting(false);
     }
   }
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Editar Presupuesto - ${orden.folio}`}
-      size="xl"
-    >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Costo de Mano de Obra */}
-        <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
-            Costo de Mano de Obra
-          </label>
-          <Input
-            type="number"
-            value={costoManoObra}
-            onChange={(e) => setCostoManoObra(Number(e.target.value))}
-            placeholder="0.00"
-            min="0"
-            step="0.01"
-            error={errors.costoManoObra}
-          />
-        </div>
+  function handleEnviarWA() {
+    if (!orden.clienteTelefono) return;
+    const mensaje = generarMensajePresupuesto(orden);
+    const link = generarLinkWhatsApp(orden.clienteTelefono, mensaje);
+    window.open(link, "_blank");
+    onSuccess();
+    onClose();
+  }
 
-        {/* Lista de Partes */}
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <label className="block text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
-              Partes a Reemplazar
-            </label>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleAgregarParte}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Agregar Parte
-            </Button>
-          </div>
-
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {partes.length === 0 ? (
-              <div className="text-center py-8 rounded-lg" style={{ background: "var(--color-bg-elevated)" }}>
-                <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-                  No hay partes agregadas. Haz clic en "Agregar Parte" para comenzar.
-                </p>
-              </div>
-            ) : (
-              partes.map((parte, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-12 gap-2 items-start p-3 rounded-lg"
-                  style={{ background: "var(--color-bg-elevated)" }}
-                >
-                  {/* Nombre de la parte */}
-                  <div className="col-span-4">
-                    <Input
-                      type="text"
-                      value={parte.parte}
-                      onChange={(e) =>
-                        handleActualizarParte(index, "parte", e.target.value)
-                      }
-                      placeholder="Nombre de la parte"
-                      error={errors[`parte_${index}`]}
-                    />
-                  </div>
-
-                  {/* Cantidad */}
-                  <div className="col-span-2">
-                    <Input
-                      type="number"
-                      value={parte.cantidad}
-                      onChange={(e) =>
-                        handleActualizarParte(index, "cantidad", Number(e.target.value))
-                      }
-                      placeholder="Cant."
-                      min="1"
-                      error={errors[`cantidad_${index}`]}
-                    />
-                  </div>
-
-                  {/* Costo */}
-                  <div className="col-span-2">
-                    <Input
-                      type="number"
-                      value={parte.costo}
-                      onChange={(e) =>
-                        handleActualizarParte(index, "costo", Number(e.target.value))
-                      }
-                      placeholder="Costo"
-                      min="0"
-                      step="0.01"
-                      error={errors[`costo_${index}`]}
-                    />
-                  </div>
-
-                  {/* Proveedor */}
-                  <div className="col-span-3">
-                    <Input
-                      type="text"
-                      value={parte.proveedor || ""}
-                      onChange={(e) =>
-                        handleActualizarParte(index, "proveedor", e.target.value)
-                      }
-                      placeholder="Proveedor (opcional)"
-                    />
-                  </div>
-
-                  {/* Botón Eliminar */}
-                  <div className="col-span-1 flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={() => handleEliminarParte(index)}
-                      className="p-1"
-                      style={{ color: "var(--color-danger)" }}
-                      onMouseEnter={e => (e.currentTarget.style.opacity = "0.7")}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Resumen de Costos */}
-        <div className="rounded-lg p-4 space-y-2" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)" }}>
-          <h3 className="font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>Resumen de Costos</h3>
-
-          <div className="flex justify-between text-sm">
-            <span style={{ color: "var(--color-text-secondary)" }}>Mano de Obra:</span>
-            <span className="font-medium" style={{ color: "var(--color-text-primary)" }}>{formatCurrency(costoManoObra)}</span>
-          </div>
-
-          <div className="flex justify-between text-sm">
-            <span style={{ color: "var(--color-text-secondary)" }}>Partes ({partes.length}):</span>
-            <span className="font-medium" style={{ color: "var(--color-text-primary)" }}>{formatCurrency(costoPartes)}</span>
-          </div>
-
-          <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--color-accent)" }}>
-            <div className="flex justify-between text-base font-semibold">
-              <span style={{ color: "var(--color-text-primary)" }}>Costo Total:</span>
-              <span style={{ color: "var(--color-accent)" }}>{formatCurrency(costoTotal)}</span>
-            </div>
-          </div>
-
-          {anticipos.length > 0 && (
-            <>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: "var(--color-text-secondary)" }}>Anticipos Recibidos:</span>
-                <span className="font-medium" style={{ color: "var(--color-success)" }}>
-                  -{formatCurrency(totalAnticipos)}
-                </span>
-              </div>
-
-              <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--color-accent)" }}>
-                <div className="flex justify-between text-base font-semibold">
-                  <span style={{ color: "var(--color-text-primary)" }}>Saldo Pendiente:</span>
-                  <span style={{ color: saldoPendiente > 0 ? "var(--color-warning)" : "var(--color-success)" }}>
-                    {formatCurrency(saldoPendiente)}
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Advertencias */}
-        {orden.aprobadoPorCliente && (
+  // Pantalla post-guardado con opción WA
+  if (showWA) {
+    return (
+      <Modal isOpen={isOpen} onClose={() => { onSuccess(); onClose(); }} title="Presupuesto Actualizado" size="md">
+        <div className="space-y-6">
           <div className="rounded-lg p-4" style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}>
             <div className="flex gap-3">
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--color-warning)" }} />
               <div>
                 <p className="text-sm font-medium" style={{ color: "var(--color-warning-text)" }}>
-                  Presupuesto Ya Aprobado
+                  El cliente ya había aprobado este presupuesto
                 </p>
                 <p className="text-sm mt-1" style={{ color: "var(--color-warning-text)" }}>
-                  Este presupuesto fue aprobado por el cliente. Modificarlo puede
-                  requerir una nueva aprobación.
+                  El total cambió a <strong>{savedTotal !== null ? fmt(savedTotal) : ""}</strong>. ¿Deseas notificar al cliente por WhatsApp?
                 </p>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Error de Validación */}
-        {errors.total && (
-          <div className="rounded-lg p-4" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
-            <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{errors.total}</p>
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => { onSuccess(); onClose(); }}
+              className="flex-1"
+            >
+              No, cerrar
+            </Button>
+            {orden.clienteTelefono && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleEnviarWA}
+                className="flex-1"
+                style={{ background: "#25D366", color: "#fff" }}
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Notificar por WhatsApp
+              </Button>
+            )}
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Editar Presupuesto — ${orden.folio}`}
+      size="xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Mano de obra */}
+        <div>
+          <label className="block text-sm font-medium mb-2" style={{ color: "var(--color-text-secondary)" }}>
+            Precio de Mano de Obra
+          </label>
+          <Input
+            type="number"
+            value={precioManoObra}
+            onChange={(e) => setPrecioManoObra(Number(e.target.value))}
+            placeholder="0.00"
+            min="0"
+            step="0.01"
+            error={errors.manoObra}
+          />
+        </div>
+
+        {/* Lista de piezas */}
+        <div>
+          <div className="flex justify-between items-center mb-3">
+            <label className="block text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
+              Piezas Cotizadas
+            </label>
+            <Button type="button" variant="secondary" size="sm" onClick={handleAgregarPieza}>
+              <Plus className="w-4 h-4 mr-1" />
+              Agregar pieza
+            </Button>
+          </div>
+
+          <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+            {piezas.length === 0 ? (
+              <div className="text-center py-8 rounded-lg" style={{ background: "var(--color-bg-elevated)" }}>
+                <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+                  Sin piezas cotizadas. Usa "Agregar pieza" para incluirlas.
+                </p>
+              </div>
+            ) : (
+              piezas.map((pieza, index) => (
+                <PiezaRow
+                  key={pieza.id}
+                  pieza={pieza}
+                  index={index}
+                  errors={errors}
+                  onUpdateNombre={handleUpdateNombre}
+                  onUpdateCantidad={handleUpdateCantidad}
+                  onUpdatePrecio={handleUpdatePrecio}
+                  onEliminar={handleEliminarPieza}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Resumen */}
+        <div className="rounded-lg p-4 space-y-2" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)" }}>
+          <h3 className="font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>Resumen</h3>
+          <div className="flex justify-between text-sm">
+            <span style={{ color: "var(--color-text-secondary)" }}>Mano de obra:</span>
+            <span className="font-medium font-mono" style={{ color: "var(--color-text-primary)" }}>{fmt(precioManoObra)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span style={{ color: "var(--color-text-secondary)" }}>Piezas ({piezas.length}):</span>
+            <span className="font-medium font-mono" style={{ color: "var(--color-text-primary)" }}>{fmt(totalPiezas)}</span>
+          </div>
+          <div className="pt-2 mt-2 flex justify-between text-base font-semibold" style={{ borderTop: "1px solid var(--color-accent)" }}>
+            <span style={{ color: "var(--color-text-primary)" }}>Total al cliente:</span>
+            <span className="font-mono" style={{ color: "var(--color-accent)" }}>{fmt(totalGeneral)}</span>
+          </div>
+          {!loadingAnticipos && anticipoTotal > 0 && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--color-text-secondary)" }}>Anticipos:</span>
+                <span className="font-medium font-mono" style={{ color: "var(--color-success)" }}>-{fmt(anticipoTotal)}</span>
+              </div>
+              <div className="pt-2 mt-2 flex justify-between text-base font-semibold" style={{ borderTop: "1px solid var(--color-accent)" }}>
+                <span style={{ color: "var(--color-text-primary)" }}>Saldo pendiente:</span>
+                <span className="font-mono" style={{ color: saldoPendiente > 0 ? "var(--color-warning)" : "var(--color-success)" }}>
+                  {fmt(saldoPendiente)}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Advertencia aprobado */}
+        {orden.aprobadoPorCliente && (
+          <div className="rounded-lg p-4" style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}>
+            <div className="flex gap-3">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--color-warning)" }} />
+              <p className="text-sm" style={{ color: "var(--color-warning-text)" }}>
+                Este presupuesto ya fue aprobado por el cliente. Al guardar, se te ofrecerá notificarlo si el total cambió.
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Error General */}
+        {errors.total && (
+          <div className="rounded-lg p-3" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
+            <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{errors.total}</p>
+          </div>
+        )}
         {errors.submit && (
-          <div className="rounded-lg p-4" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
+          <div className="rounded-lg p-3" style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
             <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{errors.submit}</p>
           </div>
         )}
 
-        {/* Botones */}
-        <div className="flex gap-3 pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={submitting}
-            className="flex-1"
-          >
+        <div className="flex gap-3 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={submitting} className="flex-1">
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={submitting}
-            className="flex-1"
-          >
+          <Button type="submit" variant="primary" disabled={submitting} className="flex-1">
             {submitting ? "Guardando..." : "Guardar Presupuesto"}
           </Button>
         </div>
       </form>
     </Modal>
+  );
+}
+
+// Sub-componente con hover state propio (regla CLAUDE.md)
+function PiezaRow({
+  pieza,
+  index,
+  errors,
+  onUpdateNombre,
+  onUpdateCantidad,
+  onUpdatePrecio,
+  onEliminar,
+}: {
+  pieza: PiezaCotizacion;
+  index: number;
+  errors: Record<string, string>;
+  onUpdateNombre: (i: number, v: string) => void;
+  onUpdateCantidad: (i: number, v: number) => void;
+  onUpdatePrecio: (i: number, v: number) => void;
+  onEliminar: (i: number) => void;
+}) {
+  const [hoverDelete, setHoverDelete] = useState(false);
+  const instalada = pieza.instalada;
+
+  return (
+    <div
+      className="grid grid-cols-12 gap-2 items-start p-3 rounded-lg"
+      style={{ background: "var(--color-bg-elevated)", opacity: instalada ? 0.8 : 1 }}
+    >
+      {/* Nombre */}
+      <div className="col-span-5">
+        <Input
+          type="text"
+          value={pieza.nombre}
+          onChange={(e) => onUpdateNombre(index, e.target.value)}
+          placeholder="Nombre de la pieza"
+          disabled={instalada}
+          error={errors[`nombre_${index}`]}
+        />
+      </div>
+
+      {/* Cantidad */}
+      <div className="col-span-2">
+        <Input
+          type="number"
+          value={pieza.cantidad}
+          onChange={(e) => onUpdateCantidad(index, Number(e.target.value))}
+          placeholder="Cant."
+          min="1"
+          disabled={instalada}
+          error={errors[`cantidad_${index}`]}
+        />
+      </div>
+
+      {/* Precio unitario (all-in al cliente) */}
+      <div className="col-span-3">
+        <Input
+          type="number"
+          value={pieza.precioUnitario}
+          onChange={(e) => onUpdatePrecio(index, Number(e.target.value))}
+          placeholder="Precio"
+          min="0"
+          step="0.01"
+          disabled={instalada}
+          error={errors[`precio_${index}`]}
+        />
+      </div>
+
+      {/* Botón eliminar */}
+      <div className="col-span-2 flex items-center justify-center gap-1">
+        {instalada ? (
+          <span className="text-xs px-1 py-0.5 rounded font-mono" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+            ✓ instalada
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onEliminar(index)}
+            onMouseEnter={() => setHoverDelete(true)}
+            onMouseLeave={() => setHoverDelete(false)}
+            style={{ color: "var(--color-danger)", opacity: hoverDelete ? 0.7 : 1 }}
+            className="p-1"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

@@ -1,31 +1,30 @@
 # Bugs Activos — CREDIPHONE
 > Leer al inicio de sesión si la tarea toca BD, auth, caja o reparaciones.
-> Última actualización: 2026-05-09
+> Última actualización: 2026-05-26
 
 ---
 
 ## ✅ BUG-TRACK-001 — Token de tracking no se genera si se salta estado "presupuesto"
-**Severidad:** Alta | **Estado:** ✅ Resuelto (verificado 2026-05-20)
-**Descripción:** Ya implementado en `src/app/api/reparaciones/[id]/route.ts`. Genera token automáticamente para cualquier estado > recibido (excepto cancelado/no_reparable) si aún no existe. El estado "presupuesto" lo genera vía `notificarCambioEstado()` para evitar duplicados.
+**Severidad:** Alta | **Estado:** ✅ Resuelto (verificado 2026-05-26)
+**Solución:** `src/app/api/reparaciones/[id]/route.ts` línea ~336. Al cambiar a cualquier estado activo (excepto recibido, presupuesto, cancelado, no_reparable), se verifica si existe token y se genera automáticamente si no.
 
 ---
 
 ## ✅ BUG-TRACK-002 — Costo y cotización ocultos en tracking cuando requiereAprobacion = false
-**Severidad:** Media | **Estado:** ✅ Resuelto (verificado 2026-05-20)
-**Descripción:** Ya implementado en `src/app/tracking/[token]/page.tsx`. `clienteAprobado = aprobadoPorCliente || !requiereAprobacion` unifica la lógica. `mostrarCosto` y `piezasCotizacion` usan esta bandera correctamente.
+**Severidad:** Media | **Estado:** ✅ Resuelto (verificado 2026-05-26)
+**Solución:** `clienteAprobado = aprobadoPorCliente || !requiereAprobacion` en tracking page. El costo y los servicios cotizados se muestran correctamente cuando `requiereAprobacion = false`.
 
 ---
 
 ## ✅ BUG-WA-001 — WhatsApp en OrdenCard abre sin mensaje precargado
-**Severidad:** Media | **Estado:** ✅ Resuelto (verificado 2026-05-20)
-**Descripción:** Ya implementado en `src/components/reparaciones/cards/OrdenCard.tsx`. `generarMensajeSeguimiento` y `generarLinkWhatsApp` importados y usados en el href del PhoneMenu (línea ~393).
+**Severidad:** Media | **Estado:** ✅ Resuelto (verificado 2026-05-26)
+**Solución:** `OrdenCard.tsx` usa `generarLinkWhatsApp(orden.clienteTelefono, generarMensajeSeguimiento(orden))` en `PhoneMenu`.
 
 ---
 
-## BUG-PIEZAS-001 — PiezasPendientesPanel sin botón WhatsApp por pieza
-**Severidad:** Baja | **Estado:** Pendiente de implementar
-**Descripción:** El panel de piezas pendientes al proveedor muestra folio + botón para abrir la orden, pero no tiene botón de WhatsApp para notificar al cliente sobre el estado de la pieza. La función `generarMensajePiezaEnEspera()` existe.
-**Archivo afectado:** `src/components/reparaciones/PiezasPendientesPanel.tsx`
+## ✅ BUG-PIEZAS-001 — PiezasPendientesPanel sin botón WhatsApp por pieza
+**Estado:** ✅ Resuelto (sesión 2026-05-21, P6)
+**Solución:** `PiezasPendientesPanel.tsx` tiene botón WA por pieza usando `generarMensajePiezaEnEspera()`. También tiene botón WA al proveedor desde la API `/api/reparaciones/piezas-pendientes`.
 
 ---
 
