@@ -48,6 +48,9 @@ function mapProductoFromDB(db: any): Producto {
     modelosCompatibles: db.modelos_compatibles ?? [],
     calidad:          db.calidad           ?? undefined,
 
+    // FASE 81: Stock apartado en reparaciones activas
+    stockApartado:    db.stock_apartado    ?? 0,
+
     createdAt:        db.created_at        ? new Date(db.created_at)  : new Date(),
     updatedAt:        db.updated_at        ? new Date(db.updated_at)  : new Date(),
   };

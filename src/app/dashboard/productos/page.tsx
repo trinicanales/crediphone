@@ -1047,6 +1047,12 @@ function ProductoRow({ producto, fmt, onEdit, onDelete, onPrint, onVerHistorial,
               AGOTADO
             </div>
           )}
+          {/* E2: stock_apartado — mostrar si hay piezas reservadas para reparaciones */}
+          {(producto.stockApartado ?? 0) > 0 && (
+            <div className="text-[10px] font-medium" style={{ color: "var(--color-accent)" }} title={`${producto.stock - (producto.stockApartado ?? 0)} disponible, ${producto.stockApartado} en reparaciones`}>
+              {producto.stockApartado} en rep.
+            </div>
+          )}
         </div>
       </td>
 
