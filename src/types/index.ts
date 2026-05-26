@@ -241,6 +241,10 @@ export interface Producto {
   modelosCompatibles?: string[]; // Modelos de dispositivo compatibles: ["Samsung A05", "Samsung A05s"]
   calidad?: "original" | "generica" | "premium" | "oem" | "refurbished"; // Solo pieza_reparacion
 
+  // FASE 81: Stock apartado para reparaciones activas
+  // stock_disponible = stock - stockApartado (para venta y conteo físico)
+  stockApartado?: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
