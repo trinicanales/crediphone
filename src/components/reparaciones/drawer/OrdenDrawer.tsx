@@ -7,7 +7,7 @@ import {
   X, ExternalLink, Edit, Loader2, Wrench, Clock, AlertCircle,
   MessageSquare, Package, Timer, FileText, Image as ImageIcon,
   DollarSign, Phone, CheckCircle, GitBranch, Printer, Plus, PackageCheck, PackagePlus,
-  Download, History, ShieldAlert, UserCog, Link2, Copy, MessageCircle, RotateCcw,
+  Download, History, ShieldAlert, UserCog, Link2, Copy, MessageCircle, RotateCcw, Pencil,
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { PresupuestoSummary } from "@/components/reparaciones/detail/PresupuestoSummary";
@@ -236,6 +236,14 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const [editPiezaCotForm, setEditPiezaCotForm] = useState({ nombre: "", cantidad: "1", precioTotal: "" });
   const [nuevaPiezaCotForm, setNuevaPiezaCotForm] = useState({ nombre: "", cantidad: "1", precioTotal: "" });
   const [mostrandoFormNuevaPiezaCot, setMostrandoFormNuevaPiezaCot] = useState(false);
+
+  // C5+C6: Editar problema reportado y notas internas
+  const [editProblema, setEditProblema] = useState(false);
+  const [problemaEditado, setProblemaEditado] = useState("");
+  const [guardandoProblema, setGuardandoProblema] = useState(false);
+  const [editNotas, setEditNotas] = useState(false);
+  const [notasEditadas, setNotasEditadas] = useState("");
+  const [guardandoNotas, setGuardandoNotas] = useState(false);
 
   // M1: comunicaciones WA
   interface ComunicacionWA {
@@ -1356,10 +1364,68 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
           </div>
         )}
 
+        {/* C5: Problema Reportado — editable para admin/técnico */}
         <Card title="Problema Reportado">
-          <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-text-primary)" }}>
-            {orden.problemaReportado}
-          </p>
+          {editProblema ? (
+            <div className="space-y-2">
+              <textarea
+                value={problemaEditado}
+                onChange={(e) => setProblemaEditado(e.target.value)}
+                rows={4}
+                className="w-full text-sm px-3 py-2 rounded-lg resize-none"
+                style={{ background: "var(--color-bg-sunken)", border: "1px solid var(--color-border)", color: "var(--color-text-primary)" }}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    setGuardandoProblema(true);
+                    try {
+                      const res = await fetch(`/api/reparaciones/${ordenId}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ problemaReportado: problemaEditado }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        setOrden((prev) => prev ? { ...prev, problemaReportado: problemaEditado } : prev);
+                        setEditProblema(false);
+                      }
+                    } finally { setGuardandoProblema(false); }
+                  }}
+                  disabled={guardandoProblema}
+                  className="flex-1 text-xs py-1.5 rounded-lg font-semibold"
+                  style={{ background: "var(--color-accent)", color: "#fff" }}
+                >
+                  {guardandoProblema ? "Guardando..." : "Guardar"}
+                </button>
+                <button
+                  onClick={() => setEditProblema(false)}
+                  className="text-xs px-3 py-1.5 rounded-lg"
+                  style={{ background: "none", border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2">
+              <p className="text-sm whitespace-pre-wrap flex-1" style={{ color: "var(--color-text-primary)" }}>
+                {orden.problemaReportado}
+              </p>
+              {(isAdmin || user?.role === "tecnico") && (
+                <button
+                  onClick={() => { setProblemaEditado(orden.problemaReportado ?? ""); setEditProblema(true); }}
+                  className="p-1 rounded-lg shrink-0"
+                  style={{ color: "var(--color-text-muted)", background: "transparent" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-bg-elevated)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  title="Editar"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </Card>
 
         <Card title="Fechas">
@@ -1425,9 +1491,72 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
           </Card>
         )}
 
-        {orden.notasInternas && (
+        {/* C6: Notas Internas — editable para admin/técnico, siempre visible para ellos */}
+        {(orden.notasInternas || isAdmin || user?.role === "tecnico") && (
           <Card title="Notas Internas">
-            <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-text-primary)" }}>{orden.notasInternas}</p>
+            {editNotas ? (
+              <div className="space-y-2">
+                <textarea
+                  value={notasEditadas}
+                  onChange={(e) => setNotasEditadas(e.target.value)}
+                  rows={4}
+                  placeholder="Notas internas..."
+                  className="w-full text-sm px-3 py-2 rounded-lg resize-none"
+                  style={{ background: "var(--color-bg-sunken)", border: "1px solid var(--color-border)", color: "var(--color-text-primary)" }}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setGuardandoNotas(true);
+                      try {
+                        const res = await fetch(`/api/reparaciones/${ordenId}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ notasInternas: notasEditadas }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setOrden((prev) => prev ? { ...prev, notasInternas: notasEditadas } : prev);
+                          setEditNotas(false);
+                        }
+                      } finally { setGuardandoNotas(false); }
+                    }}
+                    disabled={guardandoNotas}
+                    className="flex-1 text-xs py-1.5 rounded-lg font-semibold"
+                    style={{ background: "var(--color-accent)", color: "#fff" }}
+                  >
+                    {guardandoNotas ? "Guardando..." : "Guardar"}
+                  </button>
+                  <button
+                    onClick={() => setEditNotas(false)}
+                    className="text-xs px-3 py-1.5 rounded-lg"
+                    style={{ background: "none", border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                {orden.notasInternas ? (
+                  <p className="text-sm whitespace-pre-wrap flex-1" style={{ color: "var(--color-text-primary)" }}>{orden.notasInternas}</p>
+                ) : (
+                  <p className="text-sm flex-1" style={{ color: "var(--color-text-muted)" }}>Sin notas internas.</p>
+                )}
+                {(isAdmin || user?.role === "tecnico") && (
+                  <button
+                    onClick={() => { setNotasEditadas(orden.notasInternas ?? ""); setEditNotas(true); }}
+                    className="p-1 rounded-lg shrink-0"
+                    style={{ color: "var(--color-text-muted)", background: "transparent" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-bg-elevated)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    title="Editar notas"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
           </Card>
         )}
 
