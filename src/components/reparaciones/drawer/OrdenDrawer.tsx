@@ -2021,9 +2021,19 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate" style={{ color: "var(--color-text-primary)" }}>{pieza.nombre}</p>
-                        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                          ${pieza.precioTotal.toFixed(2)} · cant. {pieza.cantidad}
-                        </p>
+                        {/* C2: desglose interno solo admin/técnico */}
+                        {(isAdmin || user?.role === "tecnico") && (pieza.costoInterno || pieza.costoEnvio) ? (
+                          <div className="flex flex-wrap gap-x-2 gap-y-0">
+                            {pieza.costoInterno ? <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Costo: <span className="font-mono">${pieza.costoInterno.toFixed(2)}</span></span> : null}
+                            {pieza.costoEnvio ? <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Envío: <span className="font-mono">${pieza.costoEnvio.toFixed(2)}</span></span> : null}
+                            <span className="text-xs" style={{ color: "var(--color-success)" }}>Cliente: <span className="font-mono">${pieza.precioTotal.toFixed(2)}</span></span>
+                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>cant. {pieza.cantidad}</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                            ${pieza.precioTotal.toFixed(2)} · cant. {pieza.cantidad}
+                          </p>
+                        )}
                       </div>
                       {yaAgregada ? (
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}>
@@ -2335,12 +2345,49 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                           {badge.label}
                         </span>
                       </div>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                        {p.costoEstimado > 0 && `$${p.costoEstimado.toFixed(2)}`}
-                        {p.fechaEstimadaLlegada && ` · Llegada est. ${new Date(p.fechaEstimadaLlegada).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}`}
-                        {p.estado === "defectuosa" && p.motivoDefecto && ` · ${p.motivoDefecto}`}
-                        {p.intentosReemplazo > 0 && ` · ${p.intentosReemplazo} reemplazo(s)`}
-                      </p>
+                      {/* C2: Desglose interno de costos — solo admin/técnico */}
+                      {(isAdmin || user?.role === "tecnico") && (p.costoEstimado > 0 || p.costoEnvio > 0 || p.precioCliente !== null) ? (
+                        <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0">
+                          {p.costoEstimado > 0 && (
+                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                              Costo: <span className="font-mono" style={{ color: "var(--color-text-secondary)" }}>${p.costoEstimado.toFixed(2)}</span>
+                            </span>
+                          )}
+                          {p.costoEnvio > 0 && (
+                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                              Envío: <span className="font-mono" style={{ color: "var(--color-text-secondary)" }}>${p.costoEnvio.toFixed(2)}</span>
+                            </span>
+                          )}
+                          {p.precioCliente !== null && p.precioCliente > 0 && (
+                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                              Cliente: <span className="font-mono" style={{ color: "var(--color-success)" }}>${p.precioCliente.toFixed(2)}</span>
+                              {(p.costoEstimado > 0 || p.costoEnvio > 0) && (
+                                <span style={{ color: "var(--color-text-muted)" }}>
+                                  {" "}(margen: ${(p.precioCliente - p.costoEstimado - p.costoEnvio).toFixed(2)})
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {p.fechaEstimadaLlegada && (
+                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                              Llegada: {new Date(p.fechaEstimadaLlegada).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
+                            </span>
+                          )}
+                          {p.estado === "defectuosa" && p.motivoDefecto && (
+                            <span className="text-xs" style={{ color: "var(--color-error, #dc2626)" }}>{p.motivoDefecto}</span>
+                          )}
+                          {p.intentosReemplazo > 0 && (
+                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>{p.intentosReemplazo} reemplazo(s)</span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                          {p.costoEstimado > 0 && `$${p.costoEstimado.toFixed(2)}`}
+                          {p.fechaEstimadaLlegada && ` · Llegada est. ${new Date(p.fechaEstimadaLlegada).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}`}
+                          {p.estado === "defectuosa" && p.motivoDefecto && ` · ${p.motivoDefecto}`}
+                          {p.intentosReemplazo > 0 && ` · ${p.intentosReemplazo} reemplazo(s)`}
+                        </p>
+                      )}
                     </div>
                     {/* Action buttons */}
                     <div className="flex flex-col gap-1 flex-shrink-0">
@@ -3472,49 +3519,76 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
           </div>
         )}
 
-        {/* ── Financial summary strip ── */}
+        {/* ── Financial summary strip (C1) ── */}
         {orden && (() => {
-          // Usar precio_total (lo que cobra al cliente) → si no existe aún, fallback a costo_total
+          // precio_total = lo que cobra al cliente; fallback a costo_total
           const total = (orden.presupuestoTotal && orden.presupuestoTotal > 0)
             ? orden.presupuestoTotal
             : (orden.costoTotal ?? 0);
           const anticipos = orden.totalAnticipos ?? 0;
-          const saldo = total - anticipos;
+          const saldo = Math.max(0, total - anticipos);
           const tieneDatos = total > 0 || anticipos > 0;
           if (!tieneDatos) return null;
           const fmt = (n: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+          // C1: desglose mano de obra + piezas para admin/técnico
+          const manoObra = Number(orden.presupuestoManoDeObra ?? orden.costoReparacion ?? 0);
+          const piezas   = Number(orden.presupuestoPiezas     ?? orden.costoPartes     ?? 0);
+          const tieneDesglose = (isAdmin || user?.role === "tecnico") && (manoObra > 0 || piezas > 0);
           return (
             <div
-              className="px-4 py-2 flex items-center gap-4 flex-shrink-0 flex-wrap"
+              className="px-4 py-2 flex-shrink-0 flex flex-col gap-1"
               style={{
                 background: saldo > 0 ? "var(--color-warning-bg)" : "var(--color-bg-surface)",
                 borderBottom: "1px solid var(--color-border-subtle)",
               }}
             >
-              <div className="flex items-center gap-1.5 min-w-0">
-                <DollarSign className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-text-muted)" }} />
-                <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Total:</span>
-                <span className="text-xs font-bold font-mono" style={{ color: "var(--color-text-primary)" }}>{fmt(total)}</span>
-                {!total && (
-                  <span className="text-xs px-1 rounded" style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)" }}>est.</span>
+              {/* Fila principal */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <DollarSign className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-text-muted)" }} />
+                  <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Total:</span>
+                  <span className="text-xs font-bold font-mono" style={{ color: "var(--color-text-primary)" }}>{fmt(total)}</span>
+                  {!total && (
+                    <span className="text-xs px-1 rounded" style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)" }}>est.</span>
+                  )}
+                </div>
+                {anticipos > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Anticipo:</span>
+                    <span className="text-xs font-mono" style={{ color: "var(--color-success)" }}>−{fmt(anticipos)}</span>
+                  </div>
+                )}
+                {saldo > 0 && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-xs font-semibold" style={{ color: "var(--color-warning-text)" }}>Saldo:</span>
+                    <span className="text-sm font-bold font-mono" style={{ color: "var(--color-warning-text)" }}>{fmt(saldo)}</span>
+                  </div>
+                )}
+                {saldo <= 0 && anticipos > 0 && (
+                  <span className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}>
+                    Pagado ✓
+                  </span>
                 )}
               </div>
-              {anticipos > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Anticipo:</span>
-                  <span className="text-xs font-mono" style={{ color: "var(--color-success)" }}>−{fmt(anticipos)}</span>
+              {/* C1: Fila de desglose (admin/técnico) */}
+              {tieneDesglose && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  {manoObra > 0 && (
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      Mano de obra: <span className="font-mono">{fmt(manoObra)}</span>
+                    </span>
+                  )}
+                  {piezas > 0 && (
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      Piezas: <span className="font-mono">{fmt(piezas)}</span>
+                    </span>
+                  )}
+                  {manoObra > 0 && piezas > 0 && (
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      = <span className="font-mono font-semibold">{fmt(manoObra + piezas)}</span>
+                    </span>
+                  )}
                 </div>
-              )}
-              {saldo > 0 && (
-                <div className="flex items-center gap-1.5 ml-auto">
-                  <span className="text-xs font-semibold" style={{ color: "var(--color-warning-text)" }}>Saldo:</span>
-                  <span className="text-sm font-bold font-mono" style={{ color: "var(--color-warning-text)" }}>{fmt(saldo)}</span>
-                </div>
-              )}
-              {saldo <= 0 && anticipos > 0 && (
-                <span className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}>
-                  Pagado ✓
-                </span>
               )}
             </div>
           );
