@@ -141,6 +141,39 @@ El PDF es un documento legal bajo la LFPC (Ley Federal de Protección al Consumi
 
 ---
 
+## 🔄 REVERTIR ESTADO DE SERVICIO — Regla confirmada (Trini 2026-05-25)
+
+- **Quién puede revertir:** Solo admin
+- **Por qué existe:** Un empleado puede avanzar el estado por error (ej: marcar "en_reparacion" antes de tener las piezas)
+- **Estados que se pueden revertir (consecutivo):**
+  - `listo_entrega` → `en_reparacion`
+  - `en_reparacion` → `en_revision` (o `esperando_piezas`)
+  - `en_revision` → `recibido`
+- **Estados terminales (NO se revierten nunca):** `entregado`, `cancelado`, `no_reparable`
+- **Al revertir:** se guarda registro en `historial_estado_orden` con motivo de revertir
+- **NO afecta:** anticipos ya registrados, piezas pedidas, historial de diagnósticos
+
+## 📊 DESGLOSE INTERNO DE COSTOS — Visible solo internamente (Trini 2026-05-25)
+
+- El precio al CLIENTE es all-in por pieza (pieza + instalación + envío) → NO cambiar
+- Internamente el sistema DEBE permitir ver y editar:
+  - `costoInterno`: costo real de la pieza al proveedor
+  - `costoEnvio`: flete/envío de la pieza
+  - `precioTotal`: lo que ve y paga el cliente
+  - `margen`: precioTotal - costoInterno - costoEnvio (calculado)
+- Esta vista es para admin/técnico en el drawer — el cliente nunca ve los costos internos
+- El margen de utilidad del servicio se calcula con este desglose
+
+## 🔗 PROPAGACIÓN DE CAMBIOS — Todo debe ser coherente (Trini 2026-05-25)
+
+Si se modifica el precio/pieza de un servicio desde el drawer:
+1. `precio_total` en `ordenes_reparacion` debe actualizarse
+2. `saldo_pendiente` en bolsa virtual (precio_total - anticipos pagados) debe recalcularse
+3. La página de tracking del cliente debe reflejar el nuevo total
+4. El PDF al regenerarse debe tener el precio actualizado
+
+**Por qué:** El servicio está vivo hasta que se entrega. Si el técnico encuentra algo diferente, el precio puede cambiar — todos los sistemas deben respetar esa actualización.
+
 ## ❓ Preguntas abiertas para Trini
 
 1. **Fotos post-entrega:** ¿Cuánto tiempo conservar después de entregar la reparación? ¿6 meses, 12, indefinido?
