@@ -61,10 +61,21 @@ export async function notificarCambioEstado(
       trackingUrlPresupuesto = await crearTrackingToken(orden.id);
     }
 
-    // Para estado "listo_entrega": obtener token existente y armar URL del PDF
+    // Para estado "listo_entrega": obtener PDF URL y días de garantía del distribuidor
     let pdfUrlListoEntrega: string | undefined;
+    let diasGarantiaListoEntrega: number | undefined;
     if (nuevoEstado === "listo_entrega") {
       pdfUrlListoEntrega = await obtenerPdfUrlParaOrden(orden.id);
+      try {
+        const { data: cfg } = await supabase
+          .from("configuracion")
+          .select("dias_garantia_default")
+          .eq("distribuidor_id", orden.distribuidorId)
+          .single();
+        diasGarantiaListoEntrega = cfg?.dias_garantia_default ?? 90;
+      } catch {
+        diasGarantiaListoEntrega = 90;
+      }
     }
 
     // Resolver IDs de admin del distribuidor (una sola vez, reutilizado en el loop)
@@ -80,7 +91,7 @@ export async function notificarCambioEstado(
           nuevoEstado === "presupuesto" && trackingUrlPresupuesto
             ? generarMensajePresupuesto(orden, trackingUrlPresupuesto)
             : nuevoEstado === "listo_entrega"
-            ? generarMensajeListoEntrega(orden, pdfUrlListoEntrega)
+            ? generarMensajeListoEntrega(orden, pdfUrlListoEntrega, diasGarantiaListoEntrega)
             : config.generarMensaje(orden, notas);
 
         if (destino.tipo === "admin" && adminIds.length > 0) {
