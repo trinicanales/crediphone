@@ -161,14 +161,13 @@ Hola *${nombreCliente}*,
 ✨ *Reparación realizada:*
 ${orden.diagnosticoTecnico || "Servicio completado exitosamente"}
 
-💰 *Total a pagar:* $${(orden.costoTotal || 0).toFixed(2)}
+💰 *Total a pagar:* $${(((orden as any).presupuestoTotal > 0 ? (orden as any).presupuestoTotal : orden.costoTotal) || 0).toFixed(2)}
 ${
   (() => {
+    const total = ((orden as any).presupuestoTotal > 0 ? (orden as any).presupuestoTotal : orden.costoTotal) || 0;
     const totalAnticipos = (orden as any).totalAnticipos || 0;
     return totalAnticipos > 0
-      ? `   Anticipos: -$${totalAnticipos.toFixed(2)}\n   *Saldo: $${(
-          (orden.costoTotal || 0) - totalAnticipos
-        ).toFixed(2)}*`
+      ? `   Anticipos: -$${totalAnticipos.toFixed(2)}\n   *Saldo: $${Math.max(0, total - totalAnticipos).toFixed(2)}*`
       : "";
   })()
 }
@@ -249,37 +248,58 @@ function obtenerEstadoLegible(
  */
 export function generarMensajeListoEntrega(
   orden: OrdenReparacion | OrdenReparacionDetallada,
-  pdfUrl?: string
+  pdfUrl?: string,
+  diasGarantia?: number
 ): string {
   const nombreCliente = "clienteNombre" in orden
     ? `${orden.clienteNombre} ${orden.clienteApellido || ""}`.trim()
     : "Cliente";
 
-  const total = orden.costoTotal || 0;
+  // Usar precio_total (nuevo sistema) con fallback a costo_total
+  const total = ((orden as any).presupuestoTotal > 0)
+    ? (orden as any).presupuestoTotal
+    : (orden.costoTotal || 0);
   const totalAnticipos = (orden as any).totalAnticipos || 0;
-  const saldo = total - totalAnticipos;
+  const saldo = Math.max(0, total - totalAnticipos);
 
-  return `
-📦 *DISPOSITIVO LISTO PARA RECOGER - CREDIPHONE*
+  // Qué se reparó: partes reemplazadas o diagnóstico
+  const partesLineas: string[] = [];
+  if (Array.isArray(orden.partesReemplazadas) && orden.partesReemplazadas.length > 0) {
+    orden.partesReemplazadas.forEach((p: any) => {
+      if (p.parte) partesLineas.push(`   • ${p.parte}`);
+    });
+  } else if (orden.diagnosticoTecnico) {
+    partesLineas.push(`   ${orden.diagnosticoTecnico}`);
+  }
 
-Hola *${nombreCliente}*,
+  const garantiaDias = diasGarantia ?? 90;
 
-Tu dispositivo ya está listo para que lo recojas:
-
-📱 *Dispositivo:* ${orden.marcaDispositivo || "N/A"} ${orden.modeloDispositivo || ""}
-🆔 *Folio:* ${orden.folio}
-
-${saldo > 0 ? `💰 *Saldo pendiente:* $${saldo.toFixed(2)}` : `✅ *Sin saldo pendiente*`}
-
-🏪 *Recoge tu equipo en:*
-CREDIPHONE - Durango, México
-Horario: Lunes a Sábado, 9:00 AM - 7:00 PM
-
-⚠️ *Importante:* Por favor recoge tu equipo dentro de los próximos 30 días naturales. Después de ese plazo se aplicará una tarifa de almacenaje diaria conforme a nuestros términos de servicio.
-${pdfUrl ? `\n📄 *Contrato / Comprobante:*\n${pdfUrl}\n` : ""}
-¡Te esperamos!
-📱 CREDIPHONE
-`.trim();
+  return [
+    `📦 *¡Tu equipo está listo! — CREDIPHONE*`,
+    ``,
+    `Hola *${nombreCliente}*,`,
+    ``,
+    `Tu *${orden.marcaDispositivo || ""} ${orden.modeloDispositivo || ""}* ya está reparado y listo para recoger.`,
+    `🆔 Folio: ${orden.folio}`,
+    ``,
+    partesLineas.length > 0 ? `🔧 *Se realizó:*\n${partesLineas.join("\n")}` : null,
+    partesLineas.length > 0 ? `` : null,
+    total > 0 ? (
+      saldo > 0
+        ? `💰 *Total del servicio:* $${total.toFixed(2)}\n   Anticipos pagados: -$${totalAnticipos.toFixed(2)}\n   *Saldo a pagar: $${saldo.toFixed(2)}*`
+        : `✅ *Servicio totalmente pagado.* ¡Gracias!`
+    ) : null,
+    total > 0 ? `` : null,
+    `🛡️ *Garantía:* ${garantiaDias} días sobre la reparación realizada.`,
+    ``,
+    `🏪 *Horario de atención:*`,
+    `Lunes a Sábado · 9:00 AM – 7:00 PM`,
+    ``,
+    `⚠️ Tienes 30 días para recoger tu equipo antes de que apliquen cargos de almacenaje.`,
+    pdfUrl ? `\n📄 Comprobante: ${pdfUrl}` : null,
+    ``,
+    `¡Te esperamos! 📱 CREDIPHONE`,
+  ].filter((l) => l !== null).join("\n");
 }
 
 /**
