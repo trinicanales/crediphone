@@ -399,6 +399,9 @@ export interface PiezaCotizacion {
   costoEnvio?: number;         // costo de envío del proveedor
   proveedorId?: string;        // proveedor que surte esta pieza
   calidad?: string;            // tipo de calidad: original, generica, premium, oem, refurbished
+  // F2-C: Vínculo con pedido y estado de instalación
+  pedidoId?: string | null;    // FK al pedido_pieza_reparacion que la instaló
+  instalada?: boolean;         // true cuando el técnico verificó la pieza como "llegó bien"
 }
 
 // F4-F: Pedido de pieza a proveedor — tipo canónico centralizado (reemplaza interfaces locales duplicadas)
