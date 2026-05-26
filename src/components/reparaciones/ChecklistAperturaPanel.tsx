@@ -182,13 +182,9 @@ export function ChecklistAperturaPanel({ onChange }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [estados, setEstados] = useState<Record<string, EstadoItem>>({});
 
-  const cambiar = (id: string, nuevoEstado: EstadoItem) => {
-    const nuevo = { ...estados, [id]: nuevoEstado };
-    setEstados(nuevo);
-
-    // Generar resumen de texto para notasInternas
-    const problemas = ITEMS.filter((i) => nuevo[i.id] === "problema");
-    const okItems = ITEMS.filter((i) => nuevo[i.id] === "ok");
+  const generarResumen = (estadosActuales: Record<string, EstadoItem>) => {
+    const problemas = ITEMS.filter((i) => estadosActuales[i.id] === "problema");
+    const okItems = ITEMS.filter((i) => estadosActuales[i.id] === "ok");
     const tieneAlertas = problemas.some((i) => i.esCritico);
 
     if (problemas.length === 0 && okItems.length === 0) {
@@ -205,6 +201,20 @@ export function ChecklistAperturaPanel({ onChange }: Props) {
     }
 
     onChange(lineas.join("\n"), tieneAlertas);
+  };
+
+  const cambiar = (id: string, nuevoEstado: EstadoItem) => {
+    const nuevo = { ...estados, [id]: nuevoEstado };
+    setEstados(nuevo);
+    generarResumen(nuevo);
+  };
+
+  // F1-C: Marcar todos los ítems como "ok" con un solo clic (equipo llega en buenas condiciones)
+  const marcarTodoOk = () => {
+    const todoOk = Object.fromEntries(ITEMS.map((i) => [i.id, "ok" as EstadoItem]));
+    setEstados(todoOk);
+    setExpandido(true);
+    generarResumen(todoOk);
   };
 
   const alertasCriticas = ITEMS.filter(
@@ -277,12 +287,29 @@ export function ChecklistAperturaPanel({ onChange }: Props) {
             borderTop: `1px solid ${hayAlertas ? "var(--color-danger)" : "var(--color-border-subtle)"}`,
           }}
         >
-          <p className="px-4 pt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
-            Documenta el estado interno al abrir el equipo.{" "}
-            <span style={{ color: "var(--color-text-secondary)" }}>
-              Marca lo que aplica — el resto se omite del historial.
-            </span>
-          </p>
+          <div className="px-4 pt-3 flex items-center justify-between gap-3">
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Documenta el estado interno al abrir el equipo.{" "}
+              <span style={{ color: "var(--color-text-secondary)" }}>
+                Marca lo que aplica — el resto se omite del historial.
+              </span>
+            </p>
+            {/* F1-C: Botón "Todo OK" para equipos que llegan en buenas condiciones */}
+            <button
+              type="button"
+              onClick={marcarTodoOk}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{
+                background: "var(--color-success-bg)",
+                border: "1px solid var(--color-success)",
+                color: "var(--color-success-text)",
+              }}
+              title="Marcar todos los ítems como OK — el equipo llegó en buenas condiciones"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              ✓ Todo OK
+            </button>
+          </div>
 
           <div className="px-4 pb-3 pt-2">
             {ITEMS.map((item) => (

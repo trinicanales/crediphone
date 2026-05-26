@@ -75,21 +75,49 @@ export function ModalDiagnostico({
   const [busqCargando, setBusqCargando] = useState(false);
   const busqTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Pre-cargar cotización existente si la orden ya tiene presupuesto del modal de recepción
+  // Pre-cargar datos existentes cuando el modal abre (F1-B: el técnico nunca empieza en blanco)
   useEffect(() => {
     if (!isOpen || preloadedRef.current) return;
+    if (!orden) return;
+    preloadedRef.current = true;
+
     const costoExistente = (orden as any)?.costoReparacion
       ?? (orden as any)?.presupuestoManoDeObra
       ?? 0;
+
+    const updates: Partial<{
+      costoReparacion: number;
+      diagnosticoTecnico: string;
+      notasTecnico: string;
+      fechaEstimadaEntrega: string;
+      requiereAprobacion: boolean;
+    }> = {};
+
     if (costoExistente > 0) {
-      preloadedRef.current = true;
       setCotizacionPreCargada(true);
-      setFormData((prev) => ({
-        ...prev,
-        costoReparacion: costoExistente,
-        // Si ya hubo aprobación en recepción, no necesita volver a aprobarse
-        requiereAprobacion: false,
-      }));
+      updates.costoReparacion = costoExistente;
+      updates.requiereAprobacion = false;
+    }
+
+    // F1-B: Pre-cargar diagnóstico existente para no empezar de cero en segunda visita
+    if (orden.diagnosticoTecnico) {
+      updates.diagnosticoTecnico = orden.diagnosticoTecnico;
+    }
+    if (orden.notasTecnico) {
+      updates.notasTecnico = orden.notasTecnico;
+    }
+    if (orden.fechaEstimadaEntrega) {
+      const d = orden.fechaEstimadaEntrega instanceof Date
+        ? orden.fechaEstimadaEntrega
+        : new Date(orden.fechaEstimadaEntrega as unknown as string);
+      updates.fechaEstimadaEntrega = d.toISOString().split("T")[0];
+    }
+    if (typeof orden.requiereAprobacion === "boolean" && updates.requiereAprobacion === undefined) {
+      updates.requiereAprobacion = orden.requiereAprobacion;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setFormData((prev) => ({ ...prev, ...updates }));
     }
   }, [isOpen, orden]);
 
@@ -416,6 +444,47 @@ export function ModalDiagnostico({
             <strong>Folio:</strong> {ordenFolio}
           </p>
         </div>
+
+        {/* F1-A: Contexto de Recepción — referencia de solo lectura para el técnico */}
+        {orden?.problemaReportado && !diagnosticoGuardado && (
+          <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--color-border)" }}>
+            <div className="px-4 py-2 flex items-center gap-2" style={{ background: "var(--color-bg-elevated)" }}>
+              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-muted)" }}>
+                Contexto de Recepción
+              </span>
+              <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--color-bg-surface)", color: "var(--color-text-muted)", border: "1px solid var(--color-border)" }}>
+                Solo lectura
+              </span>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              <div>
+                <span className="text-xs font-medium block" style={{ color: "var(--color-text-secondary)" }}>
+                  Problema reportado por el cliente:
+                </span>
+                <p className="text-sm mt-0.5" style={{ color: "var(--color-text-primary)" }}>
+                  {orden.problemaReportado}
+                </p>
+              </div>
+              {((orden.snapshotCotizacionInicial ?? orden.piezasCotizacion) ?? []).length > 0 && (
+                <div>
+                  <span className="text-xs font-medium block mb-1" style={{ color: "var(--color-text-secondary)" }}>
+                    Cotización entregada al cliente:
+                  </span>
+                  <div className="space-y-1">
+                    {((orden.snapshotCotizacionInicial ?? orden.piezasCotizacion) ?? []).map((p) => (
+                      <div key={p.id} className="flex items-center justify-between text-xs rounded px-2 py-1" style={{ background: "var(--color-bg-elevated)" }}>
+                        <span style={{ color: "var(--color-text-primary)" }}>{p.nombre} × {p.cantidad}</span>
+                        <span className="font-mono font-semibold" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
+                          ${p.precioTotal.toLocaleString("es-MX")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Banner: cotización ya existe desde la recepción */}
         {cotizacionPreCargada && (
