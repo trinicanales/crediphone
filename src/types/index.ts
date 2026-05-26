@@ -456,58 +456,6 @@ export interface PedidoPiezaReparacion {
   };
 }
 
-// F4-F: Pedido de pieza a proveedor — tipo canónico centralizado (reemplaza interfaces locales duplicadas)
-export type EstadoPedidoPieza =
-  | "pendiente"
-  | "en_camino"
-  | "recibida"
-  | "verificada_ok"
-  | "defectuosa"
-  | "instalada"
-  | "cancelada";
-
-export interface PedidoPiezaReparacion {
-  id: string;
-  nombrePieza: string;
-  costoEstimado: number;
-  costoEnvio: number;
-  precioCliente: number | null;
-  productoId: string | null;
-  estado: EstadoPedidoPieza;
-  calidad: string | null;
-  notas: string | null;
-  financiadoPor: "bolsa" | "caja" | "mixto";
-  montoDeCaja: number;
-  createdAt: string;
-  fechaRecibida?: string | null;
-  fechaEstimadaLlegada?: string | null;
-  fechaInstalacion?: string | null;
-  creadoPorNombre: string | null;
-  recibidoPorNombre?: string | null;
-  motivoDefecto?: string | null;
-  intentosReemplazo?: number;
-  proveedorId?: string | null;
-  // Soft-lock (G2-G5)
-  bloqueadoPor: string | null;
-  bloqueadoAt: string | null;
-  bloqueadorNombre: string | null;
-  proveedor?: {
-    id: string;
-    nombre: string;
-    contacto: string | null;
-    telefono: string | null;
-  } | null;
-  orden?: {
-    id: string | null;
-    folio: string | null;
-    estado: string | null;
-    marcaDispositivo: string;
-    modeloDispositivo: string;
-    clienteNombre: string;
-    clienteTelefono: string | null;
-  };
-}
-
 // Pieza de inventario usada en una reparación (con tracking completo)
 export interface PiezaReparacion {
   id: string;
