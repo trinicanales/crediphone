@@ -43,6 +43,7 @@ interface PendingItem {
   productaMarca?: string;
   productoModelo?: string;
   stockSistema?: number;
+  stockApartado?: number;  // F1: unidades reservadas en reparaciones activas
   cantidadActual?: number; // si ya estaba escaneado en esta sesión
   esSerializado?: boolean; // true = equipo con IMEI → mostrar stock; false = accesorio → conteo a ciegas
   imei?: string;           // IMEI del equipo si aplica
@@ -210,6 +211,7 @@ export default function VerificarInventarioPage() {
       productaMarca: prod?.marca,
       productoModelo: prod?.modelo,
       stockSistema: prod?.stock,
+      stockApartado: prod?.stockApartado ?? 0,
       cantidadActual: yaEscaneado ? yaEscaneado.cantidadEscaneada : undefined,
       esSerializado: serializado,
       imei: (prod as any)?.imei,
@@ -237,6 +239,7 @@ export default function VerificarInventarioPage() {
       productaMarca: producto.marca,
       productoModelo: producto.modelo,
       stockSistema: producto.stock,
+      stockApartado: producto.stockApartado ?? 0,
       cantidadActual: yaEscaneado?.cantidadEscaneada,
       esSerializado: serializado,
       imei: producto.imei,
@@ -426,6 +429,11 @@ export default function VerificarInventarioPage() {
   const stockPositivo = conDiferencia.filter((d) => d.diferencia > 0);
   const stockNegativo = conDiferencia.filter((d) => d.diferencia < 0);
 
+  // F1: productos con stock_apartado > 0 (comprometidos en reparaciones)
+  const enReparaciones = faltantes.filter((p) => (p.stockApartado ?? 0) > 0);
+  // F1: faltantes "reales" = no tienen ninguna unidad en reparación, falta todo
+  const faltantesReales = faltantes.filter((p) => (p.stockApartado ?? 0) === 0 || (p.stock - (p.stockApartado ?? 0)) > 0);
+
   // Progreso de la sesión
   const totalProductos = items.length + faltantes.length;
   const porcentajeProgreso = totalProductos > 0 ? Math.round((items.length / totalProductos) * 100) : 0;
@@ -496,8 +504,8 @@ export default function VerificarInventarioPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <KpiMini icon={<ScanLine className="w-4 h-4" />} label="Contados" value={items.length} color="accent" />
               <KpiMini icon={<Package className="w-4 h-4" />} label="Pendientes" value={faltantes.length} color="warning" />
+              <KpiMini icon={<Wrench className="w-4 h-4" />} label="En reparación" value={enReparaciones.length} color="info" />
               <KpiMini icon={<TrendingDown className="w-4 h-4" />} label="Stock bajo" value={stockNegativo.length} color="danger" />
-              <KpiMini icon={<TrendingUp className="w-4 h-4" />} label="Stock alto" value={stockPositivo.length} color="success" />
             </div>
 
             {/* Barra de progreso de verificación */}
@@ -539,6 +547,11 @@ export default function VerificarInventarioPage() {
                     Quedan <strong style={{ color: "var(--color-warning)" }}>{faltantes.length} productos</strong> por escanear
                     {faltantesPorUbicacion.length > 1 && (
                       <span> en <strong>{faltantesPorUbicacion.length} áreas</strong></span>
+                    )}
+                    {enReparaciones.length > 0 && (
+                      <span style={{ color: "var(--color-info-text)" }}>
+                        {" · "}<strong>{enReparaciones.length}</strong> tienen stock comprometido en reparaciones activas
+                      </span>
                     )}
                   </p>
                 )}
@@ -979,23 +992,51 @@ export default function VerificarInventarioPage() {
               )}
             </div>
 
-            {/* Equipo serializado: mostrar stock del sistema + IMEI */}
+            {/* Equipo serializado: mostrar stock disponible + IMEI */}
             {pendingItem.esSerializado && pendingItem.stockSistema !== undefined && (
               <div className="space-y-2">
-                <div
-                  className="flex items-center justify-between px-3 py-2 rounded-lg"
-                  style={{ background: "var(--color-bg-elevated)" }}
-                >
-                  <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                    Unidades en sistema
-                  </span>
-                  <span
-                    className="font-bold text-lg"
-                    style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}
+                {/* F1: si hay stockApartado, mostrar desglose */}
+                {(pendingItem.stockApartado ?? 0) > 0 ? (
+                  <>
+                    <div
+                      className="flex items-center justify-between px-3 py-2 rounded-lg"
+                      style={{ background: "var(--color-info-bg)" }}
+                    >
+                      <span className="text-sm" style={{ color: "var(--color-info-text)" }}>
+                        Disponibles (esperas físicamente)
+                      </span>
+                      <span
+                        className="font-bold text-lg"
+                        style={{ color: "var(--color-info-text)", fontFamily: "var(--font-data)" }}
+                      >
+                        {Math.max(0, pendingItem.stockSistema - (pendingItem.stockApartado ?? 0))}
+                      </span>
+                    </div>
+                    <div
+                      className="flex items-center justify-between px-3 py-2 rounded-lg"
+                      style={{ background: "var(--color-bg-elevated)" }}
+                    >
+                      <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                        Total sistema: {pendingItem.stockSistema} · En reparaciones: {pendingItem.stockApartado}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    className="flex items-center justify-between px-3 py-2 rounded-lg"
+                    style={{ background: "var(--color-bg-elevated)" }}
                   >
-                    {pendingItem.stockSistema}
-                  </span>
-                </div>
+                    <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                      Unidades en sistema
+                    </span>
+                    <span
+                      className="font-bold text-lg"
+                      style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}
+                    >
+                      {pendingItem.stockSistema}
+                    </span>
+                  </div>
+                )}
                 {pendingItem.imei && (
                   <div
                     className="flex items-center justify-between px-3 py-2 rounded-lg"
@@ -1111,6 +1152,7 @@ function KpiMini({ icon, label, value, color }: { icon: React.ReactNode; label: 
     warning: { bg: "var(--color-warning-bg)",     text: "var(--color-warning)" },
     danger:  { bg: "var(--color-danger-bg)",      text: "var(--color-danger)" },
     success: { bg: "var(--color-success-bg)",     text: "var(--color-success)" },
+    info:    { bg: "var(--color-info-bg)",        text: "var(--color-info-text)" },
   };
   const c = colors[color] ?? colors.accent;
   return (
@@ -1282,19 +1324,44 @@ function FaltanteRow({ producto, onTap }: { producto: Producto; onTap: (p: Produ
       {/* Solo equipos serializados muestran el stock del sistema */}
       {esEquipo ? (
         <div className="shrink-0 text-right">
-          <span className="text-sm font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
-            {producto.stock}
-          </span>
-          <p className="text-xs leading-none mt-0.5" style={{ color: "var(--color-text-muted)" }}>sistema</p>
+          {/* F1: mostrar stock disponible (stock - stockApartado) */}
+          {(producto.stockApartado ?? 0) > 0 ? (
+            <>
+              <span className="text-sm font-bold" style={{ color: "var(--color-info-text)", fontFamily: "var(--font-data)" }}>
+                {producto.stock - (producto.stockApartado ?? 0)}
+              </span>
+              <p className="text-xs leading-none mt-0.5" style={{ color: "var(--color-info-text)" }}>
+                disponible
+              </p>
+              <p className="text-xs leading-none" style={{ color: "var(--color-text-muted)" }}>
+                ({producto.stockApartado} en rep.)
+              </p>
+            </>
+          ) : (
+            <>
+              <span className="text-sm font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
+                {producto.stock}
+              </span>
+              <p className="text-xs leading-none mt-0.5" style={{ color: "var(--color-text-muted)" }}>sistema</p>
+            </>
+          )}
         </div>
       ) : (
-        /* Accesorios: solo un hint de que es clickable */
-        <span
-          className="shrink-0 text-xs px-2 py-0.5 rounded-full"
-          style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)" }}
-        >
-          contar
-        </span>
+        /* Accesorios: mostrar si hay stock apartado, sino hint de conteo */
+        (producto.stockApartado ?? 0) > 0 ? (
+          <div className="shrink-0 text-right">
+            <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--color-info-bg)", color: "var(--color-info-text)" }}>
+              {producto.stockApartado} en rep.
+            </span>
+          </div>
+        ) : (
+          <span
+            className="shrink-0 text-xs px-2 py-0.5 rounded-full"
+            style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)" }}
+          >
+            contar
+          </span>
+        )
       )}
     </button>
   );
@@ -1302,7 +1369,11 @@ function FaltanteRow({ producto, onTap }: { producto: Producto; onTap: (p: Produ
 
 function ContadoRow({ item, idx, total }: { item: VerificacionItemDetallado; idx: number; total: number }) {
   const [hover, setHover] = useState(false);
-  const stockSistema = item.producto?.stock ?? 0;
+  // F2: comparar contra stock disponible (stock - stockApartado) para no contar como diferencia
+  // las unidades comprometidas en reparaciones activas
+  const stockTotal = item.producto?.stock ?? 0;
+  const stockApartado = (item.producto as any)?.stockApartado ?? 0;
+  const stockSistema = Math.max(0, stockTotal - stockApartado);
   const diferencia = item.cantidadEscaneada - stockSistema;
   const difColor = diferencia === 0
     ? "var(--color-success)"
