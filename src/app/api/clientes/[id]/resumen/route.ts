@@ -34,7 +34,7 @@ export async function GET(
     // Órdenes activas (no canceladas, no entregadas)
     let ordenesQuery = supabase
       .from("ordenes_reparacion")
-      .select("id, estado, costo_total, total_anticipos, folio")
+      .select("id, estado, costo_total, precio_total, total_anticipos, folio")
       .eq("cliente_id", clienteId)
       .not("estado", "in", "(cancelado,entregado)");
     if (distId) ordenesQuery = ordenesQuery.eq("distribuidor_id", distId);
@@ -46,17 +46,30 @@ export async function GET(
       .eq("cliente_id", clienteId);
     if (distId) totalQuery = totalQuery.eq("distribuidor_id", distId);
 
-    const [{ data: ordenes }, { count: totalOrdenes }, saldo] = await Promise.all([
+    // C4: Últimas 3 órdenes entregadas (historial de reparaciones previas)
+    let historialQuery = supabase
+      .from("ordenes_reparacion")
+      .select("id, folio, estado, marca_dispositivo, modelo_dispositivo, problema_reportado, precio_total, costo_total, created_at")
+      .eq("cliente_id", clienteId)
+      .order("created_at", { ascending: false })
+      .limit(4); // 4 para poder excluir la orden actual
+    if (distId) historialQuery = historialQuery.eq("distribuidor_id", distId);
+
+    const [{ data: ordenes }, { count: totalOrdenes }, saldo, { data: historialRaw }] = await Promise.all([
       ordenesQuery,
       totalQuery,
       getSaldoPuntos(clienteId, distId).catch(() => ({ saldoDisponible: 0, totalGanado: 0 })),
+      historialQuery,
     ]);
 
     const ordenesActivas = (ordenes ?? []).length;
     const saldoPendiente = (ordenes ?? []).reduce(
-      (sum, o) => sum + Math.max(0, Number(o.costo_total ?? 0) - Number(o.total_anticipos ?? 0)),
+      (sum, o) => sum + Math.max(0, Number(o.precio_total ?? o.costo_total ?? 0) - Number(o.total_anticipos ?? 0)),
       0
     );
+
+    // Exponer los folios de órdenes activas (para mostrar en drawer)
+    const ordenesActivasFolios = (ordenes ?? []).map((o) => ({ id: o.id, folio: o.folio, estado: o.estado }));
 
     return NextResponse.json({
       success: true,
@@ -65,6 +78,17 @@ export async function GET(
         saldoPendiente,
         puntos: saldo.saldoDisponible,
         totalOrdenes: totalOrdenes ?? 0,
+        ordenesActivasFolios,
+        historialReciente: (historialRaw ?? []).slice(0, 3).map((o) => ({
+          id: o.id,
+          folio: o.folio,
+          estado: o.estado,
+          marca: o.marca_dispositivo,
+          modelo: o.modelo_dispositivo,
+          problema: o.problema_reportado,
+          total: Number(o.precio_total ?? o.costo_total ?? 0),
+          fecha: o.created_at,
+        })),
       },
     });
   } catch {
