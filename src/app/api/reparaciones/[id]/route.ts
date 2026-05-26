@@ -488,13 +488,48 @@ export async function PUT(
       return NextResponse.json({ success: true, data });
     }
 
+    // Caso 4: Actualizar piezas cotizadas (B3) + recalcular precio_total
+    if (body.piezasCotizacion !== undefined) {
+      if (role !== "admin" && role !== "super_admin" && role !== "tecnico") {
+        return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
+      }
+      const supabase = createAdminClient();
+      const piezas = Array.isArray(body.piezasCotizacion) ? body.piezasCotizacion : [];
+      const nuevoPrecioPiezas = piezas.reduce(
+        (s: number, p: any) => s + Number(p.precioTotal ?? p.precio_total ?? 0),
+        0
+      );
+      // Obtener precio_mano_obra actual para no pisarlo
+      const { data: ordenActual } = await supabase
+        .from("ordenes_reparacion")
+        .select("precio_mano_obra")
+        .eq("id", id)
+        .single();
+      const manoObra = Number(ordenActual?.precio_mano_obra ?? 0);
+      const nuevoTotal = manoObra + nuevoPrecioPiezas;
+      const { data, error } = await supabase
+        .from("ordenes_reparacion")
+        .update({
+          piezas_cotizacion: piezas,
+          precio_piezas: nuevoPrecioPiezas,
+          precio_total: nuevoTotal,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, data, message: "Cotización actualizada" });
+    }
+
     // Si no hay cambios específicos, retornar error
     return NextResponse.json(
       {
         success: false,
         error: "Datos insuficientes",
         message:
-          "Debe proporcionar 'diagnostico', 'estado', 'fechaEstimadaEntrega', 'requiereAprobacion' o 'tecnicoId' para actualizar la orden",
+          "Debe proporcionar 'diagnostico', 'estado', 'fechaEstimadaEntrega', 'requiereAprobacion', 'tecnicoId' o 'piezasCotizacion' para actualizar la orden",
       },
       { status: 400 }
     );
