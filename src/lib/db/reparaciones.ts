@@ -1557,10 +1557,10 @@ export async function agregarPiezaReparacion(
 ): Promise<PiezaReparacion> {
   const supabase = createAdminClient();
 
-  // Verificar stock disponible
+  // Verificar stock disponible (stock - stock_apartado para no contar ya reservados)
   const { data: producto, error: prodError } = await supabase
     .from("productos")
-    .select("id, nombre, stock, imagen")
+    .select("id, nombre, stock, stock_apartado, imagen")
     .eq("id", productoId)
     .single();
 
@@ -1568,9 +1568,10 @@ export async function agregarPiezaReparacion(
     throw new Error("Producto no encontrado en el inventario");
   }
 
-  if (producto.stock < cantidad) {
+  const stockDisponible = (producto.stock ?? 0) - (producto.stock_apartado ?? 0);
+  if (stockDisponible < cantidad) {
     throw new Error(
-      `Stock insuficiente. Disponible: ${producto.stock}, solicitado: ${cantidad}`
+      `Stock insuficiente. Disponible: ${stockDisponible}, solicitado: ${cantidad} (${producto.stock ?? 0} en total, ${producto.stock_apartado ?? 0} apartados)`
     );
   }
 
@@ -1581,29 +1582,29 @@ export async function agregarPiezaReparacion(
     .eq("id", ordenId)
     .single();
 
-  // Descontar del stock
-  const stockAntesPieza = producto.stock;
-  const stockDespuesPieza = stockAntesPieza - cantidad;
+  // Apartar el stock (no se descuenta físicamente — la pieza sigue en la tienda reservada)
+  const nuevoApartado = (producto.stock_apartado ?? 0) + cantidad;
   const { error: stockError } = await supabase
     .from("productos")
-    .update({ stock: stockDespuesPieza })
+    .update({ stock_apartado: nuevoApartado })
     .eq("id", productoId);
 
   if (stockError) {
-    throw new Error(`Error al actualizar stock: ${stockError.message}`);
+    throw new Error(`Error al apartar stock: ${stockError.message}`);
   }
 
+  // Registro de movimiento: reserva (no descuento físico todavía)
   await supabase.from("movimientos_stock").insert({
     producto_id: productoId,
     distribuidor_id: ordenBase?.distribuidor_id ?? null,
-    tipo: "uso_reparacion",
+    tipo: "apartado_reparacion",
     cantidad: -cantidad,
-    stock_antes: stockAntesPieza,
-    stock_despues: stockDespuesPieza,
+    stock_antes: producto.stock ?? 0,
+    stock_despues: producto.stock ?? 0, // stock físico no cambia
     referencia_id: ordenId,
     referencia_tipo: "reparacion",
     registrado_por: tecnicoId,
-    notas: `Uso en reparación: ${cantidad} u.`,
+    notas: `Apartado para reparación: ${cantidad} u. (stock_apartado: ${nuevoApartado})`,
   });
 
   // Registrar la pieza usada
@@ -1657,19 +1658,18 @@ export async function quitarPiezaReparacion(
     throw new Error("Pieza no encontrada en esta reparación");
   }
 
-  // Devolver stock al inventario
+  // Liberar la reserva de stock (stock_apartado) sin tocar el stock físico
   const { data: producto } = await supabase
     .from("productos")
-    .select("stock")
+    .select("stock, stock_apartado")
     .eq("id", pieza.producto_id)
     .single();
 
   if (producto) {
-    const stockAntesDev = producto.stock;
-    const stockDespuesDev = stockAntesDev + pieza.cantidad;
+    const nuevoApartado = Math.max(0, (producto.stock_apartado ?? 0) - pieza.cantidad);
     await supabase
       .from("productos")
-      .update({ stock: stockDespuesDev })
+      .update({ stock_apartado: nuevoApartado })
       .eq("id", pieza.producto_id);
     // Obtener distribuidor para auditoría
     const { data: ordenDev } = await supabase
@@ -1682,11 +1682,11 @@ export async function quitarPiezaReparacion(
       distribuidor_id: ordenDev?.distribuidor_id ?? null,
       tipo: "devolucion_reparacion",
       cantidad: pieza.cantidad,
-      stock_antes: stockAntesDev,
-      stock_despues: stockDespuesDev,
+      stock_antes: producto.stock ?? 0,
+      stock_despues: producto.stock ?? 0, // stock físico no cambia
       referencia_id: ordenId,
       referencia_tipo: "reparacion",
-      notas: `Devuelto al quitar pieza de reparación.`,
+      notas: `Reserva liberada al quitar pieza de reparación (stock_apartado: ${nuevoApartado}).`,
     });
   }
 
@@ -1724,31 +1724,30 @@ export async function devolverTodasLasPiezas(ordenId: string): Promise<void> {
     .eq("id", ordenId)
     .single();
 
-  // Devolver stock de cada pieza
+  // Liberar la reserva de stock_apartado para cada pieza (no tocar stock físico)
   for (const pieza of piezas) {
     const { data: producto } = await supabase
       .from("productos")
-      .select("stock")
+      .select("stock, stock_apartado")
       .eq("id", pieza.producto_id)
       .single();
 
     if (producto) {
-      const stockAntesCan = producto.stock;
-      const stockDespuesCan = stockAntesCan + pieza.cantidad;
+      const nuevoApartadoCan = Math.max(0, (producto.stock_apartado ?? 0) - pieza.cantidad);
       await supabase
         .from("productos")
-        .update({ stock: stockDespuesCan })
+        .update({ stock_apartado: nuevoApartadoCan })
         .eq("id", pieza.producto_id);
       await supabase.from("movimientos_stock").insert({
         producto_id: pieza.producto_id,
         distribuidor_id: distribuidorOrden?.distribuidor_id ?? null,
         tipo: "devolucion_reparacion",
         cantidad: pieza.cantidad,
-        stock_antes: stockAntesCan,
-        stock_despues: stockDespuesCan,
+        stock_antes: producto.stock ?? 0,
+        stock_despues: producto.stock ?? 0, // stock físico no cambia
         referencia_id: ordenId,
         referencia_tipo: "reparacion",
-        notas: `Devuelto al cancelar reparación.`,
+        notas: `Reserva liberada al cancelar reparación (stock_apartado: ${nuevoApartadoCan}).`,
       });
     }
   }
