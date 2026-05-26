@@ -399,6 +399,61 @@ export interface PiezaCotizacion {
   costoEnvio?: number;         // costo de envío del proveedor
   proveedorId?: string;        // proveedor que surte esta pieza
   calidad?: string;            // tipo de calidad: original, generica, premium, oem, refurbished
+  // F2-C: Vínculo con pedido y estado de instalación
+  pedidoId?: string | null;    // FK al pedido_pieza_reparacion que la instaló
+  instalada?: boolean;         // true cuando el técnico verificó la pieza como "llegó bien"
+}
+
+// F4-F: Pedido de pieza a proveedor — tipo canónico centralizado (reemplaza interfaces locales duplicadas)
+export type EstadoPedidoPieza =
+  | "pendiente"
+  | "en_camino"
+  | "recibida"
+  | "verificada_ok"
+  | "defectuosa"
+  | "instalada"
+  | "cancelada";
+
+export interface PedidoPiezaReparacion {
+  id: string;
+  nombrePieza: string;
+  costoEstimado: number;
+  costoEnvio: number;
+  precioCliente: number | null;
+  productoId: string | null;
+  estado: EstadoPedidoPieza;
+  calidad: string | null;
+  notas: string | null;
+  financiadoPor: "bolsa" | "caja" | "mixto";
+  montoDeCaja: number;
+  createdAt: string;
+  fechaRecibida?: string | null;
+  fechaEstimadaLlegada?: string | null;
+  fechaInstalacion?: string | null;
+  creadoPorNombre: string | null;
+  recibidoPorNombre?: string | null;
+  motivoDefecto?: string | null;
+  intentosReemplazo?: number;
+  proveedorId?: string | null;
+  // Soft-lock (G2-G5)
+  bloqueadoPor: string | null;
+  bloqueadoAt: string | null;
+  bloqueadorNombre: string | null;
+  proveedor?: {
+    id: string;
+    nombre: string;
+    contacto: string | null;
+    telefono: string | null;
+  } | null;
+  orden?: {
+    id: string | null;
+    folio: string | null;
+    estado: string | null;
+    marcaDispositivo: string;
+    modeloDispositivo: string;
+    clienteNombre: string;
+    clienteTelefono: string | null;
+  };
 }
 
 // F4-F: Pedido de pieza a proveedor — tipo canónico centralizado (reemplaza interfaces locales duplicadas)

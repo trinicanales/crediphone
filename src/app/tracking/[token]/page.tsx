@@ -100,6 +100,7 @@ interface TrackingData {
     puntosUltimaReparacion: number;
   } | null;
   piezasEnCamino?: { nombre: string; estado: string; fechaEstimadaLlegada: string | null; motivoRetraso?: string | null }[];
+  pedidosPieza?: { nombre: string; estado: string; fechaEstimadaLlegada: string | null; fechaInstalacion: string | null; motivoRetraso?: string | null }[];
 }
 
 /* ── Estado visual mapping ──────────────────────────────────── */
@@ -359,8 +360,8 @@ function TrackingSkeleton() {
 
 /* ── Error state ─────────────────────────────────────────────── */
 
-// FASE 80: Fila de pieza en tracking con calidad expandible
-function PiezaTrackingRow({ pieza }: { pieza: any }) {
+// FASE 80 + F5-B: Fila de pieza en tracking con calidad expandible y estado de pedido
+function PiezaTrackingRow({ pieza, pedido }: { pieza: any; pedido?: { estado: string; fechaEstimadaLlegada: string | null; fechaInstalacion: string | null; motivoRetraso?: string | null } | null }) {
   const [verDetalle, setVerDetalle] = useState(false);
   const CALIDAD_LABEL: Record<string, string> = {
     original: "Original",
@@ -369,6 +370,28 @@ function PiezaTrackingRow({ pieza }: { pieza: any }) {
     generica: "Genérica",
     refurbished: "Refurbished",
   };
+
+  // Estado visual del pedido de pieza
+  function getPedidoBadge(estado: string) {
+    switch (estado) {
+      case "instalada":
+      case "verificada_ok":
+        return { emoji: "✅", label: "Instalada", color: "#166534", bg: "#dcfce7" };
+      case "recibida":
+        return { emoji: "📦", label: "Recibida", color: "#1e40af", bg: "#dbeafe" };
+      case "en_camino":
+        return { emoji: "🚚", label: "En camino", color: "#1d4ed8", bg: "#eff6ff" };
+      case "pendiente":
+        return { emoji: "⏳", label: "Por enviar", color: "#92400e", bg: "#fef3c7" };
+      case "defectuosa":
+        return { emoji: "⚠️", label: "Incidencia", color: "#991b1b", bg: "#fee2e2" };
+      default:
+        return null;
+    }
+  }
+
+  const badge = pedido ? getPedidoBadge(pedido.estado) : null;
+
   return (
     <div
       className="rounded-lg px-3 py-2"
@@ -385,6 +408,11 @@ function PiezaTrackingRow({ pieza }: { pieza: any }) {
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {badge && (
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: badge.bg, color: badge.color }}>
+              {badge.emoji} {badge.label}
+            </span>
+          )}
           <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
             {formatCurrency(pieza.precioTotal ?? pieza.precioUnitario * (pieza.cantidad ?? 1))}
           </span>
@@ -411,6 +439,11 @@ function PiezaTrackingRow({ pieza }: { pieza: any }) {
         >
           Tipo de refacción: <strong>{CALIDAD_LABEL[pieza.calidad] ?? pieza.calidad}</strong>
         </div>
+      )}
+      {pedido?.motivoRetraso && ["pendiente", "en_camino"].includes(pedido.estado) && (
+        <p className="text-xs mt-1" style={{ color: "var(--color-warning-text)" }}>
+          ⏳ {pedido.motivoRetraso}
+        </p>
       )}
     </div>
   );
@@ -617,7 +650,7 @@ export default function TrackingPublicoPage() {
   if (loading) return <TrackingSkeleton />;
   if (error || !data) return <TrackingError message={error ?? ""} />;
 
-  const { orden, tecnico, historial, anticipos, fotos = [], piezasEnCamino = [] } = data;
+  const { orden, tecnico, historial, anticipos, fotos = [], piezasEnCamino = [], pedidosPieza = [] } = data;
   const estadoInfo = getEstadoInfo(orden.estado);
   const StatusIcon = estadoInfo.icon;
 
@@ -1315,9 +1348,13 @@ export default function TrackingPublicoPage() {
           <SectionCard title="Servicios Contratados" icon={CheckCircle2}>
             {orden.piezasCotizacion && orden.piezasCotizacion.length > 0 ? (
               <div className="space-y-1">
-                {orden.piezasCotizacion.map((p, i) => (
-                  <PiezaTrackingRow key={i} pieza={p} />
-                ))}
+                {orden.piezasCotizacion.map((p, i) => {
+                  // F5-B: buscar pedido coincidente por nombre (normalizado)
+                  const pedidoMatch = pedidosPieza.find(
+                    (pp) => pp.nombre.toLowerCase().trim() === p.nombre.toLowerCase().trim()
+                  ) ?? null;
+                  return <PiezaTrackingRow key={i} pieza={p} pedido={pedidoMatch} />;
+                })}
               </div>
             ) : orden.partesReemplazadas && orden.partesReemplazadas.length > 0 ? (
               <div className="space-y-1">

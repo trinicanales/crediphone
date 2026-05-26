@@ -78,6 +78,39 @@ export async function POST(
         producto_id: pedido.producto_id || null,
       });
 
+      // F2-C: Marcar pieza como instalada en piezas_cotizacion (JSONB en ordenes_reparacion)
+      // Busca coincidencia por nombre o productoId y actualiza instalada=true, pedidoId=pedidoId
+      const { data: ordenData } = await supabase
+        .from("ordenes_reparacion")
+        .select("piezas_cotizacion")
+        .eq("id", ordenId)
+        .single();
+
+      if (ordenData?.piezas_cotizacion) {
+        const piezas = ordenData.piezas_cotizacion as Array<Record<string, unknown>>;
+        let actualizadas = false;
+        const piezasActualizadas = piezas.map((p) => {
+          if (actualizadas) return p;
+          // Coincidir por productoId (más preciso) o nombre (fallback)
+          const coincideProducto = pedido.producto_id && p.productoId === pedido.producto_id;
+          const coincideNombre =
+            !pedido.producto_id &&
+            typeof p.nombre === "string" &&
+            p.nombre.toLowerCase().trim() === pedido.nombre_pieza.toLowerCase().trim();
+          if ((coincideProducto || coincideNombre) && !p.instalada) {
+            actualizadas = true;
+            return { ...p, instalada: true, pedidoId: pedidoId };
+          }
+          return p;
+        });
+        if (actualizadas) {
+          await supabase
+            .from("ordenes_reparacion")
+            .update({ piezas_cotizacion: piezasActualizadas })
+            .eq("id", ordenId);
+        }
+      }
+
       // Si tiene producto_id y llegó de proveedor (no de inventario), incrementar stock sería incorrecto.
       // El stock ya se decrementó al crear la orden (si era de inventario). Para piezas pedidas
       // externamente, el stock no se afecta — la pieza va directo a la reparación.

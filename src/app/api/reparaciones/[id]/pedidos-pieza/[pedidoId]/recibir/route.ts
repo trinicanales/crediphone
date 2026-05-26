@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notificarResponsablesKassa } from "@/lib/db/notificaciones";
 
 /**
  * POST /api/reparaciones/[id]/pedidos-pieza/[pedidoId]/recibir
@@ -66,6 +67,17 @@ export async function POST(
     if (updateError) {
       return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
     }
+
+    // F5-D: Notificar al equipo interno que la pieza llegó (fire-and-forget)
+    notificarResponsablesKassa({
+      distribuidorId: distId ?? undefined,
+      titulo: "Pieza recibida",
+      cuerpo: `"${pedido.nombre_pieza}" llegó y está pendiente de verificación.`,
+      url: `/dashboard/reparaciones`,
+      tipo: "pieza_recibida",
+      ordenId: ordenId,
+      soloAdmins: true,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, message: "Pieza marcada como recibida. Pendiente de verificación por el técnico." });
   } catch {

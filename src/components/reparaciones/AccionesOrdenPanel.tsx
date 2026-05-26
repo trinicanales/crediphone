@@ -134,6 +134,14 @@ function getAcciones(
           variant: "warning",
           soloAdmin: true,
         },
+        {
+          id: "ver_piezas_aprobado",
+          label: "Registrar piezas",
+          icon: Package,
+          tipo: "abrir_drawer_tab",
+          payload: { tab: "piezas" },
+          variant: "secondary",
+        },
       ].filter((a) => !a.soloAdmin || esAdmin) as AccionOrden[];
 
     case "esperando_piezas":

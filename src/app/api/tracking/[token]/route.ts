@@ -146,14 +146,14 @@ export async function GET(
       }
     }
 
-    // Piezas en camino — visibles al cliente para dar seguimiento
-    const { data: piezasEnCaminoDb } = await supabase
+    // Piezas — todos los estados visibles al cliente para dar seguimiento
+    const { data: piezasDb } = await supabase
       .from("pedidos_pieza_reparacion")
-      .select("nombre_pieza, estado, fecha_estimada_llegada, notas")
+      .select("nombre_pieza, estado, fecha_estimada_llegada, notas, fecha_instalacion")
       .eq("orden_id", trackingData.orden_id)
-      .in("estado", ["pendiente", "en_camino"]);
+      .not("estado", "eq", "cancelada");
 
-    const piezasEnCamino = (piezasEnCaminoDb ?? []).map((p: any) => {
+    const pedidosPieza = (piezasDb ?? []).map((p: any) => {
       // Extraer el motivo de retraso más reciente de las notas (línea con "Retraso:")
       const notas: string = p.notas ?? "";
       const retrasoMatch = notas.split("\n").reverse().find((l: string) => l.includes("Retraso:"));
@@ -162,9 +162,13 @@ export async function GET(
         nombre: p.nombre_pieza,
         estado: p.estado,
         fechaEstimadaLlegada: p.fecha_estimada_llegada ?? null,
+        fechaInstalacion: p.fecha_instalacion ?? null,
         motivoRetraso,
       };
     });
+
+    // Compatibilidad: piezasEnCamino = solo pendiente/en_camino (para sección existente)
+    const piezasEnCamino = pedidosPieza.filter((p) => ["pendiente", "en_camino"].includes(p.estado));
 
     // Puntos de loyalty (solo si la orden ya está entregada)
     let puntosData: { saldoDisponible: number; totalGanado: number; puntosUltimaReparacion: number } | null = null;
@@ -227,6 +231,7 @@ export async function GET(
         fotos,
         puntos: puntosData,
         piezasEnCamino,
+        pedidosPieza,
       },
     });
   } catch (error) {
