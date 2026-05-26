@@ -228,6 +228,15 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const [compartirCopiado, setCompartirCopiado] = useState(false);
   const [cargandoCompartir, setCargandoCompartir] = useState(false);
 
+  // B3: Editar piezas cotizadas
+  const [editandoCotizacion, setEditandoCotizacion] = useState(false);
+  const [piezasCotEditadas, setPiezasCotEditadas] = useState<import("@/types").PiezaCotizacion[]>([]);
+  const [guardandoCotizacion, setGuardandoCotizacion] = useState(false);
+  const [editPiezaCotId, setEditPiezaCotId] = useState<string | null>(null);
+  const [editPiezaCotForm, setEditPiezaCotForm] = useState({ nombre: "", cantidad: "1", precioTotal: "" });
+  const [nuevaPiezaCotForm, setNuevaPiezaCotForm] = useState({ nombre: "", cantidad: "1", precioTotal: "" });
+  const [mostrandoFormNuevaPiezaCot, setMostrandoFormNuevaPiezaCot] = useState(false);
+
   // M1: comunicaciones WA
   interface ComunicacionWA {
     id: string;
@@ -1957,51 +1966,296 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
           </div>
         )}
 
-        {/* Sugerencias de piezas de la cotización (M1 — quick add) */}
-        {(orden.piezasCotizacion?.length ?? 0) > 0 && (
-          <Card title="Piezas cotizadas (sugerencias)">
-            <p className="text-xs mb-2" style={{ color: "var(--color-text-muted)" }}>
-              Estas piezas se cotizaron al cliente. Agrégalas como pedido cuando las ordenes al proveedor.
-            </p>
-            <div className="space-y-1.5">
-              {orden.piezasCotizacion!.map((pieza) => {
-                const yaAgregada = pedidosPieza.some(
-                  (p) => p.nombrePieza.toLowerCase() === pieza.nombre.toLowerCase()
-                );
-                return (
-                  <div
-                    key={pieza.id}
-                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg"
-                    style={{ background: "var(--color-bg-sunken)", border: "1px solid var(--color-border-subtle)" }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate" style={{ color: "var(--color-text-primary)" }}>{pieza.nombre}</p>
-                      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                        ${pieza.precioTotal.toFixed(2)} · cant. {pieza.cantidad}
-                      </p>
+        {/* Sugerencias de piezas de la cotización (B3 — editable para admin/técnico) */}
+        {((orden.piezasCotizacion?.length ?? 0) > 0 || isAdmin || user?.role === "tecnico") && (
+          <Card title="Piezas cotizadas">
+            {/* Header con botón editar */}
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                {editandoCotizacion
+                  ? "Edita las piezas incluidas en la cotización del cliente."
+                  : "Piezas cotizadas al cliente. Agrégalas como pedido cuando las ordenes al proveedor."}
+              </p>
+              {(isAdmin || user?.role === "tecnico") && !["entregado", "cancelado"].includes(orden.estado) && (
+                <button
+                  onClick={() => {
+                    if (editandoCotizacion) {
+                      // Cancelar — restaurar
+                      setEditandoCotizacion(false);
+                      setEditPiezaCotId(null);
+                      setMostrandoFormNuevaPiezaCot(false);
+                    } else {
+                      setPiezasCotEditadas(
+                        (orden.piezasCotizacion ?? []).map((p) => ({ ...p }))
+                      );
+                      setEditandoCotizacion(true);
+                    }
+                  }}
+                  className="text-xs px-2 py-1 rounded-lg flex-shrink-0"
+                  style={{
+                    background: editandoCotizacion ? "var(--color-bg-sunken)" : "var(--color-accent)",
+                    color: editandoCotizacion ? "var(--color-text-muted)" : "#fff",
+                    border: "1px solid var(--color-border-subtle)",
+                  }}
+                >
+                  {editandoCotizacion ? "Cancelar" : "Editar"}
+                </button>
+              )}
+            </div>
+
+            {/* Modo lectura */}
+            {!editandoCotizacion && (
+              <div className="space-y-1.5">
+                {(orden.piezasCotizacion ?? []).length === 0 && (
+                  <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Sin piezas cotizadas.</p>
+                )}
+                {(orden.piezasCotizacion ?? []).map((pieza) => {
+                  const yaAgregada = pedidosPieza.some(
+                    (p) => p.nombrePieza.toLowerCase() === pieza.nombre.toLowerCase()
+                  );
+                  return (
+                    <div
+                      key={pieza.id}
+                      className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg"
+                      style={{ background: "var(--color-bg-sunken)", border: "1px solid var(--color-border-subtle)" }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate" style={{ color: "var(--color-text-primary)" }}>{pieza.nombre}</p>
+                        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                          ${pieza.precioTotal.toFixed(2)} · cant. {pieza.cantidad}
+                        </p>
+                      </div>
+                      {yaAgregada ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}>
+                          Agregada ✓
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setNuevaPiezaNombre(pieza.nombre);
+                            setNuevaPiezaPrecioCliente(pieza.precioTotal.toFixed(2));
+                            if (pieza.productoId) setNuevaPiezaProductoId(pieza.productoId);
+                            setMostrarFormPedido(true);
+                          }}
+                          className="text-xs px-2 py-1 rounded-lg font-medium flex-shrink-0"
+                          style={{ background: "var(--color-accent)", color: "#fff" }}
+                        >
+                          + Pedir
+                        </button>
+                      )}
                     </div>
-                    {yaAgregada ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}>
-                        Agregada ✓
-                      </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Modo edición */}
+            {editandoCotizacion && (
+              <div className="space-y-2">
+                {piezasCotEditadas.map((pieza) => (
+                  <div key={pieza.id}>
+                    {editPiezaCotId === pieza.id ? (
+                      /* Fila en edición inline */
+                      <div className="flex flex-col gap-1.5 p-2 rounded-lg" style={{ background: "var(--color-bg-sunken)", border: "1px solid var(--color-accent)" }}>
+                        <input
+                          className="text-xs px-2 py-1 rounded"
+                          style={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-subtle)", color: "var(--color-text-primary)" }}
+                          placeholder="Nombre de la pieza"
+                          value={editPiezaCotForm.nombre}
+                          onChange={(e) => setEditPiezaCotForm((f) => ({ ...f, nombre: e.target.value }))}
+                        />
+                        <div className="flex gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            className="text-xs px-2 py-1 rounded w-16"
+                            style={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-subtle)", color: "var(--color-text-primary)" }}
+                            placeholder="Cant."
+                            value={editPiezaCotForm.cantidad}
+                            onChange={(e) => setEditPiezaCotForm((f) => ({ ...f, cantidad: e.target.value }))}
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="text-xs px-2 py-1 rounded flex-1"
+                            style={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-subtle)", color: "var(--color-text-primary)" }}
+                            placeholder="Precio al cliente"
+                            value={editPiezaCotForm.precioTotal}
+                            onChange={(e) => setEditPiezaCotForm((f) => ({ ...f, precioTotal: e.target.value }))}
+                          />
+                        </div>
+                        <div className="flex gap-1.5 justify-end">
+                          <button
+                            onClick={() => setEditPiezaCotId(null)}
+                            className="text-xs px-2 py-1 rounded"
+                            style={{ background: "var(--color-bg-card)", color: "var(--color-text-muted)", border: "1px solid var(--color-border-subtle)" }}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => {
+                              const cant = parseInt(editPiezaCotForm.cantidad) || 1;
+                              const total = parseFloat(editPiezaCotForm.precioTotal) || 0;
+                              setPiezasCotEditadas((prev) =>
+                                prev.map((p) =>
+                                  p.id === pieza.id
+                                    ? { ...p, nombre: editPiezaCotForm.nombre, cantidad: cant, precioTotal: total, precioUnitario: cant > 0 ? total / cant : total }
+                                    : p
+                                )
+                              );
+                              setEditPiezaCotId(null);
+                            }}
+                            className="text-xs px-2 py-1 rounded font-medium"
+                            style={{ background: "var(--color-accent)", color: "#fff" }}
+                          >
+                            OK
+                          </button>
+                        </div>
+                      </div>
                     ) : (
-                      <button
-                        onClick={() => {
-                          setNuevaPiezaNombre(pieza.nombre);
-                          setNuevaPiezaPrecioCliente(pieza.precioTotal.toFixed(2));
-                          if (pieza.productoId) setNuevaPiezaProductoId(pieza.productoId);
-                          setMostrarFormPedido(true);
-                        }}
-                        className="text-xs px-2 py-1 rounded-lg font-medium flex-shrink-0"
-                        style={{ background: "var(--color-accent)", color: "#fff" }}
-                      >
-                        + Pedir
-                      </button>
+                      /* Fila normal en modo edición */
+                      <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg" style={{ background: "var(--color-bg-sunken)", border: "1px solid var(--color-border-subtle)" }}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate" style={{ color: "var(--color-text-primary)" }}>{pieza.nombre}</p>
+                          <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                            ${pieza.precioTotal.toFixed(2)} · cant. {pieza.cantidad}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              setEditPiezaCotId(pieza.id);
+                              setEditPiezaCotForm({ nombre: pieza.nombre, cantidad: String(pieza.cantidad), precioTotal: String(pieza.precioTotal) });
+                            }}
+                            className="p-1 rounded"
+                            style={{ color: "var(--color-text-muted)" }}
+                            title="Editar"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => setPiezasCotEditadas((prev) => prev.filter((p) => p.id !== pieza.id))}
+                            className="p-1 rounded"
+                            style={{ color: "var(--color-error, #dc2626)" }}
+                            title="Eliminar"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+
+                {/* Formulario nueva pieza */}
+                {mostrandoFormNuevaPiezaCot ? (
+                  <div className="flex flex-col gap-1.5 p-2 rounded-lg" style={{ background: "var(--color-bg-sunken)", border: "1px dashed var(--color-border-subtle)" }}>
+                    <input
+                      className="text-xs px-2 py-1 rounded"
+                      style={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-subtle)", color: "var(--color-text-primary)" }}
+                      placeholder="Nombre de la pieza"
+                      value={nuevaPiezaCotForm.nombre}
+                      onChange={(e) => setNuevaPiezaCotForm((f) => ({ ...f, nombre: e.target.value }))}
+                      autoFocus
+                    />
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        min="1"
+                        className="text-xs px-2 py-1 rounded w-16"
+                        style={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-subtle)", color: "var(--color-text-primary)" }}
+                        placeholder="Cant."
+                        value={nuevaPiezaCotForm.cantidad}
+                        onChange={(e) => setNuevaPiezaCotForm((f) => ({ ...f, cantidad: e.target.value }))}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="text-xs px-2 py-1 rounded flex-1"
+                        style={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border-subtle)", color: "var(--color-text-primary)" }}
+                        placeholder="Precio al cliente"
+                        value={nuevaPiezaCotForm.precioTotal}
+                        onChange={(e) => setNuevaPiezaCotForm((f) => ({ ...f, precioTotal: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex gap-1.5 justify-end">
+                      <button
+                        onClick={() => { setMostrandoFormNuevaPiezaCot(false); setNuevaPiezaCotForm({ nombre: "", cantidad: "1", precioTotal: "" }); }}
+                        className="text-xs px-2 py-1 rounded"
+                        style={{ background: "var(--color-bg-card)", color: "var(--color-text-muted)", border: "1px solid var(--color-border-subtle)" }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (!nuevaPiezaCotForm.nombre.trim()) return;
+                          const nuevaId = `${Date.now()}`;
+                          const cant = parseInt(nuevaPiezaCotForm.cantidad) || 1;
+                          const total = parseFloat(nuevaPiezaCotForm.precioTotal) || 0;
+                          setPiezasCotEditadas((prev) => [
+                            ...prev,
+                            {
+                              id: nuevaId,
+                              nombre: nuevaPiezaCotForm.nombre.trim(),
+                              cantidad: cant,
+                              precioTotal: total,
+                              precioUnitario: cant > 0 ? total / cant : total,
+                              tieneStock: false,
+                              esLibre: true,
+                            },
+                          ]);
+                          setNuevaPiezaCotForm({ nombre: "", cantidad: "1", precioTotal: "" });
+                          setMostrandoFormNuevaPiezaCot(false);
+                        }}
+                        className="text-xs px-2 py-1 rounded font-medium"
+                        style={{ background: "var(--color-accent)", color: "#fff" }}
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setMostrandoFormNuevaPiezaCot(true)}
+                    className="w-full text-xs py-1.5 rounded-lg"
+                    style={{ border: "1px dashed var(--color-border-subtle)", color: "var(--color-text-muted)" }}
+                  >
+                    + Agregar pieza
+                  </button>
+                )}
+
+                {/* Botón Guardar */}
+                <button
+                  disabled={guardandoCotizacion}
+                  onClick={async () => {
+                    if (!orden) return;
+                    setGuardandoCotizacion(true);
+                    try {
+                      const res = await fetch(`/api/reparaciones/${orden.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ piezasCotizacion: piezasCotEditadas }),
+                      });
+                      const json = await res.json();
+                      if (json.success) {
+                        setOrden((prev) => prev ? { ...prev, piezasCotizacion: piezasCotEditadas } : prev);
+                        setEditandoCotizacion(false);
+                        setEditPiezaCotId(null);
+                        setMostrandoFormNuevaPiezaCot(false);
+                      }
+                    } finally {
+                      setGuardandoCotizacion(false);
+                    }
+                  }}
+                  className="w-full text-xs py-1.5 rounded-lg font-medium"
+                  style={{ background: "var(--color-accent)", color: "#fff", opacity: guardandoCotizacion ? 0.6 : 1 }}
+                >
+                  {guardandoCotizacion ? "Guardando…" : "Guardar cotización"}
+                </button>
+              </div>
+            )}
           </Card>
         )}
 
