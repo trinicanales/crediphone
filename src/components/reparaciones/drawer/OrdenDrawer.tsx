@@ -267,6 +267,9 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
     saldoPendiente: number;
     puntos: number;
     totalOrdenes: number;
+    // C4: datos adicionales
+    ordenesActivasFolios?: Array<{ id: string; folio: string; estado: string }>;
+    historialReciente?: Array<{ id: string; folio: string; estado: string; marca?: string; modelo?: string; problema?: string; total: number; fecha: string }>;
   }
   const [clienteResumen, setClienteResumen] = useState<ClienteResumen | null>(null);
 
@@ -1263,9 +1266,59 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                       Saldo ${clienteResumen.saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 0 })}
                     </span>
                   )}
+                  {/* C4: otras órdenes activas */}
+                  {(clienteResumen.ordenesActivas ?? 0) > 1 && (
+                    <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)" }}>
+                      {clienteResumen.ordenesActivas - 1} más activa{clienteResumen.ordenesActivas - 1 !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
+            {/* C4: link a perfil del cliente */}
+            {orden.clienteId && (
+              <div className="mt-2 flex items-center justify-between">
+                <a
+                  href={`/dashboard/clientes/${orden.clienteId}`}
+                  className="text-xs flex items-center gap-1 hover:underline"
+                  style={{ color: "var(--color-accent)" }}
+                  target="_blank" rel="noreferrer"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Ver perfil completo
+                </a>
+              </div>
+            )}
+            {/* C4: historial de reparaciones previas */}
+            {clienteResumen?.historialReciente && clienteResumen.historialReciente.length > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
+                <p className="text-xs font-semibold mb-2" style={{ color: "var(--color-text-muted)" }}>Reparaciones recientes</p>
+                <div className="space-y-1.5">
+                  {clienteResumen.historialReciente
+                    .filter((h) => h.id !== orden.id) // excluir la orden actual
+                    .slice(0, 3)
+                    .map((h) => (
+                    <div
+                      key={h.id}
+                      className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-xs"
+                      style={{ background: "var(--color-bg-sunken)" }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="font-mono font-semibold" style={{ color: "var(--color-text-primary)" }}>{h.folio}</span>
+                        {(h.marca || h.modelo) && (
+                          <span className="ml-1 truncate" style={{ color: "var(--color-text-muted)" }}>
+                            {[h.marca, h.modelo].filter(Boolean).join(" ")}
+                          </span>
+                        )}
+                      </div>
+                      <span className="shrink-0 font-mono" style={{ color: "var(--color-text-muted)" }}>
+                        {h.total > 0 ? `$${h.total.toFixed(0)}` : "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
         )}
 
