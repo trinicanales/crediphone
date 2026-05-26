@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PackagePlus, RefreshCw, AlertCircle, ExternalLink, Clock, MessageCircle, BookPlus, X, Check, Search } from "lucide-react";
+import { PackagePlus, RefreshCw, AlertCircle, ExternalLink, Clock, MessageCircle, BookPlus, X, Check, Search, Lock } from "lucide-react";
 import { generarMensajePiezaEnEspera } from "@/lib/whatsapp-reparaciones";
+import { useAuth } from "@/components/AuthProvider";
 
 interface PedidoPendiente {
   id: string;
@@ -16,6 +17,10 @@ interface PedidoPendiente {
   financiadoPor: string;
   createdAt: string;
   creadoPorNombre: string | null;
+  // G2-G5: soft lock
+  bloqueadoPor: string | null;
+  bloqueadoAt: string | null;
+  bloqueadorNombre: string | null;
   proveedor: {
     id: string;
     nombre: string;
@@ -52,6 +57,7 @@ interface Props {
 }
 
 export function PiezasPendientesPanel({ onAbrirOrden }: Props) {
+  const { user } = useAuth();
   const [pedidos, setPedidos] = useState<PedidoPendiente[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +160,7 @@ export function PiezasPendientesPanel({ onAbrirOrden }: Props) {
             </div>
             <div className="space-y-2">
               {sinCosto.map((p) => (
-                <PedidoRow key={p.id} pedido={p} urgente onAbrirOrden={onAbrirOrden} onProductoVinculado={cargar} />
+                <PedidoRow key={p.id} pedido={p} urgente onAbrirOrden={onAbrirOrden} onProductoVinculado={cargar} currentUserId={user?.id} />
               ))}
             </div>
           </div>
@@ -170,7 +176,7 @@ export function PiezasPendientesPanel({ onAbrirOrden }: Props) {
             )}
             <div className="space-y-2">
               {conCosto.map((p) => (
-                <PedidoRow key={p.id} pedido={p} urgente={false} onAbrirOrden={onAbrirOrden} onProductoVinculado={cargar} />
+                <PedidoRow key={p.id} pedido={p} urgente={false} onAbrirOrden={onAbrirOrden} onProductoVinculado={cargar} currentUserId={user?.id} />
               ))}
             </div>
           </div>
@@ -182,19 +188,30 @@ export function PiezasPendientesPanel({ onAbrirOrden }: Props) {
 
 // ── Fila de pedido ────────────────────────────────────────────────────────────
 
+const LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
 function PedidoRow({
   pedido,
   urgente,
   onAbrirOrden,
   onProductoVinculado,
+  currentUserId,
 }: {
   pedido: PedidoPendiente;
   urgente: boolean;
   onAbrirOrden?: (id: string) => void;
   onProductoVinculado?: () => void;
+  currentUserId?: string;
 }) {
   const [hovered, setHovered] = useState(false);
   const [mostrarFormCatalogo, setMostrarFormCatalogo] = useState(false);
+
+  // G2-G5: determine lock state
+  const ahora = Date.now();
+  const bloqueadoAt = pedido.bloqueadoAt ? new Date(pedido.bloqueadoAt).getTime() : null;
+  const lockVigente = pedido.bloqueadoPor && bloqueadoAt && (ahora - bloqueadoAt) < LOCK_TTL_MS;
+  const bloqueadoPorMi = lockVigente && pedido.bloqueadoPor === currentUserId;
+  const bloqueadoPorOtro = lockVigente && pedido.bloqueadoPor !== currentUserId;
   const [catalogoNombre, setCatalogoNombre] = useState(pedido.nombrePieza);
   const [catalogoCosto, setCatalogoCosto] = useState(pedido.costoEstimado > 0 ? pedido.costoEstimado.toFixed(2) : "");
   const [catalogoPrecio, setCatalogoPrecio] = useState(pedido.precioCliente !== null ? pedido.precioCliente.toFixed(2) : "");
@@ -234,6 +251,16 @@ function PedidoRow({
     }, 300);
   }
 
+  // Liberar soft-lock al cerrar el form
+  async function liberarLock() {
+    if (!pedido.orden.id) return;
+    await fetch(`/api/reparaciones/${pedido.orden.id}/pedidos-pieza/${pedido.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "desbloquear" }),
+    }).catch(() => { /* silencioso */ });
+  }
+
   // Vincular producto existente
   async function handleVincularExistente(productoId: string) {
     if (!pedido.orden.id) return;
@@ -247,6 +274,7 @@ function PedidoRow({
       });
       const data = await res.json();
       if (!data.success) { setErrorCatalogo(data.error || "Error al vincular"); return; }
+      await liberarLock();
       setMostrarFormCatalogo(false);
       onProductoVinculado?.();
     } catch { setErrorCatalogo("Error de conexión"); } finally { setGuardandoCatalogo(false); }
@@ -280,6 +308,7 @@ function PedidoRow({
       });
       const dataPatch = await resPatch.json();
       if (!dataPatch.success) { setErrorCatalogo(dataPatch.error || "Error al vincular"); return; }
+      await liberarLock();
       setMostrarFormCatalogo(false);
       onProductoVinculado?.();
     } catch { setErrorCatalogo("Error de conexión"); } finally { setGuardandoCatalogo(false); }
@@ -357,14 +386,35 @@ function PedidoRow({
 
         {/* Botones de acción */}
         <div className="flex gap-1 flex-shrink-0">
-          {!pedido.productoId && (
+          {/* G2-G5: Indicador de bloqueo por otro usuario */}
+          {bloqueadoPorOtro && (
+            <span
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg"
+              style={{ background: "var(--color-warning-bg)", color: "var(--color-warning-text)" }}
+              title={`Editando: ${pedido.bloqueadorNombre ?? "otro usuario"}`}
+            >
+              <Lock className="w-3 h-3" />
+              {pedido.bloqueadorNombre?.split(" ")[0] ?? "Ocupado"}
+            </span>
+          )}
+          {!pedido.productoId && !bloqueadoPorOtro && (
             <button
               className="p-1.5 rounded-lg"
               style={{ color: "var(--color-info)", background: mostrarFormCatalogo ? "var(--color-info-bg)" : "transparent" }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-info-bg)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = mostrarFormCatalogo ? "var(--color-info-bg)" : "transparent")}
-              onClick={() => setMostrarFormCatalogo((v) => !v)}
-              title="Agregar al catálogo"
+              onClick={async () => {
+                if (!mostrarFormCatalogo && pedido.orden.id) {
+                  // Adquirir lock antes de abrir el formulario
+                  await fetch(`/api/reparaciones/${pedido.orden.id}/pedidos-pieza/${pedido.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ accion: "bloquear" }),
+                  });
+                }
+                setMostrarFormCatalogo((v) => !v);
+              }}
+              title={bloqueadoPorMi ? "Editando..." : "Agregar al catálogo"}
             >
               <BookPlus className="w-4 h-4" />
             </button>
@@ -540,7 +590,7 @@ function PedidoRow({
             </button>
             <button
               type="button"
-              onClick={() => { setMostrarFormCatalogo(false); setBusquedaResultados([]); setErrorCatalogo(null); }}
+              onClick={async () => { await liberarLock(); setMostrarFormCatalogo(false); setBusquedaResultados([]); setErrorCatalogo(null); }}
               className="px-3 py-1.5 text-xs rounded-lg"
               style={{ background: "none", border: "1px solid var(--color-border)", color: "var(--color-text-muted)", cursor: "pointer" }}
             >
