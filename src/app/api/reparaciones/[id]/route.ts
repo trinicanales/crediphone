@@ -214,8 +214,11 @@ export async function PUT(
 
       // C7: Si admin cambió precio y la orden ya tiene tracking token → notificar al cliente
       if (!esVendedor && ordenPrevia && hayNuevoPrecio) {
-        const precioAntes = (ordenPrevia.costoReparacion ?? 0) + (ordenPrevia.costoPartes ?? 0);
-        const precioDespues = (Number(nuevoCostoRep ?? ordenPrevia.costoReparacion ?? 0)) + (Number(nuevoCostoPar ?? ordenPrevia.costoPartes ?? 0));
+        // Usar precio_total (sistema nuevo) para la comparación y notificación al cliente
+        const precioAntes = (ordenPrevia.presupuestoTotal && ordenPrevia.presupuestoTotal > 0)
+          ? ordenPrevia.presupuestoTotal
+          : (ordenPrevia.costoTotal ?? 0);
+        const precioDespues = (Number(nuevoCostoRep ?? 0)) + (Number(nuevoCostoPar ?? 0));
         if (precioAntes !== precioDespues) {
           ;(async () => {
             try {

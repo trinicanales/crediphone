@@ -652,13 +652,21 @@ export async function updateDiagnostico(
     ? (diagnosticoData.requiereAprobacion ? "presupuesto" : "aprobado")
     : estadoActual;
 
+  const costoRep = diagnosticoData.costoReparacion ?? 0;
+  const costoPar = diagnosticoData.costoPartes ?? 0;
+
   const { data, error } = await supabase
     .from("ordenes_reparacion")
     .update({
       diagnostico_tecnico: diagnosticoData.diagnosticoTecnico,
-      costo_reparacion: diagnosticoData.costoReparacion,
-      costo_partes: diagnosticoData.costoPartes,
-      // costo_total es GENERATED ALWAYS AS — no actualizar
+      // Sistema antiguo (costos internos — aún se mantiene para historial)
+      costo_reparacion: costoRep,
+      costo_partes: costoPar,
+      // costo_total es GENERATED ALWAYS AS (costo_reparacion + costo_partes) — no actualizar
+      // Sistema nuevo (precio al cliente — usado por POS, bolsa virtual y tracking)
+      precio_mano_obra: costoRep,
+      precio_piezas: costoPar,
+      precio_total: costoRep + costoPar,
       partes_reemplazadas: diagnosticoData.partesReemplazadas,
       fecha_estimada_entrega: diagnosticoData.fechaEstimadaEntrega || null,
       notas_tecnico: diagnosticoData.notasTecnico || null,
