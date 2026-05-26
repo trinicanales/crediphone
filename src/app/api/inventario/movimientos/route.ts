@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
         stock_antes,
         stock_despues,
         referencia_tipo,
+        referencia_id,
         referencia_folio,
         notas,
         created_at,
