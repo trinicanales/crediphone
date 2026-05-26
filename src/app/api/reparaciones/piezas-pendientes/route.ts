@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       .select(`
         id, nombre_pieza, costo_estimado, costo_envio, precio_cliente, producto_id, estado,
         created_at, notas, financiado_por, monto_de_caja, calidad,
+        bloqueado_por, bloqueado_at,
         creadoPor:creado_por (name),
         proveedor:proveedor_id (id, nombre, contacto, telefono),
         orden:ordenes_reparacion!inner (
@@ -68,6 +69,10 @@ export async function GET(request: NextRequest) {
           financiadoPor: p.financiado_por ?? "bolsa",
           montoDeCaja: Number(p.monto_de_caja || 0),
           creadoPorNombre: p.creadoPor?.name ?? null,
+          // G2-G5: soft-lock
+          bloqueadoPor: p.bloqueado_por ?? null,
+          bloqueadoAt: p.bloqueado_at ?? null,
+          bloqueadorNombre: null,
           proveedor: prov ? {
             id: prov.id,
             nombre: prov.nombre ?? "",
