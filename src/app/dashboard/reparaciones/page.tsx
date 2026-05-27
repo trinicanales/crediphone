@@ -687,6 +687,7 @@ export default function ReparacionesPage() {
           ordenId={selectedOrden.id}
           ordenFolio={selectedOrden.folio}
           dispositivo={`${selectedOrden.marcaDispositivo} ${selectedOrden.modeloDispositivo}`}
+          orden={selectedOrden}
         />
       )}
 
