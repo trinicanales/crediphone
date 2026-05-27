@@ -14,6 +14,11 @@ import { ModalSegundoDiagnostico } from "@/components/reparaciones/ModalSegundoD
 import type { OrdenReparacionDetallada, EstadoOrdenReparacion } from "@/types";
 import { generarMensajeSeguimiento, generarLinkWhatsApp } from "@/lib/whatsapp-reparaciones";
 
+// ─── Utilidades de módulo ─────────────────────────────────────────────────────
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+}
+
 // ─── Mapa de transiciones válidas (espejo de ModalCambiarEstado) ──────────────
 const transicionesValidas: Record<EstadoOrdenReparacion, EstadoOrdenReparacion[]> = {
   recibido:          ["diagnostico", "no_reparable", "cancelado"],
@@ -422,6 +427,9 @@ export function OrdenCard({
       {/* ── Separador ── */}
       <div style={{ height: "1px", background: "var(--color-border-subtle)" }} />
 
+      {/* ── Cotización / Desglose de presupuesto inicial ── */}
+      <ResumenCotizacion orden={orden} />
+
       {/* ── Métricas rápidas ── */}
       <div className="px-4 py-2.5 flex items-center gap-4">
         {/* Timer */}
@@ -607,6 +615,71 @@ export function OrdenCard({
     </div>
   );
 
+}
+
+// ── Sub-componente: Desglose compacto de cotización inicial ──────────────────
+function ResumenCotizacion({ orden }: { orden: OrdenReparacionDetallada }) {
+  const piezas = orden.piezasCotizacion ?? [];
+  const manoDeObra = orden.presupuestoManoDeObra ?? 0;
+
+  const hayPiezas = piezas.length > 0;
+  const hayManoDeObra = manoDeObra > 0;
+
+  if (!hayPiezas && !hayManoDeObra) return null;
+
+  return (
+    <div
+      className="px-4 py-2 space-y-1"
+      style={{ borderBottom: "1px solid var(--color-border-subtle)" }}
+    >
+      <p className="text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>
+        Cotización inicial
+      </p>
+
+      {/* Mano de obra */}
+      {hayManoDeObra && (
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5">
+            <Wrench className="w-3 h-3" style={{ color: "var(--color-text-muted)" }} />
+            <span style={{ color: "var(--color-text-secondary)" }}>Mano de obra</span>
+          </div>
+          <span className="font-mono font-medium" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
+            {formatCurrency(manoDeObra)}
+          </span>
+        </div>
+      )}
+
+      {/* Piezas */}
+      {piezas.map((p) => (
+        <div key={p.id} className="flex items-center justify-between text-xs gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {p.productoId ? (
+              <Package className="w-3 h-3 flex-shrink-0" style={{ color: "var(--color-accent)" }} />
+            ) : (
+              <Circle className="w-3 h-3 flex-shrink-0" style={{ color: "var(--color-text-muted)" }} />
+            )}
+            <span className="truncate" style={{ color: "var(--color-text-secondary)" }}>
+              {p.nombre}
+              {p.cantidad > 1 && (
+                <span style={{ color: "var(--color-text-muted)" }}> ×{p.cantidad}</span>
+              )}
+            </span>
+            {p.productoId && (
+              <span
+                className="text-xs px-1 py-px rounded flex-shrink-0"
+                style={{ background: "var(--color-accent-light)", color: "var(--color-accent)", fontSize: 9 }}
+              >
+                inv
+              </span>
+            )}
+          </div>
+          <span className="font-mono font-medium flex-shrink-0" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
+            {formatCurrency(p.precioTotal)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** G6: Sub-componente con chips de condición crítica al llegar + piezas cotizadas */
