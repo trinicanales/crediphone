@@ -47,8 +47,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Obtener configuración de la empresa
-    const config = await getConfiguracion();
+    // Obtener configuración del distribuidor correcto
+    const config = await getConfiguracion(distribuidorId ?? null);
 
     // ── Generar PDF ─────────────────────────────────────────────────────────
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
