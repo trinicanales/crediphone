@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/reparaciones";
 import { crearNotificacionTecnico } from "@/lib/db/notificaciones";
 import { guardarVersionPDF } from "@/lib/pdf/versiones-pdf";
+import { getConfiguracion } from "@/lib/db/configuracion";
 
 /**
  * GET /api/tracking/[token]
@@ -86,6 +87,15 @@ export async function GET(
         },
         { status: 404 }
       );
+    }
+
+    // Obtener WhatsApp del distribuidor de la orden
+    let whatsappSoporte = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+    try {
+      const config = await getConfiguracion(orden.distribuidorId ?? null);
+      if (config.whatsappNumero) whatsappSoporte = config.whatsappNumero;
+    } catch {
+      // No crítico — usar fallback
     }
 
     // Obtener información del cliente (solo datos básicos + consentimiento FASE 27)
@@ -232,6 +242,7 @@ export async function GET(
         puntos: puntosData,
         piezasEnCamino,
         pedidosPieza,
+        whatsappSoporte,
       },
     });
   } catch (error) {

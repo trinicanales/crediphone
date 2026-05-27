@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getVentaById } from "@/lib/db/ventas";
 import { getConfiguracion } from "@/lib/db/configuracion";
+import { getAuthContext } from "@/lib/auth/server";
 import jsPDF from "jspdf";
 
 /**
@@ -38,8 +39,9 @@ export async function POST(
       );
     }
 
-    // Obtener configuración
-    const config = await getConfiguracion();
+    // Obtener configuración del distribuidor correcto
+    const { distribuidorId } = await getAuthContext();
+    const config = await getConfiguracion(distribuidorId ?? null);
 
     // Crear PDF (formato térmico 80mm = 3.15 pulgadas ≈ 226px a 72dpi)
     const doc = new jsPDF({

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getConfiguracion } from "@/lib/db/configuracion";
 
 /**
  * GET /api/reparacion/[folio]
@@ -43,6 +44,7 @@ export async function GET(
         requiere_aprobacion,
         aprobado_por_cliente,
         aprobacion_parcial,
+        distribuidor_id,
         cliente:clientes(nombre, apellido),
         tecnico:users!ordenes_reparacion_tecnico_id_fkey(name)
       `)
@@ -65,6 +67,15 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
+
+    // Obtener WhatsApp del distribuidor de la orden
+    let whatsappSoporte = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+    try {
+      const config = await getConfiguracion((orden as any).distribuidor_id ?? null);
+      if (config.whatsappNumero) whatsappSoporte = config.whatsappNumero;
+    } catch {
+      // No crítico
+    }
 
     // Obtener historial de estados (solo los campos públicos)
     const { data: historial } = await supabase
@@ -97,6 +108,7 @@ export async function GET(
         tecnicoNombre: orden.tecnico ? (orden.tecnico as any).name : undefined,
         historial: historial || [],
         trackingToken: tokenData?.token || null,
+        whatsappSoporte,
       },
     });
   } catch (error) {

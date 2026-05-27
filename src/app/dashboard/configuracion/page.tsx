@@ -176,6 +176,11 @@ export default function ConfiguracionPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Perfil del distribuidor (nombre en sistema + logo)
+  const [distribuidorPerfil, setDistribuidorPerfil] = useState<{ nombre: string; logoUrl: string }>({ nombre: "", logoUrl: "" });
+  const [savingPerfil, setSavingPerfil] = useState(false);
+  const [messagePerfil, setMessagePerfil] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // FASE 39: Límites de descuento
   const [limites, setLimites] = useState<LimitesDescuento>({
     vendedorLibrePct: 5,
@@ -195,6 +200,37 @@ export default function ConfiguracionPage() {
   useEffect(() => {
     if (config) setFormData({ ...config });
   }, [config]);
+
+  // Cargar perfil del distribuidor (solo si tiene distribuidorId)
+  useEffect(() => {
+    if (user?.distribuidorId) {
+      fetch("/api/distribuidor/perfil")
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setDistribuidorPerfil({ nombre: d.data.nombre || "", logoUrl: d.data.logoUrl || "" }); })
+        .catch(() => {});
+    }
+  }, [user?.distribuidorId]);
+
+  const handleSavePerfil = async () => {
+    setSavingPerfil(true);
+    setMessagePerfil(null);
+    try {
+      const res = await fetch("/api/distribuidor/perfil", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(distribuidorPerfil),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setDistribuidorPerfil({ nombre: data.data.nombre || "", logoUrl: data.data.logoUrl || "" });
+      setMessagePerfil({ type: "success", text: "Identidad actualizada correctamente" });
+    } catch (err) {
+      setMessagePerfil({ type: "error", text: err instanceof Error ? err.message : "Error al guardar" });
+    } finally {
+      setSavingPerfil(false);
+      setTimeout(() => setMessagePerfil(null), 4000);
+    }
+  };
 
   // FASE 39: Cargar límites de descuento
   useEffect(() => {
@@ -363,6 +399,47 @@ export default function ConfiguracionPage() {
             </div>
             <SaveButton saving={saving} onSave={handleSave} />
           </Card>
+
+          {/* Identidad del negocio en el sistema — solo si el admin tiene distribuidor asignado */}
+          {user?.distribuidorId && (
+            <Card className="p-6">
+              <SectionHeader
+                icon={<Building2 className="w-5 h-5" style={{ color: "var(--color-accent)" }} />}
+                title="Identidad en el sistema"
+                subtitle="Nombre y logo que aparecen en el menú y panel interno"
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label style={labelSt}>Nombre del negocio (sistema)</label>
+                  <Input
+                    value={distribuidorPerfil.nombre}
+                    onChange={(e) => setDistribuidorPerfil((p) => ({ ...p, nombre: e.target.value }))}
+                    placeholder="Cellman, Mi Tienda..."
+                  />
+                  <p style={hintSt}>Este nombre identifica tu negocio en el menú lateral y en los reportes internos</p>
+                </div>
+                <div>
+                  <label style={labelSt}>URL del logo</label>
+                  <Input
+                    value={distribuidorPerfil.logoUrl}
+                    onChange={(e) => setDistribuidorPerfil((p) => ({ ...p, logoUrl: e.target.value }))}
+                    placeholder="https://..."
+                  />
+                  <p style={hintSt}>Imagen que aparece en el menú lateral (PNG o SVG recomendado)</p>
+                </div>
+              </div>
+              {messagePerfil && (
+                <p className="mt-3 text-sm" style={{ color: messagePerfil.type === "success" ? "var(--color-success)" : "var(--color-danger)" }}>
+                  {messagePerfil.text}
+                </p>
+              )}
+              <div className="mt-6 flex justify-end">
+                <Button onClick={handleSavePerfil} disabled={savingPerfil}>
+                  {savingPerfil ? "Guardando..." : "Guardar identidad"}
+                </Button>
+              </div>
+            </Card>
+          )}
         </div>
       ),
     },

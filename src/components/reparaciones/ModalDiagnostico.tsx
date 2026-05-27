@@ -30,7 +30,7 @@ export function ModalDiagnostico({
   orden,
 }: ModalDiagnosticoProps) {
   const { user } = useAuth();
-  const esAdminOTecnico = ["admin", "super_admin", "tecnico"].includes(user?.role ?? "");
+  const puedeVerCostosInternos = user?.role !== "cobrador" && !!user;
 
   const [submitting, setSubmitting] = useState(false);
   const [diagnosticoGuardado, setDiagnosticoGuardado] = useState(false);
@@ -87,8 +87,8 @@ export function ModalDiagnostico({
     preloadedRef.current = true;
 
     const costoExistente = (orden as any)?.costoReparacion
-      ?? (orden as any)?.presupuestoManoDeObra
-      ?? 0;
+      || (orden as any)?.presupuestoManoDeObra
+      || 0;
 
     const updates: Partial<{
       costoReparacion: number;
@@ -861,8 +861,8 @@ export function ModalDiagnostico({
                   )}
                 </div>
 
-                {/* Costos internos — solo admin/técnico */}
-                {esAdminOTecnico && (
+                {/* Costos internos — todos excepto cobrador */}
+                {puedeVerCostosInternos && (
                   <div className="col-span-12 flex gap-2 pt-1">
                     <div className="flex-1">
                       <p className="text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>Costo interno</p>

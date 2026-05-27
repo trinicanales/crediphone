@@ -474,8 +474,8 @@ export function OrdenCard({
         })()}
       </div>
 
-      {/* ── Ganancia estimada — solo admin/técnico ── */}
-      {["admin", "super_admin", "tecnico"].includes(userRole) && (() => {
+      {/* ── Ganancia estimada — todos excepto cobrador ── */}
+      {userRole !== "cobrador" && (() => {
         const partes = orden.partesReemplazadas ?? [];
         const partesConCosto = partes.filter((p) => p.costoInterno !== undefined);
         if (partesConCosto.length === 0) return null;
@@ -646,7 +646,7 @@ export function OrdenCard({
 // ── Sub-componente: Desglose compacto de cotización/diagnóstico ──────────────
 function ResumenCotizacion({ orden }: { orden: OrdenReparacionDetallada }) {
   const { user } = useAuth();
-  const esAdminOTecnico = ["admin", "super_admin", "tecnico"].includes(user?.role ?? "");
+  const puedeVerCostosInternos = user?.role !== "cobrador" && !!user;
 
   const manoDeObra = orden.presupuestoManoDeObra ?? 0;
 
@@ -713,8 +713,8 @@ function ResumenCotizacion({ orden }: { orden: OrdenReparacionDetallada }) {
               {formatCurrency(p.costo * p.cantidad)}
             </span>
           </div>
-          {/* Costos internos — solo admin/técnico */}
-          {esAdminOTecnico && (p.costoInterno || p.costoEnvio) && (
+          {/* Costos internos — todos excepto cobrador */}
+          {puedeVerCostosInternos && (p.costoInterno || p.costoEnvio) && (
             <div className="flex gap-3 ml-4.5 mt-0.5">
               {p.costoInterno ? (
                 <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>

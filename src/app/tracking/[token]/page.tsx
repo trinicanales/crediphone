@@ -101,6 +101,7 @@ interface TrackingData {
   } | null;
   piezasEnCamino?: { nombre: string; estado: string; fechaEstimadaLlegada: string | null; motivoRetraso?: string | null }[];
   pedidosPieza?: { nombre: string; estado: string; fechaEstimadaLlegada: string | null; fechaInstalacion: string | null; motivoRetraso?: string | null }[];
+  whatsappSoporte?: string;
 }
 
 /* ── Estado visual mapping ──────────────────────────────────── */
@@ -612,8 +613,8 @@ export default function TrackingPublicoPage() {
 
   function handleContactarWhatsApp() {
     if (!data) return;
-    const numero = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
-    const msg = `Hola CREDIPHONE, tengo una consulta sobre mi reparación:\n\nFolio: ${data.orden.folio}\nDispositivo: ${data.orden.marcaDispositivo} ${data.orden.modeloDispositivo}\n\n`;
+    const numero = data.whatsappSoporte || process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+    const msg = `Hola, tengo una consulta sobre mi reparación:\n\nFolio: ${data.orden.folio}\nDispositivo: ${data.orden.marcaDispositivo} ${data.orden.modeloDispositivo}\n\n`;
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
@@ -650,7 +651,8 @@ export default function TrackingPublicoPage() {
   if (loading) return <TrackingSkeleton />;
   if (error || !data) return <TrackingError message={error ?? ""} />;
 
-  const { orden, tecnico, historial, anticipos, fotos = [], piezasEnCamino = [], pedidosPieza = [] } = data;
+  const { orden, tecnico, historial, anticipos, fotos = [], piezasEnCamino = [], pedidosPieza = [], whatsappSoporte: waNumeroDistribuidor } = data;
+  const waNumero = waNumeroDistribuidor || process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
   const estadoInfo = getEstadoInfo(orden.estado);
   const StatusIcon = estadoInfo.icon;
 
@@ -1647,7 +1649,7 @@ export default function TrackingPublicoPage() {
                 </div>
               </div>
               <a
-                href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE ?? "526181245391"}?text=${encodeURIComponent(`Hola CREDIPHONE, quiero coordinar la entrega de mi equipo. Folio: ${orden.folio}`)}`}
+                href={`https://wa.me/${waNumero}?text=${encodeURIComponent(`Hola, quiero coordinar la entrega de mi equipo. Folio: ${orden.folio}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-bold"
@@ -1896,7 +1898,7 @@ export default function TrackingPublicoPage() {
 
         {/* ── Promociones reales (FASE 35) ────────────────────── */}
         {data.cliente.aceptaPromociones && promosReales.length > 0 && (() => {
-          const numero = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+          const numero = waNumero;
           // Filtrar por preferencias del cliente
           const prefs = data.cliente.preferenciasPromociones as Record<string, boolean | undefined>;
           const promosFiltradas = promosReales.filter((p) => {
