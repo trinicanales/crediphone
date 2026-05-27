@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   Phone, MessageCircle, Copy, ChevronDown, MoreVertical,
   Wrench, Clock, Image as ImageIcon, DollarSign, Shield, Circle,
-  Banknote, PackageCheck, Truck, CheckCircle2,
+  Banknote, PackageCheck, Truck, CheckCircle2, Package, AlertTriangle,
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { StepperReparacion } from "@/components/reparaciones/StepperReparacion";
@@ -367,6 +367,8 @@ export function OrdenCard({
             Diagnóstico capturado
           </span>
         )}
+        {/* G6: Chips de condición crítica y piezas cotizadas */}
+        <CondicionChips orden={orden} />
       </div>
 
       {/* ── Cliente + Técnico ── */}
@@ -602,6 +604,52 @@ export function OrdenCard({
           handleEstadoChange("cancelado");
         }}
       />
+    </div>
+  );
+
+}
+
+/** G6: Sub-componente con chips de condición crítica al llegar + piezas cotizadas */
+function CondicionChips({ orden }: { orden: OrdenReparacionDetallada }) {
+  const cf = orden.condicionesFuncionamiento;
+  const piezas = orden.piezasCotizacion;
+
+  const alertas: { label: string; color: string; bg: string }[] = [];
+
+  if (cf?.llegaApagado) alertas.push({ label: "Llegó apagado", color: "var(--color-danger-text)", bg: "var(--color-danger-bg)" });
+  if (cf?.estaMojado) alertas.push({ label: "Daño por líquido", color: "var(--color-danger-text)", bg: "var(--color-danger-bg)" });
+  if (cf?.bateriaHinchada) alertas.push({ label: "Batería hinchada", color: "var(--color-danger-text)", bg: "var(--color-danger-bg)" });
+
+  // Contar fallas en componentes funcionales
+  const camposFuncionales = ["bateria", "pantallaTactil", "camaras", "microfono", "altavoz", "bluetooth", "wifi", "botonEncendido", "botonesVolumen", "sensorHuella", "centroCarga"] as const;
+  const numFallas = cf ? camposFuncionales.filter((k) => (cf as unknown as Record<string, string>)[k] === "falla").length : 0;
+  if (numFallas > 0) {
+    alertas.push({ label: `${numFallas} falla${numFallas > 1 ? "s" : ""} al llegar`, color: "var(--color-warning-text)", bg: "var(--color-warning-bg)" });
+  }
+
+  if (alertas.length === 0 && (!piezas || piezas.length === 0)) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {alertas.map((a, i) => (
+        <span
+          key={i}
+          className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium"
+          style={{ background: a.bg, color: a.color }}
+        >
+          <AlertTriangle className="w-2.5 h-2.5" />
+          {a.label}
+        </span>
+      ))}
+      {piezas && piezas.length > 0 && (
+        <span
+          className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium"
+          style={{ background: "var(--color-accent-light)", color: "var(--color-accent)" }}
+        >
+          <Package className="w-2.5 h-2.5" />
+          {piezas.length} pieza{piezas.length > 1 ? "s" : ""} cotizada{piezas.length > 1 ? "s" : ""}
+        </span>
+      )}
     </div>
   );
 }

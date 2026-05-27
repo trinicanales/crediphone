@@ -548,13 +548,31 @@ export async function PUT(
       return NextResponse.json({ success: true, data, message: "Cotización actualizada" });
     }
 
+    // Caso 6: Guardar checklist de apertura técnica (G5)
+    if (body.checklistQA !== undefined) {
+      if (role !== "admin" && role !== "super_admin" && role !== "tecnico") {
+        return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
+      }
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("ordenes_reparacion")
+        .update({ checklist_apertura: body.checklistQA })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, data, message: "Checklist guardado" });
+    }
+
     // Si no hay cambios específicos, retornar error
     return NextResponse.json(
       {
         success: false,
         error: "Datos insuficientes",
         message:
-          "Debe proporcionar 'diagnostico', 'estado', 'fechaEstimadaEntrega', 'requiereAprobacion', 'tecnicoId', 'piezasCotizacion', 'problemaReportado' o 'notasInternas' para actualizar la orden",
+          "Debe proporcionar 'diagnostico', 'estado', 'fechaEstimadaEntrega', 'requiereAprobacion', 'tecnicoId', 'piezasCotizacion', 'problemaReportado', 'notasInternas' o 'checklistQA' para actualizar la orden",
       },
       { status: 400 }
     );

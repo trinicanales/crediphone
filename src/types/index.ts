@@ -584,8 +584,8 @@ export interface OrdenReparacion {
   patronDesbloqueo?: string;
   passwordDispositivo?: string;
   cuentasDispositivo?: any[];
-  condicionesFuncionamiento?: any;
-  estadoFisicoDispositivo?: any;
+  condicionesFuncionamiento?: CondicionesFuncionamiento;
+  estadoFisicoDispositivo?: EstadoFisicoDispositivo;
   deslindesLegales?: string[];
   firmaCliente?: string;
   tipoFirma?: "manuscrita" | "digital";
@@ -607,6 +607,8 @@ export interface OrdenReparacion {
   snapshotCotizacionInicial?: PiezaCotizacion[] | null;
   /** Token de tracking público del cliente (64-char hex, se genera al pasar a "presupuesto") */
   trackingToken?: string | null;
+  /** Checklist de apertura técnica — estados guardados por el técnico al abrir el equipo */
+  checklistApertura?: Record<string, "ok" | "no_aplica" | "sin_verificar"> | null;
 
   // Auditoría
   creadoPor?: string;

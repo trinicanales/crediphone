@@ -7,6 +7,7 @@ import { EnvioPresupuesto } from "./EnvioPresupuesto";
 import { ChecklistAperturaPanel } from "./ChecklistAperturaPanel";
 import { Zap, CheckCircle, Plus, Search, Loader2 } from "lucide-react";
 import type { ParteReemplazada, OrdenReparacionDetallada, Producto, CatalogoServicioReparacion } from "@/types";
+import { CondicionEquipoPanel } from "./CondicionEquipoPanel";
 
 interface ModalDiagnosticoProps {
   isOpen: boolean;
@@ -484,6 +485,14 @@ export function ModalDiagnostico({
               )}
             </div>
           </div>
+        )}
+
+        {/* Condición al llegar — referencia visual para el técnico */}
+        {!diagnosticoGuardado && (
+          <CondicionEquipoPanel
+            condiciones={orden?.condicionesFuncionamiento}
+            estadoFisico={orden?.estadoFisicoDispositivo}
+          />
         )}
 
         {/* Banner: cotización ya existe desde la recepción */}
@@ -1069,3 +1078,4 @@ export function ModalDiagnostico({
     </Modal>
   );
 }
+

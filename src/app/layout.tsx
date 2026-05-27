@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import "./globals.css";
@@ -39,11 +40,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      {/* __name es un helper de esbuild/Turbopack inyectado en el script inline de next-themes.
-          Debe definirse antes de que el script de detección de tema corra. */}
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: "var __name=(f,n)=>f;" }} />
-      </head>
+      {/* __name es un helper de esbuild/Turbopack — debe correr antes del script de tema */}
+      <Script id="esbuild-name" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: "var __name=(f,n)=>f;" }} />
       <body
         className={`${geist.variable} ${geistMono.variable} ${jetbrainsMono.variable} antialiased`}
       >

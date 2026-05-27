@@ -8,6 +8,7 @@ import {
   MessageSquare, Package, Timer, FileText, Image as ImageIcon,
   DollarSign, Phone, CheckCircle, GitBranch, Printer, Plus, PackageCheck, PackagePlus,
   Download, History, ShieldAlert, UserCog, Link2, Copy, MessageCircle, RotateCcw, Pencil,
+  Smartphone, ChevronDown,
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { PresupuestoSummary } from "@/components/reparaciones/detail/PresupuestoSummary";
@@ -23,7 +24,7 @@ import { AnticipoCajaPanel } from "@/components/reparaciones/anticipos/AnticipoC
 import { CentroMensajesPanel } from "@/components/reparaciones/mensajeria/CentroMensajesPanel";
 import { BitacoraTiempoPanel } from "@/components/reparaciones/BitacoraTiempoPanel";
 import { Card } from "@/components/ui/Card";
-import type { OrdenReparacionDetallada, ReparacionDiagnostico } from "@/types";
+import type { OrdenReparacionDetallada, ReparacionDiagnostico, CondicionesFuncionamiento, EstadoFisicoDispositivo } from "@/types";
 import { generarMensajePromocion, generarMensajePresupuesto, generarMensajeSeguimiento, generarLinkWhatsApp } from "@/lib/whatsapp-reparaciones";
 
 interface OrdenDrawerProps {
@@ -35,6 +36,7 @@ interface OrdenDrawerProps {
 
 const TABS = [
   { id: "resumen",     label: "Resumen",    icon: FileText },
+  { id: "equipo",      label: "Equipo",     icon: Smartphone },
   { id: "diagnostico", label: "Diagnóstico", icon: Wrench },
   { id: "presupuesto", label: "Presupuesto", icon: DollarSign },
   { id: "historial",   label: "Historial",  icon: Clock },
@@ -54,6 +56,58 @@ function useIsMobile() {
     return () => window.removeEventListener("resize", check);
   }, []);
   return isMobile;
+}
+
+// ─── Sub-componente: Checklist de apertura técnica (colapsable) ─────────────
+function TabEquipoChecklist({ checklist }: { checklist: Record<string, "ok" | "no_aplica" | "sin_verificar"> }) {
+  const [expanded, setExpanded] = useState(false);
+  const items = Object.entries(checklist);
+  const conProblemas = items.filter(([, v]) => v === "sin_verificar").length;
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--color-border)" }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3"
+        style={{ background: "var(--color-bg-elevated)" }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+            Checklist de apertura técnica
+          </span>
+          {conProblemas > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "var(--color-warning)", color: "white" }}>
+              {conProblemas} pendiente{conProblemas > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`}
+          style={{ color: "var(--color-text-muted)" }}
+        />
+      </button>
+      {expanded && (
+        <div className="px-4 py-3 space-y-1.5" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
+          {items.map(([key, valor]) => (
+            <div key={key} className="flex items-center gap-2 text-sm">
+              <span style={{
+                color: valor === "ok" ? "var(--color-success)" : valor === "no_aplica" ? "var(--color-text-muted)" : "var(--color-warning)",
+                fontWeight: 600,
+              }}>
+                {valor === "ok" ? "✓" : valor === "no_aplica" ? "—" : "?"}
+              </span>
+              <span style={{ color: "var(--color-text-primary)" }}>
+                {key.replace(/_/g, " ")}
+              </span>
+              <span className="text-xs ml-auto" style={{ color: "var(--color-text-muted)" }}>
+                {valor === "ok" ? "OK" : valor === "no_aplica" ? "N/A" : "Sin verificar"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Check if order is overdue ──────────────────────────────────────────────
@@ -1776,6 +1830,162 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
     );
   }
 
+  // ── Tab: Equipo — Condición inicial del equipo al recibir ────────────────
+  function tabEquipo() {
+    if (!orden) return null;
+    const cf = orden.condicionesFuncionamiento;
+    const ef = orden.estadoFisicoDispositivo;
+    const checklist = orden.checklistApertura;
+
+    const camposFuncionales: [keyof CondicionesFuncionamiento, string][] = [
+      ["bateria", "Batería"],
+      ["pantallaTactil", "Pantalla / Táctil"],
+      ["camaras", "Cámaras"],
+      ["microfono", "Micrófono"],
+      ["altavoz", "Altavoz"],
+      ["bluetooth", "Bluetooth"],
+      ["wifi", "Wi-Fi"],
+      ["botonEncendido", "Botón encendido"],
+      ["botonesVolumen", "Botones volumen"],
+      ["sensorHuella", "Sensor huella"],
+      ["centroCarga", "Puerto de carga"],
+    ];
+
+    const camposFisicos: [keyof EstadoFisicoDispositivo, string][] = [
+      ["marco", "Marco"],
+      ["bisel", "Bisel"],
+      ["pantallaFisica", "Cristal pantalla"],
+      ["camaraLente", "Lente cámara"],
+      ["tapaTrasera", "Tapa trasera"],
+    ];
+
+    return (
+      <div className="space-y-4 pb-6">
+        {/* Aviso si no hay datos de condición */}
+        {!cf && !ef && (
+          <Card title="Condición del Equipo">
+            <div className="text-center py-6">
+              <Smartphone className="w-10 h-10 mx-auto mb-2" style={{ color: "var(--color-border-strong)" }} />
+              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+                No se registró condición del equipo al recibirlo
+              </p>
+            </div>
+          </Card>
+        )}
+
+        {/* Alertas especiales */}
+        {cf && (cf.llegaApagado || cf.estaMojado || cf.bateriaHinchada) && (
+          <div className="rounded-lg p-3 flex flex-wrap gap-1.5"
+            style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}>
+            <span className="text-xs font-semibold w-full mb-1" style={{ color: "var(--color-danger-text)" }}>
+              ⚠ Alertas al ingreso
+            </span>
+            {cf.llegaApagado && (
+              <span className="text-xs px-2 py-1 rounded-full font-medium"
+                style={{ background: "white", color: "var(--color-danger-text)", border: "1px solid var(--color-danger)" }}>
+                Llegó apagado
+              </span>
+            )}
+            {cf.estaMojado && (
+              <span className="text-xs px-2 py-1 rounded-full font-medium"
+                style={{ background: "white", color: "var(--color-danger-text)", border: "1px solid var(--color-danger)" }}>
+                Daño por líquido
+              </span>
+            )}
+            {cf.bateriaHinchada && (
+              <span className="text-xs px-2 py-1 rounded-full font-medium"
+                style={{ background: "white", color: "var(--color-danger-text)", border: "1px solid var(--color-danger)" }}>
+                Batería hinchada
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Funcionamiento de componentes */}
+        {cf && (
+          <Card title="Funcionamiento de Componentes">
+            <div className="grid grid-cols-2 gap-2">
+              {camposFuncionales.map(([key, label]) => {
+                const valor = cf[key];
+                if (valor !== "ok" && valor !== "falla") return null;
+                return (
+                  <div key={key as string} className="flex items-center gap-2 text-sm">
+                    <span style={{ color: valor === "ok" ? "var(--color-success)" : "var(--color-danger)", fontWeight: 700, fontSize: 16 }}>
+                      {valor === "ok" ? "✓" : "✗"}
+                    </span>
+                    <span style={{ color: valor === "falla" ? "var(--color-danger-text)" : "var(--color-text-primary)" }}>
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {/* Estado físico del dispositivo */}
+        {ef && (
+          <Card title="Estado Físico">
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                {camposFisicos.map(([key, label]) => {
+                  const valor = ef[key] as string;
+                  if (!valor || typeof valor !== "string") return null;
+                  const esProblema = valor !== "perfecto";
+                  return (
+                    <div key={key as string} className="flex items-center gap-2 text-sm">
+                      <span style={{ color: esProblema ? "var(--color-warning)" : "var(--color-success)", fontWeight: 700, fontSize: 16 }}>
+                        {esProblema ? "△" : "✓"}
+                      </span>
+                      <span style={{ color: "var(--color-text-primary)" }}>
+                        {label}:{" "}
+                        <strong style={{ color: esProblema ? "var(--color-warning-text, #92400e)" : "var(--color-success)" }}>
+                          {valor}
+                        </strong>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {ef.tieneSIM !== undefined && (
+                <div className="flex gap-3 pt-2" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
+                  <span className="text-xs px-2 py-1 rounded font-medium"
+                    style={{ background: ef.tieneSIM ? "var(--color-success-bg)" : "var(--color-bg-elevated)", color: ef.tieneSIM ? "var(--color-success-text)" : "var(--color-text-muted)", border: "1px solid var(--color-border)" }}>
+                    SIM: {ef.tieneSIM ? "Sí" : "No"}
+                  </span>
+                  {ef.tieneMemoriaSD !== undefined && (
+                    <span className="text-xs px-2 py-1 rounded font-medium"
+                      style={{ background: ef.tieneMemoriaSD ? "var(--color-success-bg)" : "var(--color-bg-elevated)", color: ef.tieneMemoriaSD ? "var(--color-success-text)" : "var(--color-text-muted)", border: "1px solid var(--color-border)" }}>
+                      MicroSD: {ef.tieneMemoriaSD ? "Sí" : "No"}
+                    </span>
+                  )}
+                </div>
+              )}
+              {ef.observacionesFisicas && (
+                <div className="pt-2" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
+                  <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--color-text-muted)" }}>Observaciones físicas</p>
+                  <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>{ef.observacionesFisicas}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Accesorios entregados */}
+        {orden.accesoriosEntregados && (
+          <Card title="Accesorios Entregados">
+            <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>{orden.accesoriosEntregados}</p>
+          </Card>
+        )}
+
+        {/* Checklist de apertura técnica — colapsable */}
+        {checklist && Object.keys(checklist).length > 0 && (
+          <TabEquipoChecklist checklist={checklist} />
+        )}
+      </div>
+    );
+  }
+
   // ── Tab: Diagnóstico ─────────────────────────────────────────────────────
   function tabDiagnostico() {
     if (!orden) return null;
@@ -1804,7 +2014,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                 const lbl = cfMap[k] ?? k.replace(/_/g, " ");
                 return typeof v === "string" && v !== "falla" ? `${lbl}: ${v}` : lbl;
               };
-              const problemas = Object.entries(orden.condicionesFuncionamiento as Record<string, unknown>).filter(([, v]) => esProblema(v));
+              const problemas = Object.entries(orden.condicionesFuncionamiento as unknown as Record<string, unknown>).filter(([, v]) => esProblema(v));
               if (problemas.length === 0) return null;
               return (
                 <div>
@@ -3360,6 +3570,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
     if (!orden) return null;
     switch (activeTab) {
       case "resumen":     return tabResumen();
+      case "equipo":      return tabEquipo();
       case "diagnostico": return tabDiagnostico();
       case "presupuesto": return tabPresupuesto();
       case "historial":
