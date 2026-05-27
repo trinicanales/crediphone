@@ -414,6 +414,7 @@ export function AccionesOrdenPanel({
       {mostrarQA && (
         <ModalQAEntrega
           folio={orden.folio}
+          orden={orden}
           onConfirmar={() => {
             setMostrarQA(false);
             onCambiarEstado("listo_entrega");

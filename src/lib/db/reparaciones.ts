@@ -114,6 +114,7 @@ function mapOrdenFromDB(dbOrden: any): OrdenReparacion {
     // C8: snapshot inmutable de la cotización inicial (nunca se modifica tras la creación)
     snapshotCotizacionInicial: dbOrden.snapshot_cotizacion_inicial ?? null,
     trackingToken: dbOrden.tracking_token ?? null,
+    checklistApertura: dbOrden.checklist_apertura ?? null,
   };
 }
 

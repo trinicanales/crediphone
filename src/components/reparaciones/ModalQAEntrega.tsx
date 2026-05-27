@@ -13,6 +13,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, MinusCircle, Circle, Package } from "lucide-react";
+import type { OrdenReparacionDetallada } from "@/types";
+import { CondicionEquipoPanel } from "./CondicionEquipoPanel";
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -136,12 +138,27 @@ function ItemRow({
 
 interface Props {
   folio: string;
+  orden?: OrdenReparacionDetallada;
   onConfirmar: () => void;
   onCancelar: () => void;
 }
 
-export function ModalQAEntrega({ folio, onConfirmar, onCancelar }: Props) {
+export function ModalQAEntrega({ folio, orden, onConfirmar, onCancelar }: Props) {
   const [estados, setEstados] = useState<Record<string, EstadoItem>>({});
+
+  async function handleConfirmar() {
+    // Guardar checklist en BD si tenemos ordenId
+    if (orden?.id && Object.keys(estados).length > 0) {
+      try {
+        await fetch(`/api/reparaciones/${orden.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ checklistQA: estados }),
+        });
+      } catch { /* no bloquear si falla — el QA continúa igual */ }
+    }
+    onConfirmar();
+  }
 
   // Ciclo: sin_verificar → ok → no_aplica → sin_verificar
   const toggle = (id: string) => {
@@ -200,6 +217,16 @@ export function ModalQAEntrega({ folio, onConfirmar, onCancelar }: Props) {
 
         {/* Cuerpo scrollable */}
         <div style={{ overflowY: "auto", flex: 1 }}>
+          {/* Condición al llegar — referencia para el técnico al hacer QA */}
+          {(orden?.condicionesFuncionamiento || orden?.estadoFisicoDispositivo) && (
+            <div className="px-5 pt-4">
+              <CondicionEquipoPanel
+                condiciones={orden.condicionesFuncionamiento}
+                estadoFisico={orden.estadoFisicoDispositivo}
+              />
+            </div>
+          )}
+
           {/* Leyenda */}
           <div className="px-5 pt-4 pb-2">
             <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
@@ -242,7 +269,7 @@ export function ModalQAEntrega({ folio, onConfirmar, onCancelar }: Props) {
         >
           <button
             type="button"
-            onClick={onConfirmar}
+            onClick={handleConfirmar}
             className="w-full flex items-center justify-center gap-2 rounded-xl text-sm font-bold py-3"
             style={{
               background: "var(--color-success)",
