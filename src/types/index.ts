@@ -381,6 +381,8 @@ export interface ParteReemplazada {
   cantidad: number;
   proveedor?: string;
   productoId?: string; // Referencia al inventario (opcional)
+  costoInterno?: number; // Costo de adquisición de la pieza (interno)
+  costoEnvio?: number;   // Costo de envío de la pieza (interno)
 }
 
 // Pieza en cotización (antes de crear la orden — para calcular presupuesto)

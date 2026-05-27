@@ -8,6 +8,7 @@ import { ChecklistAperturaPanel } from "./ChecklistAperturaPanel";
 import { Zap, CheckCircle, Plus, Search, Loader2 } from "lucide-react";
 import type { ParteReemplazada, OrdenReparacionDetallada, Producto, CatalogoServicioReparacion } from "@/types";
 import { CondicionEquipoPanel } from "./CondicionEquipoPanel";
+import { useAuth } from "@/components/AuthProvider";
 
 interface ModalDiagnosticoProps {
   isOpen: boolean;
@@ -28,6 +29,9 @@ export function ModalDiagnostico({
   dispositivo,
   orden,
 }: ModalDiagnosticoProps) {
+  const { user } = useAuth();
+  const esAdminOTecnico = ["admin", "super_admin", "tecnico"].includes(user?.role ?? "");
+
   const [submitting, setSubmitting] = useState(false);
   const [diagnosticoGuardado, setDiagnosticoGuardado] = useState(false);
   const [ordenActualizada, setOrdenActualizada] = useState<OrdenReparacionDetallada | null>(null);
@@ -272,7 +276,7 @@ export function ModalDiagnostico({
     value: string | number
   ) {
     const newPartes = [...partes];
-    if (field === "costo" || field === "cantidad") {
+    if (field === "costo" || field === "cantidad" || field === "costoInterno" || field === "costoEnvio") {
       newPartes[index][field] = parseFloat(value as string) || 0;
     } else {
       newPartes[index][field] = value as string;
@@ -856,6 +860,54 @@ export function ModalDiagnostico({
                     </button>
                   )}
                 </div>
+
+                {/* Costos internos — solo admin/técnico */}
+                {esAdminOTecnico && (
+                  <div className="col-span-12 flex gap-2 pt-1">
+                    <div className="flex-1">
+                      <p className="text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>Costo interno</p>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>$</span>
+                        <input
+                          type="number"
+                          value={parte.costoInterno ?? ""}
+                          onChange={(e) => handleParteChange(index, "costoInterno", e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          className="w-full pl-5 pr-2 py-1.5 rounded-md text-xs focus:outline-none font-mono"
+                          style={{ border: "1px solid var(--color-border-subtle)", background: "var(--color-bg-sunken)", color: "var(--color-text-secondary)" }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>Costo envío</p>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>$</span>
+                        <input
+                          type="number"
+                          value={parte.costoEnvio ?? ""}
+                          onChange={(e) => handleParteChange(index, "costoEnvio", e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          className="w-full pl-5 pr-2 py-1.5 rounded-md text-xs focus:outline-none font-mono"
+                          style={{ border: "1px solid var(--color-border-subtle)", background: "var(--color-bg-sunken)", color: "var(--color-text-secondary)" }}
+                        />
+                      </div>
+                    </div>
+                    {(parte.costoInterno || parte.costoEnvio) && (
+                      <div className="flex-1">
+                        <p className="text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>Margen pieza</p>
+                        <div className="py-1.5 px-2 rounded-md text-xs font-mono" style={{ background: "var(--color-success-bg)", color: "var(--color-success-text)" }}>
+                          ${((parte.costo * parte.cantidad) - ((parte.costoInterno ?? 0) + (parte.costoEnvio ?? 0)) * parte.cantidad).toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

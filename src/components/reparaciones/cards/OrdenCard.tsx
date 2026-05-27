@@ -13,6 +13,7 @@ import { AccionesOrdenPanel } from "@/components/reparaciones/AccionesOrdenPanel
 import { ModalSegundoDiagnostico } from "@/components/reparaciones/ModalSegundoDiagnostico";
 import type { OrdenReparacionDetallada, EstadoOrdenReparacion } from "@/types";
 import { generarMensajeSeguimiento, generarLinkWhatsApp } from "@/lib/whatsapp-reparaciones";
+import { useAuth } from "@/components/AuthProvider";
 
 // ─── Utilidades de módulo ─────────────────────────────────────────────────────
 function formatCurrency(n: number) {
@@ -473,6 +474,31 @@ export function OrdenCard({
         })()}
       </div>
 
+      {/* ── Ganancia estimada — solo admin/técnico ── */}
+      {["admin", "super_admin", "tecnico"].includes(userRole) && (() => {
+        const partes = orden.partesReemplazadas ?? [];
+        const partesConCosto = partes.filter((p) => p.costoInterno !== undefined);
+        if (partesConCosto.length === 0) return null;
+        const costoTotal = partes.reduce(
+          (sum, p) => sum + ((p.costoInterno ?? 0) + (p.costoEnvio ?? 0)) * p.cantidad,
+          0
+        );
+        const ingreso = orden.presupuestoTotal || orden.costoTotal || 0;
+        const ganancia = ingreso - costoTotal;
+        return (
+          <div className="px-4 pb-2 flex items-center gap-1.5">
+            <Banknote className="w-3.5 h-3.5" style={{ color: ganancia >= 0 ? "var(--color-success)" : "var(--color-danger)" }} />
+            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Ganancia est.:</span>
+            <span
+              className="text-xs font-semibold font-mono"
+              style={{ color: ganancia >= 0 ? "var(--color-success)" : "var(--color-danger)", fontFamily: "var(--font-data)" }}
+            >
+              {formatCurrency(ganancia)}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* ── Badges de anticipo y piezas ── */}
       {((orden.totalAnticipos ?? 0) > 0 || (orden.piezasPorVerificar ?? 0) > 0 || (orden.piezasEnCamino ?? 0) > 0) && (
         <div className="px-4 pb-2 flex flex-wrap items-center gap-2">
@@ -617,15 +643,24 @@ export function OrdenCard({
 
 }
 
-// ── Sub-componente: Desglose compacto de cotización inicial ──────────────────
+// ── Sub-componente: Desglose compacto de cotización/diagnóstico ──────────────
 function ResumenCotizacion({ orden }: { orden: OrdenReparacionDetallada }) {
-  const piezas = orden.piezasCotizacion ?? [];
+  const { user } = useAuth();
+  const esAdminOTecnico = ["admin", "super_admin", "tecnico"].includes(user?.role ?? "");
+
   const manoDeObra = orden.presupuestoManoDeObra ?? 0;
 
-  const hayPiezas = piezas.length > 0;
+  // Prioridad: partes reales del diagnóstico > cotización inicial
+  const usandoDiagnostico = (orden.partesReemplazadas?.length ?? 0) > 0;
+  const partesReales = orden.partesReemplazadas ?? [];
+  const piezasCotizacion = orden.piezasCotizacion ?? [];
+
+  const hayPartes = usandoDiagnostico ? partesReales.length > 0 : piezasCotizacion.length > 0;
   const hayManoDeObra = manoDeObra > 0;
 
-  if (!hayPiezas && !hayManoDeObra) return null;
+  if (!hayPartes && !hayManoDeObra) return null;
+
+  const etiqueta = usandoDiagnostico ? "Diagnóstico" : "Cotización inicial";
 
   return (
     <div
@@ -633,7 +668,7 @@ function ResumenCotizacion({ orden }: { orden: OrdenReparacionDetallada }) {
       style={{ borderBottom: "1px solid var(--color-border-subtle)" }}
     >
       <p className="text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>
-        Cotización inicial
+        {etiqueta}
       </p>
 
       {/* Mano de obra */}
@@ -649,8 +684,55 @@ function ResumenCotizacion({ orden }: { orden: OrdenReparacionDetallada }) {
         </div>
       )}
 
-      {/* Piezas */}
-      {piezas.map((p) => (
+      {/* Partes reales del diagnóstico */}
+      {usandoDiagnostico && partesReales.map((p, i) => (
+        <div key={i}>
+          <div className="flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              {p.productoId ? (
+                <Package className="w-3 h-3 flex-shrink-0" style={{ color: "var(--color-accent)" }} />
+              ) : (
+                <Circle className="w-3 h-3 flex-shrink-0" style={{ color: "var(--color-text-muted)" }} />
+              )}
+              <span className="truncate" style={{ color: "var(--color-text-secondary)" }}>
+                {p.parte}
+                {p.cantidad > 1 && (
+                  <span style={{ color: "var(--color-text-muted)" }}> ×{p.cantidad}</span>
+                )}
+              </span>
+              {p.productoId && (
+                <span
+                  className="flex-shrink-0 px-1 py-px rounded"
+                  style={{ background: "var(--color-accent-light)", color: "var(--color-accent)", fontSize: 9 }}
+                >
+                  inv
+                </span>
+              )}
+            </div>
+            <span className="font-mono font-medium flex-shrink-0" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
+              {formatCurrency(p.costo * p.cantidad)}
+            </span>
+          </div>
+          {/* Costos internos — solo admin/técnico */}
+          {esAdminOTecnico && (p.costoInterno || p.costoEnvio) && (
+            <div className="flex gap-3 ml-4.5 mt-0.5">
+              {p.costoInterno ? (
+                <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  costo {formatCurrency(p.costoInterno * p.cantidad)}
+                </span>
+              ) : null}
+              {p.costoEnvio ? (
+                <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  envío {formatCurrency(p.costoEnvio * p.cantidad)}
+                </span>
+              ) : null}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Piezas de cotización inicial (cuando no hay diagnóstico real) */}
+      {!usandoDiagnostico && piezasCotizacion.map((p) => (
         <div key={p.id} className="flex items-center justify-between text-xs gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {p.productoId ? (
@@ -666,7 +748,7 @@ function ResumenCotizacion({ orden }: { orden: OrdenReparacionDetallada }) {
             </span>
             {p.productoId && (
               <span
-                className="text-xs px-1 py-px rounded flex-shrink-0"
+                className="flex-shrink-0 px-1 py-px rounded"
                 style={{ background: "var(--color-accent-light)", color: "var(--color-accent)", fontSize: 9 }}
               >
                 inv
