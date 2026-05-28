@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Shield, Clock, Wrench, AlertTriangle, Lock, Phone, FileText, CheckCircle } from "lucide-react";
+import { Shield, Clock, Wrench, AlertTriangle, Lock, Phone, FileText, CheckCircle, Monitor } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Términos y Condiciones — CREDIPHONE",
@@ -275,6 +275,114 @@ export default function TerminosPage() {
               </div>
             ))}
           </div>
+        </SeccionCard>
+
+        {/* ── 3B. Garantía por tipo de pantalla ───────────────────── */}
+        <SeccionCard
+          icono={<Monitor className="w-5 h-5" />}
+          titulo="3A. Garantía según Tipo de Pantalla"
+        >
+          <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+            La garantía sobre pantallas varía según la tecnología y calidad de la refacción instalada.
+            El tipo de pantalla es informado al cliente antes de aprobar la reparación y queda
+            registrado en la orden de servicio.
+          </p>
+
+          {/* Tabla comparativa por tipo */}
+          <div className="space-y-3 pt-1">
+
+            {/* Incell — sin garantía */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--color-danger)" }}
+            >
+              <div
+                className="flex items-center gap-2 px-4 py-2.5"
+                style={{ background: "var(--color-danger-bg)" }}
+              >
+                <span className="text-sm font-bold" style={{ color: "var(--color-danger-text)" }}>
+                  ✗ Pantalla Incell (Compatible Básica)
+                </span>
+                <span
+                  className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--color-danger)", color: "#fff" }}
+                >
+                  SIN GARANTÍA
+                </span>
+              </div>
+              <div className="px-4 py-3 space-y-1.5" style={{ background: "var(--color-bg-surface)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                  Las pantallas Incell son refacciones compatibles de gama básica. Por su tecnología
+                  de fabricación presentan mayor susceptibilidad a fallas por presión, temperatura y
+                  brillo reducido. Debido a estas características técnicas, <strong>no aplica garantía
+                  sobre la pantalla</strong>. La garantía de mano de obra (instalación) sí aplica por
+                  30 días.
+                </p>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  El cliente es notificado de estas condiciones antes de autorizar el servicio.
+                </p>
+              </div>
+            </div>
+
+            {/* OEM / Premium — garantía completa */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--color-success)" }}
+            >
+              <div
+                className="flex items-center gap-2 px-4 py-2.5"
+                style={{ background: "var(--color-success-bg)" }}
+              >
+                <span className="text-sm font-bold" style={{ color: "var(--color-success-text)" }}>
+                  ✓ Pantalla OEM / Premium Compatible
+                </span>
+                <span
+                  className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--color-success)", color: "#fff" }}
+                >
+                  GARANTÍA 90 DÍAS
+                </span>
+              </div>
+              <div className="px-4 py-3" style={{ background: "var(--color-bg-surface)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                  Pantallas fabricadas bajo estándares OEM (Original Equipment Manufacturer) o línea
+                  Premium compatible. Presentan calidad visual y durabilidad equivalente a la original.
+                  Aplica la garantía estándar de 90 días sobre la pantalla e instalación.
+                </p>
+              </div>
+            </div>
+
+            {/* Original — garantía completa */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--color-accent)" }}
+            >
+              <div
+                className="flex items-center gap-2 px-4 py-2.5"
+                style={{ background: "var(--color-accent-light)" }}
+              >
+                <span className="text-sm font-bold" style={{ color: "var(--color-accent)" }}>
+                  ★ Pantalla Original (OLED / AMOLED)
+                </span>
+                <span
+                  className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--color-accent)", color: "#fff" }}
+                >
+                  GARANTÍA 90 DÍAS
+                </span>
+              </div>
+              <div className="px-4 py-3" style={{ background: "var(--color-bg-surface)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                  Pantallas originales del fabricante (Apple, Samsung, Xiaomi, etc.) con tecnología
+                  OLED o AMOLED. Máxima calidad visual, brillo y sensibilidad táctil idéntica a la
+                  de fábrica. Aplica garantía completa de 90 días.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          <Advertencia texto="La garantía de pantalla queda nula si el equipo presenta golpes, caídas, entrada de líquidos o manipulación por terceros posterior a la reparación, independientemente del tipo de pantalla instalada." />
         </SeccionCard>
 
         {/* ── 4. Plazo de custodia ─────────────────────────────────── */}
