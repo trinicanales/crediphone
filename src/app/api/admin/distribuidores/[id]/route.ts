@@ -44,6 +44,9 @@ export async function PATCH(
       slug: body.slug,
       logoUrl: body.logoUrl,
       activo: body.activo,
+      tipoTenant: body.tipoTenant,
+      parentDistribuidorId: body.parentDistribuidorId,
+      permiteImpersonacion: body.permiteImpersonacion,
     });
 
     return NextResponse.json({ success: true, data: updated });
