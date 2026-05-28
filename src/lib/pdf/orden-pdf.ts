@@ -267,7 +267,9 @@ export async function generarOrdenPDF(
   const cargoCancelacion = Number(orden.cargo_cancelacion ?? 100);
 
   const trackingUrl = `${proto}://${host}/reparacion/${orden.folio}`;
-  const terminosUrl = `${proto}://${host}/terminos`;
+  const terminosUrl = orden.distribuidor_id
+    ? `${proto}://${host}/terminos?d=${orden.distribuidor_id}`
+    : `${proto}://${host}/terminos`;
 
   let qrTrackData = "";
   let qrTermsData = "";

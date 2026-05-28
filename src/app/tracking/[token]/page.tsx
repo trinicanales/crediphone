@@ -102,6 +102,7 @@ interface TrackingData {
   piezasEnCamino?: { nombre: string; estado: string; fechaEstimadaLlegada: string | null; motivoRetraso?: string | null }[];
   pedidosPieza?: { nombre: string; estado: string; fechaEstimadaLlegada: string | null; fechaInstalacion: string | null; motivoRetraso?: string | null }[];
   whatsappSoporte?: string;
+  nombreEmpresa?: string;
 }
 
 /* ── Estado visual mapping ──────────────────────────────────── */
@@ -495,9 +496,7 @@ function TrackingError({ message }: { message: string }) {
             color: "var(--color-text-secondary)",
           }}
         >
-          Verifica que el link sea correcto o contacta a{" "}
-          <strong style={{ color: "var(--color-text-primary)" }}>CREDIPHONE</strong>{" "}
-          para obtener ayuda.
+          Verifica que el link sea correcto o contacta al servicio de reparación para obtener ayuda.
         </div>
       </div>
     </div>
@@ -651,7 +650,7 @@ export default function TrackingPublicoPage() {
   if (loading) return <TrackingSkeleton />;
   if (error || !data) return <TrackingError message={error ?? ""} />;
 
-  const { orden, tecnico, historial, anticipos, fotos = [], piezasEnCamino = [], pedidosPieza = [], whatsappSoporte: waNumeroDistribuidor } = data;
+  const { orden, tecnico, historial, anticipos, fotos = [], piezasEnCamino = [], pedidosPieza = [], whatsappSoporte: waNumeroDistribuidor, nombreEmpresa = "CREDIPHONE" } = data;
   const waNumero = waNumeroDistribuidor || process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
   const estadoInfo = getEstadoInfo(orden.estado);
   const StatusIcon = estadoInfo.icon;
@@ -686,7 +685,7 @@ export default function TrackingPublicoPage() {
                 letterSpacing: "0.12em",
               }}
             >
-              CREDIPHONE
+              {nombreEmpresa}
             </span>
           </div>
           <p
@@ -1219,7 +1218,7 @@ export default function TrackingPublicoPage() {
                   className="text-xs text-center leading-relaxed"
                   style={{ color: "#94A3B8" }}
                 >
-                  Al aprobar, autorizas a CREDIPHONE a realizar la reparación descrita. El costo indicado es el total a pagar al momento de recoger tu equipo.
+                  Al aprobar, autorizas a {nombreEmpresa} a realizar la reparación descrita. El costo indicado es el total a pagar al momento de recoger tu equipo.
                 </p>
 
                 {/* Botones — flujo de decisión */}
@@ -1939,7 +1938,7 @@ export default function TrackingPublicoPage() {
                     Ofertas exclusivas para ti
                   </p>
                   <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                    Porque elegiste CREDIPHONE
+                    Porque elegiste {nombreEmpresa}
                   </p>
                 </div>
               </div>
@@ -1952,7 +1951,7 @@ export default function TrackingPublicoPage() {
                     promo.precioNormal && promo.precioPromocion
                       ? Math.round(((promo.precioNormal - promo.precioPromocion) / promo.precioNormal) * 100)
                       : null;
-                  const msgWA = `Hola CREDIPHONE, vi la promoción "${promo.titulo}" en el tracking de mi reparación (folio ${orden.folio}). ¿Pueden darme más información?`;
+                  const msgWA = `Hola ${nombreEmpresa}, vi la promoción "${promo.titulo}" en el tracking de mi reparación (folio ${orden.folio}). ¿Pueden darme más información?`;
                   return (
                     <div
                       key={promo.id}
@@ -2027,7 +2026,7 @@ export default function TrackingPublicoPage() {
                 })}
 
                 <p className="text-xs text-center pt-1" style={{ color: "var(--color-text-muted)" }}>
-                  Recibes estas ofertas porque aceptaste comunicaciones de CREDIPHONE.{" "}
+                  Recibes estas ofertas porque aceptaste comunicaciones de {nombreEmpresa}.{" "}
                   <span style={{ color: "var(--color-accent)" }}>
                     Escríbenos para desactivarlas.
                   </span>

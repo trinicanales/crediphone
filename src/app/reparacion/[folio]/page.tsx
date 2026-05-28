@@ -44,6 +44,8 @@ interface OrdenPublica {
   tecnicoNombre?: string;
   historial: { estado_nuevo: string; estado_anterior: string | null; comentario?: string; created_at: string }[];
   trackingToken?: string | null;
+  whatsappSoporte?: string;
+  nombreEmpresa?: string;
 }
 
 /* ── Estado visual ──────────────────────────────────────────── */
@@ -111,7 +113,7 @@ function ErrorPage({ mensaje }: { mensaje: string }) {
           <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>{mensaje}</p>
         </div>
         <div className="w-full rounded-lg p-4 text-sm" style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-secondary)" }}>
-          Verifica el folio o contacta a <strong style={{ color: "var(--color-text-primary)" }}>CREDIPHONE</strong> para obtener ayuda.
+          Verifica el folio o contacta al servicio de reparación para obtener ayuda.
         </div>
       </div>
     </div>
@@ -186,7 +188,7 @@ export default function ReparacionFolioPage() {
   const pasoActual = PASOS.indexOf(orden.estado);
 
   function handleWhatsApp() {
-    const numero = (orden as any)?.whatsappSoporte || process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+    const numero = orden?.whatsappSoporte || process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
     const msg = `Hola, consulta sobre mi reparación:\n\nFolio: ${orden!.folio}\nDispositivo: ${orden!.marcaDispositivo} ${orden!.modeloDispositivo}\n\n`;
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, "_blank");
   }
@@ -202,7 +204,7 @@ export default function ReparacionFolioPage() {
             <span className="text-base font-bold tracking-widest uppercase"
               style={{ fontFamily: "var(--font-mono)", color: "var(--color-text-primary)", letterSpacing: "0.12em" }}
             >
-              CREDIPHONE
+              {orden?.nombreEmpresa || "CREDIPHONE"}
             </span>
           </div>
           <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Seguimiento de Reparación</p>
@@ -312,7 +314,7 @@ export default function ReparacionFolioPage() {
                   Tu equipo está listo para recoger
                 </p>
                 <p className="text-xs mt-1" style={{ color: "var(--color-info, #0369a1)", opacity: 0.9 }}>
-                  Solicita a un empleado de CREDIPHONE que procese la entrega presentando este folio.
+                  Solicita a un empleado de {orden?.nombreEmpresa || "la tienda"} que procese la entrega presentando este folio.
                 </p>
               </div>
             </div>
@@ -533,7 +535,7 @@ export default function ReparacionFolioPage() {
         <div className="flex items-center justify-center gap-1.5 py-4">
           <Lock className="w-3 h-3" style={{ color: "var(--color-text-muted)" }} />
           <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-            CREDIPHONE — Servicio de Reparaciones
+            {orden?.nombreEmpresa || "CREDIPHONE"} — Servicio de Reparaciones
           </p>
         </div>
 

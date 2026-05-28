@@ -68,11 +68,13 @@ export async function GET(
       .limit(1)
       .single();
 
-    // Obtener WhatsApp del distribuidor de la orden
+    // Obtener datos del distribuidor de la orden (nombre y WhatsApp)
     let whatsappSoporte = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+    let nombreEmpresa = "CREDIPHONE";
     try {
       const config = await getConfiguracion((orden as any).distribuidor_id ?? null);
       if (config.whatsappNumero) whatsappSoporte = config.whatsappNumero;
+      if (config.nombreEmpresa) nombreEmpresa = config.nombreEmpresa;
     } catch {
       // No crítico
     }
@@ -109,6 +111,7 @@ export async function GET(
         historial: historial || [],
         trackingToken: tokenData?.token || null,
         whatsappSoporte,
+        nombreEmpresa,
       },
     });
   } catch (error) {
