@@ -350,15 +350,20 @@ export async function getOrdenReparacionDetalladaById(
  * Obtiene todas las órdenes de un cliente específico
  */
 export async function getOrdenesByCliente(
-  clienteId: string
+  clienteId: string,
+  distribuidorId?: string
 ): Promise<OrdenReparacion[]> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
+  let q = supabase
     .from("ordenes_reparacion")
     .select("*")
     .eq("cliente_id", clienteId)
     .order("fecha_recepcion", { ascending: false });
+
+  if (distribuidorId) q = q.eq("distribuidor_id", distribuidorId);
+
+  const { data, error } = await q;
 
   if (error) {
     console.error("Error al obtener órdenes del cliente:", error);

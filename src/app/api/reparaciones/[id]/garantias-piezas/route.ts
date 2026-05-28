@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getGarantiasPieza,
   crearGarantiaPieza,
@@ -17,12 +18,25 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { id } = await params;
+
+    if (!isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: ordenCheck } = await supabase
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", id)
+        .single();
+      if (ordenCheck?.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+      }
+    }
+
     const garantias = await getGarantiasPieza(id);
 
     return NextResponse.json({ success: true, data: garantias });
@@ -49,7 +63,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -62,6 +76,18 @@ export async function POST(
     }
 
     const { id: ordenId } = await params;
+
+    if (!isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: ordenCheck } = await supabase
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", ordenId)
+        .single();
+      if (ordenCheck?.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+      }
+    }
     const body = await request.json();
     const { piezaReparacionId, motivoGarantia } = body;
 
@@ -111,10 +137,10 @@ export async function POST(
  */
 export async function PATCH(
   request: NextRequest,
-  { params: _params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -124,6 +150,20 @@ export async function PATCH(
         { success: false, error: "No autorizado" },
         { status: 403 }
       );
+    }
+
+    const { id: ordenId } = await params;
+
+    if (!isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: ordenCheck } = await supabase
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", ordenId)
+        .single();
+      if (ordenCheck?.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+      }
     }
 
     const body = await request.json();

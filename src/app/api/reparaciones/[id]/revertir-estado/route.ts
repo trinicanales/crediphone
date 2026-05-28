@@ -18,7 +18,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     if (role !== "admin" && role !== "super_admin") {
       return NextResponse.json({ error: "Solo admin puede revertir el estado" }, { status: 403 });
@@ -42,6 +42,10 @@ export async function POST(
 
     if (fetchError || !orden) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
+    }
+
+    if (!isSuperAdmin && orden.distribuidor_id !== distribuidorId) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
     const estadoActual = orden.estado as string;
