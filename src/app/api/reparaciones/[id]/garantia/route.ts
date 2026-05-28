@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getOrdenReparacionById,
   getGarantiaByOrden,
@@ -21,6 +22,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const verificar = searchParams.get("verificar");
@@ -50,6 +56,10 @@ export async function GET(
         },
         { status: 404 }
       );
+    }
+
+    if (!isSuperAdmin && orden.distribuidorId !== distribuidorId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
     }
 
     // Si se solicita verificación de garantía activa
@@ -105,6 +115,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await request.json();
 
@@ -135,6 +150,10 @@ export async function POST(
       );
     }
 
+    if (!isSuperAdmin && orden.distribuidorId !== distribuidorId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+    }
+
     // Caso 1: Reclamar garantía existente (crear orden en garantía)
     if (body.crearOrdenGarantia === true) {
       if (!body.motivoReclamo) {
@@ -148,13 +167,6 @@ export async function POST(
         );
       }
 
-      const { userId } = await getAuthContext();
-      if (!userId) {
-        return NextResponse.json(
-          { success: false, error: "No autenticado" },
-          { status: 401 }
-        );
-      }
       const creadoPor = userId;
 
       const ordenGarantia = await createOrdenGarantia(

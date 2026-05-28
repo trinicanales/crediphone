@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getNotificacionesOrden } from "@/lib/notificaciones-reparaciones";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -13,6 +14,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+
     const { id } = await params;
 
     if (!UUID_REGEX.test(id)) {
@@ -20,6 +26,18 @@ export async function GET(
         { success: false, error: "ID inválido" },
         { status: 400 }
       );
+    }
+
+    if (!isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: ordenCheck } = await supabase
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", id)
+        .single();
+      if (ordenCheck?.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
     }
 
     const notificaciones = await getNotificacionesOrden(id);
@@ -53,7 +71,7 @@ export async function POST(
 ) {
   try {
     // Auth — solo usuarios autenticados pueden registrar notificaciones manuales
-    const { userId } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json(
         { success: false, error: "No autenticado" },
@@ -71,8 +89,18 @@ export async function POST(
       );
     }
 
-    const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
+
+    if (!isSuperAdmin) {
+      const { data: ordenCheck } = await supabase
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", id)
+        .single();
+      if (ordenCheck?.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
+    }
 
     const { data, error } = await supabase
       .from("notificaciones")

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getDiagnosticosByOrden,
   crearSegundoDiagnostico,
@@ -19,12 +20,24 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
 
     const ALLOWED = ["admin", "tecnico", "super_admin", "vendedor"];
     if (!ALLOWED.includes(role ?? "")) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
+    }
+
+    if (!isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: ordenCheck } = await supabase
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", id)
+        .single();
+      if (ordenCheck?.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
     }
 
     const diagnosticos = await getDiagnosticosByOrden(id);
