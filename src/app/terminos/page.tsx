@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Shield, Clock, Wrench, AlertTriangle, Lock, Phone, FileText, CheckCircle } from "lucide-react";
+import { Shield, Clock, Wrench, AlertTriangle, Lock, Phone, FileText, CheckCircle, Monitor } from "lucide-react";
+import { getConfiguracion } from "@/lib/db/configuracion";
 
 export const metadata: Metadata = {
-  title: "Términos y Condiciones — CREDIPHONE",
+  title: "Términos y Condiciones — Servicio de Reparación",
   description:
-    "Términos y condiciones del servicio de reparación de CREDIPHONE. Política de garantía, privacidad y condiciones de servicio conforme a la LFPC y NOM-024-SCFI-2013.",
+    "Términos y condiciones del servicio de reparación. Política de garantía, privacidad y condiciones de servicio conforme a la LFPC y NOM-024-SCFI-2013.",
 };
 
 /* ── Componentes de estructura ───────────────────────────────────────────── */
@@ -132,7 +133,23 @@ function Destacado({ texto }: { texto: string }) {
 
 /* ── Página principal ────────────────────────────────────────────────────── */
 
-export default function TerminosPage() {
+export default async function TerminosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ d?: string }>;
+}) {
+  const { d } = await searchParams;
+
+  let nombreEmpresa = "CREDIPHONE";
+  if (d) {
+    try {
+      const config = await getConfiguracion(d);
+      if (config.nombreEmpresa) nombreEmpresa = config.nombreEmpresa;
+    } catch {
+      // usar default
+    }
+  }
+
   const fechaActualizacion = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
 
   return (
@@ -161,7 +178,7 @@ export default function TerminosPage() {
             Términos y Condiciones
           </h1>
           <p className="text-lg font-medium" style={{ color: "var(--color-accent)" }}>
-            CREDIPHONE — Servicio de Reparación
+            {nombreEmpresa} — Servicio de Reparación
           </p>
           <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
             Última actualización: {fechaActualizacion}
@@ -179,7 +196,7 @@ export default function TerminosPage() {
         >
           <Item
             numero={1}
-            texto="Al entregar un dispositivo en CREDIPHONE para diagnóstico o reparación, el cliente acepta íntegramente los presentes términos y condiciones."
+            texto={`Al entregar un dispositivo en ${nombreEmpresa} para diagnóstico o reparación, el cliente acepta íntegramente los presentes términos y condiciones.`}
           />
           <Item
             numero={2}
@@ -187,11 +204,11 @@ export default function TerminosPage() {
           />
           <Item
             numero={3}
-            texto="Estos términos aplican a todos los servicios prestados por CREDIPHONE, incluyendo diagnóstico, reparación, mantenimiento preventivo y garantías."
+            texto={`Estos términos aplican a todos los servicios prestados por ${nombreEmpresa}, incluyendo diagnóstico, reparación, mantenimiento preventivo y garantías.`}
           />
           <Item
             numero={4}
-            texto="CREDIPHONE se reserva el derecho de rechazar un servicio si el equipo presenta condiciones que imposibiliten la reparación segura o representa un riesgo para el personal técnico."
+            texto={`${nombreEmpresa} se reserva el derecho de rechazar un servicio si el equipo presenta condiciones que imposibiliten la reparación segura o representa un riesgo para el personal técnico.`}
           />
         </SeccionCard>
 
@@ -206,7 +223,7 @@ export default function TerminosPage() {
           />
           <Item
             numero={2}
-            texto="Una vez concluido el diagnóstico, CREDIPHONE emite un presupuesto detallado con el costo total de la reparación. El cliente debe aprobar o rechazar el presupuesto dentro de los 3 días hábiles siguientes a su notificación."
+            texto={`Una vez concluido el diagnóstico, ${nombreEmpresa} emite un presupuesto detallado con el costo total de la reparación. El cliente debe aprobar o rechazar el presupuesto dentro de los 3 días hábiles siguientes a su notificación.`}
           />
           <Item
             numero={3}
@@ -227,7 +244,7 @@ export default function TerminosPage() {
           <Destacado texto={`Garantía de 90 días naturales sobre la mano de obra realizada, conforme al Art. 76 bis de la Ley Federal de Protección al Consumidor (LFPC), vigente ${new Date().getFullYear()}.`} />
           <Item
             numero={1}
-            texto="La garantía cubre exclusivamente la mano de obra correspondiente al servicio realizado y las piezas instaladas por CREDIPHONE durante la reparación."
+            texto={`La garantía cubre exclusivamente la mano de obra correspondiente al servicio realizado y las piezas instaladas por ${nombreEmpresa} durante la reparación.`}
           />
           <Item
             numero={2}
@@ -236,7 +253,7 @@ export default function TerminosPage() {
           <Item
             numero={3}
             resaltado
-            texto="Para hacer válida la garantía, el cliente debe presentar su orden de servicio original (física o digital) y el equipo debe ser entregado en CREDIPHONE dentro del período de vigencia."
+            texto={`Para hacer válida la garantía, el cliente debe presentar su orden de servicio original (física o digital) y el equipo debe ser entregado en ${nombreEmpresa} dentro del período de vigencia.`}
           />
           <div
             className="rounded-xl p-4 space-y-2"
@@ -277,6 +294,114 @@ export default function TerminosPage() {
           </div>
         </SeccionCard>
 
+        {/* ── 3B. Garantía por tipo de pantalla ───────────────────── */}
+        <SeccionCard
+          icono={<Monitor className="w-5 h-5" />}
+          titulo="3A. Garantía según Tipo de Pantalla"
+        >
+          <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+            La garantía sobre pantallas varía según la tecnología y calidad de la refacción instalada.
+            El tipo de pantalla es informado al cliente antes de aprobar la reparación y queda
+            registrado en la orden de servicio.
+          </p>
+
+          {/* Tabla comparativa por tipo */}
+          <div className="space-y-3 pt-1">
+
+            {/* Incell — sin garantía */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--color-danger)" }}
+            >
+              <div
+                className="flex items-center gap-2 px-4 py-2.5"
+                style={{ background: "var(--color-danger-bg)" }}
+              >
+                <span className="text-sm font-bold" style={{ color: "var(--color-danger-text)" }}>
+                  ✗ Pantalla Incell (Compatible Básica)
+                </span>
+                <span
+                  className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--color-danger)", color: "#fff" }}
+                >
+                  SIN GARANTÍA
+                </span>
+              </div>
+              <div className="px-4 py-3 space-y-1.5" style={{ background: "var(--color-bg-surface)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                  Las pantallas Incell son refacciones compatibles de gama básica. Por su tecnología
+                  de fabricación presentan mayor susceptibilidad a fallas por presión, temperatura y
+                  brillo reducido. Debido a estas características técnicas, <strong>no aplica garantía
+                  sobre la pantalla</strong>. La garantía de mano de obra (instalación) sí aplica por
+                  30 días.
+                </p>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  El cliente es notificado de estas condiciones antes de autorizar el servicio.
+                </p>
+              </div>
+            </div>
+
+            {/* OEM / Premium — garantía completa */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--color-success)" }}
+            >
+              <div
+                className="flex items-center gap-2 px-4 py-2.5"
+                style={{ background: "var(--color-success-bg)" }}
+              >
+                <span className="text-sm font-bold" style={{ color: "var(--color-success-text)" }}>
+                  ✓ Pantalla OEM / Premium Compatible
+                </span>
+                <span
+                  className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--color-success)", color: "#fff" }}
+                >
+                  GARANTÍA 90 DÍAS
+                </span>
+              </div>
+              <div className="px-4 py-3" style={{ background: "var(--color-bg-surface)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                  Pantallas fabricadas bajo estándares OEM (Original Equipment Manufacturer) o línea
+                  Premium compatible. Presentan calidad visual y durabilidad equivalente a la original.
+                  Aplica la garantía estándar de 90 días sobre la pantalla e instalación.
+                </p>
+              </div>
+            </div>
+
+            {/* Original — garantía completa */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--color-accent)" }}
+            >
+              <div
+                className="flex items-center gap-2 px-4 py-2.5"
+                style={{ background: "var(--color-accent-light)" }}
+              >
+                <span className="text-sm font-bold" style={{ color: "var(--color-accent)" }}>
+                  ★ Pantalla Original (OLED / AMOLED)
+                </span>
+                <span
+                  className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--color-accent)", color: "#fff" }}
+                >
+                  GARANTÍA 90 DÍAS
+                </span>
+              </div>
+              <div className="px-4 py-3" style={{ background: "var(--color-bg-surface)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                  Pantallas originales del fabricante (Apple, Samsung, Xiaomi, etc.) con tecnología
+                  OLED o AMOLED. Máxima calidad visual, brillo y sensibilidad táctil idéntica a la
+                  de fábrica. Aplica garantía completa de 90 días.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          <Advertencia texto="La garantía de pantalla queda nula si el equipo presenta golpes, caídas, entrada de líquidos o manipulación por terceros posterior a la reparación, independientemente del tipo de pantalla instalada." />
+        </SeccionCard>
+
         {/* ── 4. Plazo de custodia ─────────────────────────────────── */}
         <SeccionCard
           icono={<Clock className="w-5 h-5" />}
@@ -284,7 +409,7 @@ export default function TerminosPage() {
         >
           <Item
             numero={1}
-            texto="Una vez que el equipo esté listo para su entrega, CREDIPHONE notificará al cliente por los medios registrados (WhatsApp, SMS o llamada telefónica)."
+            texto={`Una vez que el equipo esté listo para su entrega, ${nombreEmpresa} notificará al cliente por los medios registrados (WhatsApp, SMS o llamada telefónica).`}
           />
           <Item
             numero={2}
@@ -292,13 +417,13 @@ export default function TerminosPage() {
           />
           <Item
             numero={3}
-            texto="Transcurridos los 30 días sin que el cliente recoja el equipo, CREDIPHONE podrá cobrar una tarifa de almacenaje. Transcurridos 90 días sin reclamación, CREDIPHONE podrá disponer del equipo conforme a la legislación aplicable."
+            texto={`Transcurridos los 30 días sin que el cliente recoja el equipo, ${nombreEmpresa} podrá cobrar una tarifa de almacenaje. Transcurridos 90 días sin reclamación, ${nombreEmpresa} podrá disponer del equipo conforme a la legislación aplicable.`}
           />
           <Item
             numero={4}
             texto="El tiempo estimado de reparación señalado en la orden es referencial y no constituye una garantía de entrega. Factores como disponibilidad de piezas pueden modificar dicho plazo."
           />
-          <Advertencia texto="CREDIPHONE no se hace responsable por retrasos derivados de falta de disponibilidad de refacciones en el mercado o causas de fuerza mayor." />
+          <Advertencia texto={`${nombreEmpresa} no se hace responsable por retrasos derivados de falta de disponibilidad de refacciones en el mercado o causas de fuerza mayor.`} />
         </SeccionCard>
 
         {/* ── 5. Limitación de responsabilidad ────────────────────── */}
@@ -308,23 +433,23 @@ export default function TerminosPage() {
         >
           <Item
             numero={1}
-            texto="CREDIPHONE no se hace responsable por pérdida de datos, archivos, aplicaciones, contactos, fotos o configuraciones almacenadas en el dispositivo durante el diagnóstico o la reparación. Se recomienda encarecidamente realizar un respaldo (backup) completo antes de entregar el equipo."
+            texto={`${nombreEmpresa} no se hace responsable por pérdida de datos, archivos, aplicaciones, contactos, fotos o configuraciones almacenadas en el dispositivo durante el diagnóstico o la reparación. Se recomienda encarecidamente realizar un respaldo (backup) completo antes de entregar el equipo.`}
           />
           <Item
             numero={2}
-            texto="Los equipos con daño previo por contacto con líquidos (agua, refrescos, sudor, etc.) presentan corrosión interna que puede progresar de forma imprevisible. CREDIPHONE no responde por fallas adicionales derivadas de dicho daño preexistente (NOM-024-SCFI-2013)."
+            texto={`Los equipos con daño previo por contacto con líquidos (agua, refrescos, sudor, etc.) presentan corrosión interna que puede progresar de forma imprevisible. ${nombreEmpresa} no responde por fallas adicionales derivadas de dicho daño preexistente (NOM-024-SCFI-2013).`}
           />
           <Item
             numero={3}
-            texto="Las baterías con deformación física (hinchamiento) representan un riesgo de incendio o explosión. Si el equipo presenta esta condición, CREDIPHONE recomienda su sustitución inmediata y no es responsable por daños derivados de una batería en esas condiciones."
+            texto={`Las baterías con deformación física (hinchamiento) representan un riesgo de incendio o explosión. Si el equipo presenta esta condición, ${nombreEmpresa} recomienda su sustitución inmediata y no es responsable por daños derivados de una batería en esas condiciones.`}
           />
           <Item
             numero={4}
-            texto="Las fallas preexistentes documentadas al momento de la recepción (pantalla rota, micrófono dañado, etc.) quedan registradas en la orden de servicio. CREDIPHONE no responde por dichas preexistencias ni por su agravamiento durante la reparación de otro componente."
+            texto={`Las fallas preexistentes documentadas al momento de la recepción (pantalla rota, micrófono dañado, etc.) quedan registradas en la orden de servicio. ${nombreEmpresa} no responde por dichas preexistencias ni por su agravamiento durante la reparación de otro componente.`}
           />
           <Item
             numero={5}
-            texto="La responsabilidad máxima de CREDIPHONE por cualquier daño atribuible al servicio prestado se limita al valor comercial del equipo al momento de su recepción, debidamente documentado."
+            texto={`La responsabilidad máxima de ${nombreEmpresa} por cualquier daño atribuible al servicio prestado se limita al valor comercial del equipo al momento de su recepción, debidamente documentado.`}
           />
         </SeccionCard>
 
@@ -339,7 +464,7 @@ export default function TerminosPage() {
           />
           <Item
             numero={2}
-            texto="CREDIPHONE puede solicitar un anticipo al momento de la recepción del equipo o al aprobar el presupuesto. El anticipo se descuenta del total al momento de la entrega."
+            texto={`${nombreEmpresa} puede solicitar un anticipo al momento de la recepción del equipo o al aprobar el presupuesto. El anticipo se descuenta del total al momento de la entrega.`}
           />
           <Item
             numero={3}
@@ -351,7 +476,7 @@ export default function TerminosPage() {
           />
           <Item
             numero={5}
-            texto="CREDIPHONE emite comprobante de pago por cada transacción realizada. El cliente puede solicitar factura fiscal con su RFC al momento del pago."
+            texto={`${nombreEmpresa} emite comprobante de pago por cada transacción realizada. El cliente puede solicitar factura fiscal con su RFC al momento del pago.`}
           />
         </SeccionCard>
 
@@ -365,7 +490,7 @@ export default function TerminosPage() {
           </p>
           <Item
             numero={1}
-            texto="CREDIPHONE recopila únicamente los datos personales necesarios para la prestación del servicio: nombre, teléfono, dirección y datos del dispositivo. Estos datos son tratados de forma confidencial."
+            texto={`${nombreEmpresa} recopila únicamente los datos personales necesarios para la prestación del servicio: nombre, teléfono, dirección y datos del dispositivo. Estos datos son tratados de forma confidencial.`}
           />
           <Item
             numero={2}
@@ -373,18 +498,18 @@ export default function TerminosPage() {
           />
           <Item
             numero={3}
-            texto="CREDIPHONE no vende, alquila ni comparte los datos personales de sus clientes con terceros, salvo requerimiento de autoridad competente."
+            texto={`${nombreEmpresa} no vende, alquila ni comparte los datos personales de sus clientes con terceros, salvo requerimiento de autoridad competente.`}
           />
           <Item
             numero={4}
             resaltado
-            texto="El cliente tiene derecho a acceder, rectificar, cancelar u oponerse al tratamiento de sus datos (derechos ARCO). Para ejercerlos, puede comunicarse directamente en cualquier sucursal CREDIPHONE."
+            texto={`El cliente tiene derecho a acceder, rectificar, cancelar u oponerse al tratamiento de sus datos (derechos ARCO). Para ejercerlos, puede comunicarse directamente en cualquier sucursal ${nombreEmpresa}.`}
           />
           <Item
             numero={5}
             texto="Las contraseñas, patrones de desbloqueo y cuentas de dispositivo proporcionados son utilizados exclusivamente para el diagnóstico y reparación, y son eliminados de nuestros registros al momento de la entrega."
           />
-          <Advertencia texto="CREDIPHONE no accede al contenido personal del dispositivo (mensajes, fotos, aplicaciones) más allá de lo estrictamente necesario para el diagnóstico técnico." />
+          <Advertencia texto={`${nombreEmpresa} no accede al contenido personal del dispositivo (mensajes, fotos, aplicaciones) más allá de lo estrictamente necesario para el diagnóstico técnico.`} />
         </SeccionCard>
 
         {/* ── 8. Modificaciones ───────────────────────────────────── */}
@@ -394,7 +519,7 @@ export default function TerminosPage() {
         >
           <Item
             numero={1}
-            texto="CREDIPHONE se reserva el derecho de modificar los presentes términos en cualquier momento. Las modificaciones serán publicadas en esta página con la fecha de actualización correspondiente."
+            texto={`${nombreEmpresa} se reserva el derecho de modificar los presentes términos en cualquier momento. Las modificaciones serán publicadas en esta página con la fecha de actualización correspondiente.`}
           />
           <Item
             numero={2}
@@ -402,7 +527,7 @@ export default function TerminosPage() {
           />
           <Item
             numero={3}
-            texto="El uso continuo del servicio de reparación de CREDIPHONE después de la publicación de cambios constituye la aceptación de los nuevos términos."
+            texto={`El uso continuo del servicio de reparación de ${nombreEmpresa} después de la publicación de cambios constituye la aceptación de los nuevos términos.`}
           />
         </SeccionCard>
 
@@ -423,7 +548,7 @@ export default function TerminosPage() {
                 letterSpacing: "0.1em",
               }}
             >
-              CREDIPHONE
+              {nombreEmpresa}
             </p>
             <p
               className="text-sm mt-1"
@@ -458,7 +583,7 @@ export default function TerminosPage() {
             Términos conforme a LFPC · NOM-024-SCFI-2013 · LFPDPPP · Código Civil Federal
           </p>
           <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-            © {new Date().getFullYear()} CREDIPHONE — Todos los derechos reservados
+            © {new Date().getFullYear()} {nombreEmpresa} — Todos los derechos reservados
           </p>
         </div>
 

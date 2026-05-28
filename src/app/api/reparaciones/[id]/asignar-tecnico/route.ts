@@ -68,6 +68,22 @@ export async function POST(
       );
     }
 
+    // SEGURIDAD: validar que el técnico pertenece al mismo distribuidor
+    if (!auth.isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: empTecnico } = await supabase
+        .from("empleados")
+        .select("distribuidor_id, role")
+        .eq("user_id", body.tecnicoId)
+        .single();
+      if (!empTecnico || empTecnico.distribuidor_id !== auth.distribuidorId) {
+        return NextResponse.json(
+          { success: false, error: "El técnico no pertenece a esta tienda" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Verificar que la orden existe
     const orden = await getOrdenReparacionById(id);
     if (!orden) {

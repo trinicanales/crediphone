@@ -137,7 +137,7 @@ function parseCondiciones(cond: unknown): {
   return { oks, fallas, alertas, extras };
 }
 
-function buildTerms(cond: unknown, imei?: string): string[] {
+function buildTerms(cond: unknown, imei?: string, empresa = "CREDIPHONE"): string[] {
   const obj = (cond && typeof cond === "object" && !Array.isArray(cond))
     ? cond as Record<string, unknown>
     : null;
@@ -150,10 +150,10 @@ function buildTerms(cond: unknown, imei?: string): string[] {
   };
 
   const terms: string[] = [
-    "Propiedad y datos: El cliente declara ser propietario legítimo del equipo. CREDIPHONE no se responsabiliza por pérdida de datos; se recomienda respaldo previo.",
+    `Propiedad y datos: El cliente declara ser propietario legítimo del equipo. ${empresa} no se responsabiliza por pérdida de datos; se recomienda respaldo previo.`,
     `Garantía: 90 días naturales sobre mano de obra (LFPC Art. 76 bis). No aplica por golpes, líquidos ni mal uso posteriores al servicio.`,
     "Diagnóstico: Si el cliente rechaza el presupuesto, el equipo se devuelve en el estado recibido. Al aprobar, autoriza expresamente los trabajos y el costo indicado.",
-    "Resguardo y recolección (LFPC Art. 63): El cliente tiene 30 días naturales a partir de la notificación de equipo listo para recogerlo sin cargo adicional. Transcurrido dicho plazo se aplicará una tarifa de almacenaje diaria. A los 90 días sin reclamación, CREDIPHONE podrá disponer del equipo para recuperar costos. El cliente acepta estas condiciones al firmar.",
+    `Resguardo y recolección (LFPC Art. 63): El cliente tiene 30 días naturales a partir de la notificación de equipo listo para recogerlo sin cargo adicional. Transcurrido dicho plazo se aplicará una tarifa de almacenaje diaria. A los 90 días sin reclamación, ${empresa} podrá disponer del equipo para recuperar costos. El cliente acepta estas condiciones al firmar.`,
     "T&C completos disponibles en el código QR de este documento.",
   ];
 
@@ -173,7 +173,7 @@ function buildTerms(cond: unknown, imei?: string): string[] {
   if (extras.length > 0) notas.push(`Condiciones documentadas: ${extras.join(", ")}`);
   if (fallas.length > 0)  notas.push(`Fallas preexistentes: ${fallas.join(", ")}`);
   if (notas.length > 0) {
-    terms.splice(terms.length - 1, 0, `${notas.join(". ")}. CREDIPHONE no responde por estas condiciones ni su agravamiento.`);
+    terms.splice(terms.length - 1, 0, `${notas.join(". ")}. ${empresa} no responde por estas condiciones ni su agravamiento.`);
   }
 
   const imeiVacio = !imei || !imei.trim() ||
@@ -267,7 +267,9 @@ export async function generarOrdenPDF(
   const cargoCancelacion = Number(orden.cargo_cancelacion ?? 100);
 
   const trackingUrl = `${proto}://${host}/reparacion/${orden.folio}`;
-  const terminosUrl = `${proto}://${host}/terminos`;
+  const terminosUrl = orden.distribuidor_id
+    ? `${proto}://${host}/terminos?d=${orden.distribuidor_id}`
+    : `${proto}://${host}/terminos`;
 
   let qrTrackData = "";
   let qrTermsData = "";
@@ -782,7 +784,7 @@ export async function generarOrdenPDF(
   );
   y += 9;
 
-  const terms = buildTerms(orden.condiciones_funcionamiento, orden.imei ?? "");
+  const terms = buildTerms(orden.condiciones_funcionamiento, orden.imei ?? "", nombreEmpresa);
   const LINE_H = 3.8;
   doc.setFontSize(8);
 
@@ -857,7 +859,7 @@ export async function generarOrdenPDF(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   tc(doc, C.brandDark);
-  doc.text("CREDIPHONE", sx + 31, sy + 9, { align: "center" });
+  doc.text(nombreEmpresa.toUpperCase(), sx + 31, sy + 9, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6);
   tc(doc, C.grayLight);
