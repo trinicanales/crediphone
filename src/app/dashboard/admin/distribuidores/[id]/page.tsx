@@ -6,14 +6,14 @@ import Link from "next/link";
 import {
   Building2, ArrowLeft, Users, CreditCard, Package,
   ShoppingCart, DollarSign, ToggleLeft, ToggleRight,
-  Pencil, RefreshCw, CheckCircle, XCircle, UserCheck, UserPlus, Copy, Check,
+  Pencil, RefreshCw, CheckCircle, XCircle, UserCheck, UserPlus, Copy, Check, GitBranch,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import type { Distribuidor } from "@/types";
+import type { Distribuidor, TipoTenant } from "@/types";
 
 interface Stats {
   totalClientes: number;
@@ -62,6 +62,15 @@ export default function DistribuidorDetailPage() {
 
   const [editForm, setEditForm] = useState({ nombre: "", slug: "", logoUrl: "", activo: true });
 
+  // Jerarquía / tipo de tienda
+  const [todosDistribuidores, setTodosDistribuidores] = useState<{ id: string; nombre: string }[]>([]);
+  const [jerarquiaForm, setJerarquiaForm] = useState<{
+    tipoTenant: TipoTenant;
+    parentDistribuidorId: string;
+  }>({ tipoTenant: "independiente", parentDistribuidorId: "" });
+  const [savingJerarquia, setSavingJerarquia] = useState(false);
+  const [jerarquiaMsg, setJerarquiaMsg] = useState("");
+
   // Modal asignar empleados existentes
   const [showAsignarEmpleado, setShowAsignarEmpleado] = useState(false);
   const [todosEmpleados, setTodosEmpleados] = useState<{ id: string; name: string; role: string; distribuidorId: string | null }[]>([]);
@@ -83,6 +92,7 @@ export default function DistribuidorDetailPage() {
     if (id) {
       fetchDistribuidor();
       fetchStats();
+      fetchTodosDistribuidores();
     }
   }, [id]);
 
@@ -99,11 +109,53 @@ export default function DistribuidorDetailPage() {
           logoUrl: data.data.logoUrl || "",
           activo: data.data.activo,
         });
+        setJerarquiaForm({
+          tipoTenant: data.data.tipoTenant ?? "independiente",
+          parentDistribuidorId: data.data.parentDistribuidorId ?? "",
+        });
       } else {
         router.push("/dashboard/admin/distribuidores");
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTodosDistribuidores = async () => {
+    const res = await fetch("/api/admin/distribuidores");
+    const data = await res.json();
+    if (data.success) {
+      setTodosDistribuidores(data.data.map((d: Distribuidor) => ({ id: d.id, nombre: d.nombre })));
+    }
+  };
+
+  const handleGuardarJerarquia = async () => {
+    setSavingJerarquia(true);
+    setJerarquiaMsg("");
+    try {
+      const body: Record<string, unknown> = { tipoTenant: jerarquiaForm.tipoTenant };
+      if (jerarquiaForm.tipoTenant === "franquiciatario") {
+        body.parentDistribuidorId = jerarquiaForm.parentDistribuidorId || null;
+      } else {
+        body.parentDistribuidorId = null;
+      }
+      const res = await fetch(`/api/admin/distribuidores/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDistribuidor(data.data);
+        setJerarquiaMsg("✓ Guardado");
+        setTimeout(() => setJerarquiaMsg(""), 3000);
+      } else {
+        setJerarquiaMsg(data.error || "Error al guardar");
+      }
+    } catch {
+      setJerarquiaMsg("Error de conexión");
+    } finally {
+      setSavingJerarquia(false);
     }
   };
 
@@ -352,6 +404,87 @@ export default function DistribuidorDetailPage() {
             </p>
           </div>
         </div>
+      </Card>
+
+      {/* Jerarquía / Tipo de tienda */}
+      <Card className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <GitBranch className="w-4 h-4" style={{ color: "var(--color-accent)" }} />
+          <h2 className="font-semibold text-sm" style={{ color: "var(--color-text-primary)" }}>
+            Tipo de tienda y jerarquía
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>
+              Tipo de tienda
+            </label>
+            <select
+              value={jerarquiaForm.tipoTenant}
+              onChange={(e) => setJerarquiaForm((p) => ({ ...p, tipoTenant: e.target.value as TipoTenant }))}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{
+                background: "var(--color-surface)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-text-primary)",
+              }}
+            >
+              <option value="independiente">Independiente — tienda autónoma</option>
+              <option value="franquiciador">Franquiciador — puede ver tiendas hijas</option>
+              <option value="franquiciatario">Franquiciatario — pertenece a una red</option>
+            </select>
+          </div>
+
+          {jerarquiaForm.tipoTenant === "franquiciatario" && (
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>
+                Tienda padre (franquiciador)
+              </label>
+              <select
+                value={jerarquiaForm.parentDistribuidorId}
+                onChange={(e) => setJerarquiaForm((p) => ({ ...p, parentDistribuidorId: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  background: "var(--color-surface)",
+                  borderColor: "var(--color-border)",
+                  color: "var(--color-text-primary)",
+                }}
+              >
+                <option value="">— Seleccionar franquiciador —</option>
+                {todosDistribuidores
+                  .filter((d) => d.id !== id)
+                  .map((d) => (
+                    <option key={d.id} value={d.id}>{d.nombre}</option>
+                  ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 mt-4">
+          <button
+            onClick={handleGuardarJerarquia}
+            disabled={savingJerarquia}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 transition-colors"
+            style={{ background: "var(--color-accent)" }}
+          >
+            {savingJerarquia ? "Guardando..." : "Guardar jerarquía"}
+          </button>
+          {jerarquiaMsg && (
+            <span
+              className="text-sm font-medium"
+              style={{ color: jerarquiaMsg.startsWith("✓") ? "var(--color-success)" : "var(--color-danger)" }}
+            >
+              {jerarquiaMsg}
+            </span>
+          )}
+        </div>
+
+        <p className="text-xs mt-3" style={{ color: "var(--color-text-muted)" }}>
+          <strong>Independiente:</strong> tienda autónoma sin relación jerárquica. &nbsp;
+          <strong>Franquiciador:</strong> puede ver las órdenes y estadísticas de sus franquiciatarios. &nbsp;
+          <strong>Franquiciatario:</strong> pertenece a un franquiciador que tiene visibilidad sobre esta tienda.
+        </p>
       </Card>
 
       {/* Stats */}

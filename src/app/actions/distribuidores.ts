@@ -17,7 +17,9 @@ export async function createDistribuidorAction(formData: FormData) {
             slug,
             logoUrl,
             activo,
-            configuracion: {}, // Default config created by createDistribuidor helper
+            configuracion: {},
+            tipoTenant: "independiente",
+            permiteImpersonacion: true,
         });
 
         revalidatePath("/dashboard/admin/distribuidores");

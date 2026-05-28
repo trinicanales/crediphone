@@ -115,6 +115,10 @@ export async function updateDistribuidor(
     if (data.logoUrl !== undefined) updateData.logo_url = data.logoUrl;
     if (data.activo !== undefined) updateData.activo = data.activo;
     if (data.configuracion !== undefined) updateData.configuracion = data.configuracion;
+    // Jerarquía multi-tenant
+    if (data.tipoTenant !== undefined) updateData.tipo_tenant = data.tipoTenant;
+    if (data.parentDistribuidorId !== undefined) updateData.parent_distribuidor_id = data.parentDistribuidorId || null;
+    if (data.permiteImpersonacion !== undefined) updateData.permite_impersonacion = data.permiteImpersonacion;
 
     const { data: updatedDist, error } = await supabase
         .from("distribuidores")
@@ -171,7 +175,7 @@ function mapDistribuidorFromDB(db: any): Distribuidor {
         nombre: db.nombre,
         slug: db.slug,
         logoUrl: db.logo_url,
-        activo: db.activo,
+        activo: db.activo ?? true,
         configuracion: db.configuracion,
         franquicia: {
             modoOperacion: db.modo_operacion ?? "red",
@@ -181,6 +185,11 @@ function mapDistribuidorFromDB(db: any): Distribuidor {
             pagosHabilitados: db.pagos_habilitados ?? PAGOS_DEFAULT,
             notasFranquicia: db.notas_franquicia ?? undefined,
         },
+        // Jerarquía multi-tenant
+        tipoTenant: db.tipo_tenant ?? "independiente",
+        parentDistribuidorId: db.parent_distribuidor_id ?? undefined,
+        parentPath: db.parent_path ?? undefined,
+        permiteImpersonacion: db.permite_impersonacion ?? true,
         createdAt: new Date(db.created_at),
         updatedAt: new Date(db.updated_at),
     };

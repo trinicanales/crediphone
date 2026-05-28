@@ -24,6 +24,8 @@ export interface FranquiciaConfig {
   notasFranquicia?: string;
 }
 
+export type TipoTenant = "franquiciador" | "franquiciatario" | "independiente";
+
 export interface Distribuidor {
   id: string;
   nombre: string;
@@ -33,6 +35,11 @@ export interface Distribuidor {
   configuracion?: Record<string, any>;
   // Módulo Franquicia
   franquicia?: FranquiciaConfig;
+  // Jerarquía multi-tenant (Fase B 2026-05-27)
+  tipoTenant: TipoTenant;
+  parentDistribuidorId?: string;
+  parentPath?: string;
+  permiteImpersonacion: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

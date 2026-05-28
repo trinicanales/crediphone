@@ -40,6 +40,8 @@ export async function POST(request: Request) {
       logoUrl: body.logoUrl || undefined,
       activo: body.activo ?? true,
       configuracion: {},
+      tipoTenant: "independiente",
+      permiteImpersonacion: true,
     });
 
     return NextResponse.json({ success: true, data: nuevo }, { status: 201 });
