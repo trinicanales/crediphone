@@ -1102,3 +1102,94 @@ export function generarTicketDevolucion(data: TicketDevolucionData): string {
 </body>
 </html>`;
 }
+
+// ── 5. COMPROBANTE BOLSA VIRTUAL (ANTICIPOS DE REPARACIÓN) ───────────────────
+
+export interface OrdenBolsaComprobante {
+  folio: string;
+  clienteNombre: string;
+  clienteTelefono: string | null;
+  marcaDispositivo: string;
+  modeloDispositivo: string;
+  presupuestoTotal: number;
+  totalAnticipos: number;
+  saldoPendiente: number;
+  anticipos: Array<{
+    monto: number;
+    tipoPago: string;
+    fechaAnticipo: string;
+    recibidoPorNombre: string | null;
+  }>;
+  distribuidorNombre?: string;
+  fechaImpresion: string;
+}
+
+export function generarComprobanteBolsa(data: OrdenBolsaComprobante): string {
+  const anticiposRows = data.anticipos.map((a) => {
+    const fecha = new Date(a.fechaAnticipo).toLocaleDateString("es-MX", {
+      day: "2-digit", month: "2-digit", year: "2-digit",
+    });
+    const hora = new Date(a.fechaAnticipo).toLocaleTimeString("es-MX", {
+      hour: "2-digit", minute: "2-digit",
+    });
+    const metodoLabel: Record<string, string> = {
+      efectivo: "Efectivo",
+      tarjeta: "Tarjeta",
+      transferencia: "Transf.",
+      deposito: "Depósito",
+      mixto: "Mixto",
+    };
+    return `
+    <tr>
+      <td>${fecha} ${hora}</td>
+      <td>${metodoLabel[a.tipoPago] || a.tipoPago}</td>
+      <td class="r">${fmtTicket(a.monto)}</td>
+    </tr>`;
+  }).join("");
+
+  const fechaImp = new Date(data.fechaImpresion).toLocaleDateString("es-MX", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  } as Intl.DateTimeFormatOptions);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Comprobante ${data.folio}</title>
+  <style>${CSS_TICKET}</style>
+</head>
+<body>
+  <div class="center bold lg">${data.distribuidorNombre || "CREDIPHONE"}</div>
+  <div class="center sm">COMPROBANTE DE PAGOS</div>
+
+  <button class="print-btn" onclick="window.print()">🖨 Imprimir Comprobante</button>
+
+  <div class="sep"></div>
+  <div class="row"><span class="lbl">Folio:</span><span class="val bold">${data.folio}</span></div>
+  <div class="row"><span class="lbl">Cliente:</span><span>${data.clienteNombre}</span></div>
+  ${data.clienteTelefono ? `<div class="row"><span class="lbl">Tel:</span><span>${data.clienteTelefono}</span></div>` : ""}
+  <div class="row"><span class="lbl">Equipo:</span><span>${data.marcaDispositivo} ${data.modeloDispositivo}</span></div>
+
+  <div class="sep"></div>
+  <div class="bold sm">PAGOS REGISTRADOS</div>
+  <table>
+    <thead>
+      <tr><th>Fecha/Hora</th><th>Método</th><th class="r">Monto</th></tr>
+    </thead>
+    <tbody>${anticiposRows}</tbody>
+  </table>
+
+  <div class="sep-solid"></div>
+  <div class="row"><span class="lbl">Presupuesto total:</span><span>${fmtTicket(data.presupuestoTotal)}</span></div>
+  <div class="row bold"><span>Total cobrado:</span><span>${fmtTicket(data.totalAnticipos)}</span></div>
+  ${data.saldoPendiente > 0.01 ? `<div class="row bold xl"><span>Saldo pendiente:</span><span>${fmtTicket(data.saldoPendiente)}</span></div>` : `<div class="row bold" style="color:#333"><span>Saldo:</span><span>PAGADO ✓</span></div>`}
+
+  <div class="sep"></div>
+  <div class="footer">
+    <p>¡Gracias por su confianza!</p>
+    <p>Impreso: ${fechaImp}</p>
+  </div>
+</body>
+</html>`;
+}

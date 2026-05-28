@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { reasignarTecnico, getOrdenReparacionById } from "@/lib/db/reparaciones";
 import { requireAuth } from "@/lib/auth/guard";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * POST /api/reparaciones/[id]/asignar-tecnico
@@ -32,6 +33,15 @@ export async function POST(
         },
         { status: 400 }
       );
+    }
+
+    // SEGURIDAD: validar que la orden pertenece al distribuidor del usuario
+    if (!auth.isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: chk } = await supabase.from("ordenes_reparacion").select("distribuidor_id").eq("id", id).single();
+      if (!chk || chk.distribuidor_id !== auth.distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
     }
 
     // Validar que se proporcione tecnicoId

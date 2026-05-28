@@ -49,8 +49,11 @@ export async function GET(request: Request) {
     const garantias = searchParams.get("garantias");
     const stats = searchParams.get("stats");
 
-    // Filtro de distribuidor (null = super_admin ve todo)
-    const filterDistribuidorId = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
+    // Filtro de distribuidor — super_admin puede pasar X-Distribuidor-Id header para filtrar
+    const headerDistId = request.headers.get("X-Distribuidor-Id");
+    const filterDistribuidorId = isSuperAdmin
+      ? (headerDistId ?? undefined)
+      : (distribuidorId ?? undefined);
 
     // Si se solicitan estadísticas
     if (stats === "true") {

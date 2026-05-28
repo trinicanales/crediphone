@@ -8,6 +8,7 @@ import { ModalCambiarEstado } from "@/components/reparaciones/ModalCambiarEstado
 import { OrdenCard } from "@/components/reparaciones/cards/OrdenCard";
 import { OrdenDrawer } from "@/components/reparaciones/drawer/OrdenDrawer";
 import { useAuth } from "@/components/AuthProvider";
+import { useDistribuidor } from "@/components/DistribuidorProvider";
 import type {
   OrdenReparacionDetallada,
   EstadoOrdenReparacion,
@@ -74,6 +75,7 @@ function StatPill({
 
 export default function ReparacionesPage() {
   const { user, loading: authLoading } = useAuth();
+  const { distribuidorActivo } = useDistribuidor();
   const isOnline = useOnlineStatus();
   const [ordenes, setOrdenes] = useState<OrdenReparacionDetallada[]>([]);
   const [filteredOrdenes, setFilteredOrdenes] = useState<OrdenReparacionDetallada[]>([]);
@@ -141,7 +143,8 @@ export default function ReparacionesPage() {
         })
         .catch(() => {});
     }
-  }, [authLoading, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user, distribuidorActivo]);
 
   // Filtrar órdenes cuando cambian filtros o búsqueda
   useEffect(() => {
@@ -156,7 +159,9 @@ export default function ReparacionesPage() {
   async function fetchOrdenes() {
     try {
       setLoading(true);
-      const response = await fetch("/api/reparaciones?detalladas=true");
+      const headers: Record<string, string> = {};
+      if (distribuidorActivo?.id) headers["X-Distribuidor-Id"] = distribuidorActivo.id;
+      const response = await fetch("/api/reparaciones?detalladas=true", { headers });
       const data = await response.json();
 
       if (data.success) {
@@ -173,7 +178,9 @@ export default function ReparacionesPage() {
 
   async function refreshSilencioso() {
     try {
-      const response = await fetch("/api/reparaciones?detalladas=true");
+      const headers: Record<string, string> = {};
+      if (distribuidorActivo?.id) headers["X-Distribuidor-Id"] = distribuidorActivo.id;
+      const response = await fetch("/api/reparaciones?detalladas=true", { headers });
       const data = await response.json();
       if (data.success) {
         setOrdenes(data.data);

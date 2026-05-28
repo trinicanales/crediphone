@@ -6,7 +6,7 @@ import { getProductos } from "@/lib/db/productos";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // SEGURIDAD: usar getAuthContext() para obtener role + distribuidorId
     const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
@@ -14,8 +14,9 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     }
 
-    // super_admin ve todo (distId = undefined → sin filtro); otros solo su distribuidor
-    const distId = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
+    // super_admin puede filtrar por X-Distribuidor-Id header; otros solo su distribuidor
+    const headerDistId = request.headers.get("X-Distribuidor-Id");
+    const distId = isSuperAdmin ? (headerDistId ?? undefined) : (distribuidorId ?? undefined);
 
     // Ejecutar todas las consultas en paralelo para mejor rendimiento
     const [clientes, creditos, creditosActivos, pagosHoy, totalPagosHoy, productos] = await Promise.all([

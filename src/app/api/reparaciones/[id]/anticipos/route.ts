@@ -19,12 +19,21 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
 
     const { id } = await params;
     if (!UUID_REGEX.test(id)) {
       return NextResponse.json({ success: false, error: "ID inválido" }, { status: 400 });
+    }
+
+    // SEGURIDAD: validar que la orden pertenece al distribuidor del usuario
+    if (!isSuperAdmin) {
+      const supabaseCheck = createAdminClient();
+      const { data: chk } = await supabaseCheck.from("ordenes_reparacion").select("distribuidor_id").eq("id", id).single();
+      if (!chk || chk.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
     }
 
     const anticipos = await getAnticiposByOrden(id);
@@ -58,12 +67,21 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role, distribuidorId } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
 
     const { id } = await params;
     if (!UUID_REGEX.test(id)) {
       return NextResponse.json({ success: false, error: "ID inválido" }, { status: 400 });
+    }
+
+    // SEGURIDAD: validar que la orden pertenece al distribuidor del usuario
+    if (!isSuperAdmin) {
+      const supabaseCheck = createAdminClient();
+      const { data: chk } = await supabaseCheck.from("ordenes_reparacion").select("distribuidor_id").eq("id", id).single();
+      if (!chk || chk.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
     }
 
     const body = await request.json();

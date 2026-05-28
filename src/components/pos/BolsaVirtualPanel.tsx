@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   ShoppingBag, RefreshCw, AlertCircle, DollarSign, User, Clock,
-  ChevronDown, ChevronRight, Banknote, CreditCard, ArrowUpDown,
+  ChevronDown, ChevronRight, Banknote, CreditCard, ArrowUpDown, Printer,
 } from "lucide-react";
 import type { TipoPago } from "@/types";
+import { generarComprobanteBolsa, abrirReporte } from "@/lib/utils/reportes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -183,6 +184,27 @@ function OrdenCard({ orden, onAnticipoAgregado }: OrdenCardProps) {
   const [modalAnticipo, setModalAnticipo] = useState<"anticipo" | "cobro" | null>(null);
   const [hovered, setHovered] = useState(false);
 
+  const handleComprobante = () => {
+    const html = generarComprobanteBolsa({
+      folio: orden.folio,
+      clienteNombre: orden.clienteNombre,
+      clienteTelefono: orden.clienteTelefono,
+      marcaDispositivo: orden.marcaDispositivo,
+      modeloDispositivo: orden.modeloDispositivo,
+      presupuestoTotal: orden.presupuestoTotal,
+      totalAnticipos: orden.totalAnticipos,
+      saldoPendiente: orden.saldoPendiente,
+      anticipos: orden.anticipos.map((a) => ({
+        monto: a.monto,
+        tipoPago: a.tipoPago,
+        fechaAnticipo: a.fechaAnticipo,
+        recibidoPorNombre: a.recibidoPorNombre,
+      })),
+      fechaImpresion: new Date().toISOString(),
+    });
+    abrirReporte(html, `Comprobante ${orden.folio}`);
+  };
+
   const porcentaje = orden.presupuestoTotal > 0
     ? Math.min(100, (orden.totalAnticipos / orden.presupuestoTotal) * 100)
     : 0;
@@ -315,6 +337,14 @@ function OrdenCard({ orden, onAnticipoAgregado }: OrdenCardProps) {
             style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-secondary)", border: "1px solid var(--color-border)" }}
           >
             + Anticipo
+          </button>
+          <button
+            onClick={handleComprobante}
+            title="Imprimir comprobante de pagos"
+            className="text-xs py-1.5 px-2.5 rounded-lg font-medium"
+            style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)", border: "1px solid var(--color-border)" }}
+          >
+            <Printer className="w-3.5 h-3.5" />
           </button>
         </div>
 

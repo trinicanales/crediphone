@@ -115,6 +115,7 @@ function mapOrdenFromDB(dbOrden: any): OrdenReparacion {
     snapshotCotizacionInicial: dbOrden.snapshot_cotizacion_inicial ?? null,
     trackingToken: dbOrden.tracking_token ?? null,
     checklistApertura: dbOrden.checklist_apertura ?? null,
+    distribuidorId: dbOrden.distribuidor_id ?? undefined,
   };
 }
 

@@ -7,6 +7,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/components/AuthProvider";
 import { useConfig } from "@/components/ConfigProvider";
+import { useDistribuidor } from "@/components/DistribuidorProvider";
 import { ModalOrden } from "@/components/reparaciones/ModalOrden";
 import { OrdenDrawer } from "@/components/reparaciones/drawer/OrdenDrawer";
 import { PanelTraspasosPendientes } from "@/components/reparaciones/traspasos/PanelTraspasosPendientes";
@@ -102,6 +103,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { isModuleEnabled } = useConfig();
+  const { distribuidorActivo } = useDistribuidor();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [repStats, setRepStats] = useState<RepDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +120,7 @@ export default function DashboardPage() {
   const [notifFallidasCount, setNotifFallidasCount] = useState(0);
 
   // PAGES-002: Esperar a que user esté cargado antes de hacer fetch (evita 401/403 en carga inicial)
+  // Re-fetch cuando el super_admin cambia de distribuidor en el selector del sidebar
   useEffect(() => {
     if (!user) return;
     fetchStats();
@@ -133,12 +136,14 @@ export default function DashboardPage() {
         .catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, distribuidorActivo]);
 
   const fetchOrdenesPendientes = async () => {
     try {
       setLoadingPendientes(true);
-      const res = await fetch("/api/reparaciones?detalladas=true");
+      const headers: Record<string, string> = {};
+      if (distribuidorActivo?.id) headers["X-Distribuidor-Id"] = distribuidorActivo.id;
+      const res = await fetch("/api/reparaciones?detalladas=true", { headers });
       const data = await res.json();
       if (data.success) {
         // Solo estados que requieren acción inmediata
@@ -158,7 +163,9 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/stats");
+      const headers: Record<string, string> = {};
+      if (distribuidorActivo?.id) headers["X-Distribuidor-Id"] = distribuidorActivo.id;
+      const response = await fetch("/api/stats", { headers });
       const data = await response.json();
       if (data.success) setStats(data.data);
     } catch (error) {

@@ -26,13 +26,36 @@ function formatFecha(fecha: Date | string | null | undefined): string {
   });
 }
 
+function formatFechaCorta(fecha: string): string {
+  return new Date(fecha).toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
+}
+
 function prioridadLabel(p: string): string {
   return { normal: "Normal", urgente: "URGENTE", express: "EXPRESS" }[p] ?? p;
 }
 
+const METODO_LABEL: Record<string, string> = {
+  efectivo: "Efectivo",
+  tarjeta: "Tarjeta",
+  transferencia: "Transf.",
+  deposito: "Depósito",
+  mixto: "Mixto",
+};
+
+interface AnticipoTicket {
+  id: string;
+  monto: number;
+  tipoPago: string;
+  fechaAnticipo: string;
+}
+
 // ── Ticket component ──────────────────────────────────────────────────────────
 
-function Ticket({ orden, baseUrl }: { orden: OrdenReparacionDetallada; baseUrl: string }) {
+function Ticket({ orden, baseUrl, anticipos }: { orden: OrdenReparacionDetallada; baseUrl: string; anticipos: AnticipoTicket[] }) {
   const qrUrl = `${baseUrl}/reparacion/${orden.folio}`;
 
   return (
@@ -172,8 +195,28 @@ function Ticket({ orden, baseUrl }: { orden: OrdenReparacionDetallada; baseUrl: 
             )}
             {(orden.totalAnticipos ?? 0) > 0 && (
               <div className="ticket-row">
-                <span className="ticket-key">Anticipo:</span>
+                <span className="ticket-key">Anticipo cobrado:</span>
                 <span className="ticket-val ticket-bold">${Number(orden.totalAnticipos).toFixed(2)}</span>
+              </div>
+            )}
+            {/* Desglose individual de anticipos */}
+            {anticipos.length > 0 && (
+              <div className="ticket-anticipos-det">
+                {anticipos.map((a) => (
+                  <div key={a.id} className="ticket-anticipo-row">
+                    <span className="ticket-anticipo-fecha">{formatFechaCorta(a.fechaAnticipo)}</span>
+                    <span className="ticket-anticipo-metodo">{METODO_LABEL[a.tipoPago] || a.tipoPago}</span>
+                    <span className="ticket-anticipo-monto">${Number(a.monto).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Saldo pendiente */}
+            {orden.costoTotal > 0 && (orden.totalAnticipos ?? 0) > 0 &&
+              orden.costoTotal - (orden.totalAnticipos ?? 0) > 0.01 && (
+              <div className="ticket-row ticket-saldo">
+                <span className="ticket-key">Saldo pendiente:</span>
+                <span className="ticket-val ticket-bold">${(orden.costoTotal - (orden.totalAnticipos ?? 0)).toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -228,6 +271,7 @@ export default function TicketPage() {
   const params = useParams();
   const id = params.id as string;
   const [orden, setOrden] = useState<OrdenReparacionDetallada | null>(null);
+  const [anticipos, setAnticipos] = useState<AnticipoTicket[]>([]);
   const [error, setError] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
 
@@ -244,6 +288,12 @@ export default function TicketPage() {
         else setError(true);
       })
       .catch(() => setError(true));
+
+    // Fetch anticipos independientemente — si falla, el ticket se imprime igual
+    fetch(`/api/reparaciones/${id}/anticipos`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success && Array.isArray(d.data)) setAnticipos(d.data); })
+      .catch(() => { /* no bloquear impresión si falla */ });
   }, [id]);
 
   // Auto-imprimir cuando la orden esté cargada
@@ -422,6 +472,31 @@ export default function TicketPage() {
           border-left: 4px solid #d97706;
         }
 
+        /* Anticipos detalle */
+        .ticket-anticipos-det {
+          margin: 4px 0 4px 8px;
+          border-left: 2px solid #aaa;
+          padding-left: 5px;
+        }
+        .ticket-anticipo-row {
+          display: flex;
+          gap: 4px;
+          font-size: 11px;
+          font-weight: 700;
+          margin: 2px 0;
+          color: #333;
+        }
+        .ticket-anticipo-fecha { color: #555; flex-shrink: 0; }
+        .ticket-anticipo-metodo { flex: 1; color: #444; }
+        .ticket-anticipo-monto { font-weight: 800; white-space: nowrap; color: #000; }
+
+        /* Saldo pendiente */
+        .ticket-saldo {
+          margin-top: 5px;
+          padding-top: 4px;
+          border-top: 1.5px solid #000;
+        }
+
         /* Piezas */
         .ticket-pieza-row {
           display: flex;
@@ -528,7 +603,7 @@ export default function TicketPage() {
         }
       `}</style>
 
-      <Ticket orden={orden} baseUrl={baseUrl} />
+      <Ticket orden={orden} baseUrl={baseUrl} anticipos={anticipos} />
 
       <button
         className="print-btn"
