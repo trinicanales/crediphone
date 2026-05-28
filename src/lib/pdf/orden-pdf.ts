@@ -209,6 +209,27 @@ export async function generarOrdenPDF(
     throw new Error("Orden no encontrada");
   }
 
+  // Datos del negocio — uno por distribuidor (multi-tenant)
+  const { data: config } = await supabase
+    .from("configuracion")
+    .select("nombre_empresa, rfc, direccion_empresa, telefono_empresa, regimen_fiscal")
+    .eq("distribuidor_id", orden.distribuidor_id)
+    .maybeSingle();
+
+  const nombreEmpresa    = config?.nombre_empresa     || "Servicio Técnico";
+  const rfcEmpresa       = config?.rfc                || "";
+  const direccionEmpresa = config?.direccion_empresa  || "";
+  const telefonoEmpresa  = config?.telefono_empresa   || "";
+  const regimenFiscal    = config?.regimen_fiscal      || "";
+
+  const lineaFiscal = [
+    nombreEmpresa,
+    direccionEmpresa && `· ${direccionEmpresa}`,
+    telefonoEmpresa  && `· Tel: ${telefonoEmpresa}`,
+    rfcEmpresa       && `· RFC: ${rfcEmpresa}`,
+    regimenFiscal    && `· ${regimenFiscal}`,
+  ].filter(Boolean).join("  ");
+
   const { data: anticipos } = await supabase
     .from("anticipos_reparacion")
     .select("fecha_anticipo, monto, tipo_pago, estado")
@@ -299,7 +320,7 @@ export async function generarOrdenPDF(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(19);
   tc(doc, C.brandDark);
-  doc.text("CREDIPHONE", ML + 5, y + 10);
+  doc.text(nombreEmpresa.toUpperCase(), ML + 5, y + 10);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
@@ -344,10 +365,7 @@ export async function generarOrdenPDF(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   tc(doc, C.grayLight);
-  doc.text(
-    "CREDIPHONE SOLUTIONS S.A. DE C.V.  ·  Prol. Gral. Francisco Villa 218A, Durango, Dgo.  ·  Tel: 618 124 5391 / 618 324 0200  ·  RFC: CAVT870614Q13  ·  RESICO",
-    ML + 5, infoY + 5, { maxWidth: hdrContentW }
-  );
+  doc.text(lineaFiscal, ML + 5, infoY + 5, { maxWidth: hdrContentW });
 
   tc(doc, C.gray);
   y += 44;

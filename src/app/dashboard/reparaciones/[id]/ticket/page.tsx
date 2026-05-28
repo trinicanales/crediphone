@@ -55,7 +55,7 @@ interface AnticipoTicket {
 
 // ── Ticket component ──────────────────────────────────────────────────────────
 
-function Ticket({ orden, baseUrl, anticipos }: { orden: OrdenReparacionDetallada; baseUrl: string; anticipos: AnticipoTicket[] }) {
+function Ticket({ orden, baseUrl, anticipos, nombreEmpresa }: { orden: OrdenReparacionDetallada; baseUrl: string; anticipos: AnticipoTicket[]; nombreEmpresa: string }) {
   const qrUrl = `${baseUrl}/reparacion/${orden.folio}`;
 
   return (
@@ -64,7 +64,7 @@ function Ticket({ orden, baseUrl, anticipos }: { orden: OrdenReparacionDetallada
       {/* Header con QR */}
       <div className="ticket-header">
         <div className="ticket-brand-col">
-          <div className="ticket-brand">CREDIPHONE</div>
+          <div className="ticket-brand">{nombreEmpresa.toUpperCase()}</div>
           <div className="ticket-subtitle">Orden de Servicio</div>
         </div>
         <div className="ticket-qr-block">
@@ -274,6 +274,7 @@ export default function TicketPage() {
   const [anticipos, setAnticipos] = useState<AnticipoTicket[]>([]);
   const [error, setError] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
+  const [nombreEmpresa, setNombreEmpresa] = useState("SERVICIO TÉCNICO");
 
   useEffect(() => {
     setBaseUrl(window.location.origin);
@@ -294,6 +295,12 @@ export default function TicketPage() {
       .then((r) => r.json())
       .then((d) => { if (d.success && Array.isArray(d.data)) setAnticipos(d.data); })
       .catch(() => { /* no bloquear impresión si falla */ });
+
+    // Nombre del negocio desde configuración del distribuidor
+    fetch("/api/configuracion")
+      .then((r) => r.json())
+      .then((d) => { if (d.success && d.data?.nombreEmpresa) setNombreEmpresa(d.data.nombreEmpresa); })
+      .catch(() => { /* usar valor por defecto */ });
   }, [id]);
 
   // Auto-imprimir cuando la orden esté cargada
@@ -603,7 +610,7 @@ export default function TicketPage() {
         }
       `}</style>
 
-      <Ticket orden={orden} baseUrl={baseUrl} anticipos={anticipos} />
+      <Ticket orden={orden} baseUrl={baseUrl} anticipos={anticipos} nombreEmpresa={nombreEmpresa} />
 
       <button
         className="print-btn"
