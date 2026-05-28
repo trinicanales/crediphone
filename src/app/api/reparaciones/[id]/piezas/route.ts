@@ -16,12 +16,22 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { id } = await params;
+
+    // SEGURIDAD: validar que la orden pertenece al distribuidor del usuario
+    if (!isSuperAdmin) {
+      const supabaseCheck = createAdminClient();
+      const { data: chk } = await supabaseCheck.from("ordenes_reparacion").select("distribuidor_id").eq("id", id).single();
+      if (!chk || chk.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
+    }
+
     const piezas = await getPiezasReparacion(id);
 
     return NextResponse.json({ success: true, data: piezas });

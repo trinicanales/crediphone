@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { updateOrdenBasicInfo } from "@/lib/db/reparaciones";
 import type { PrioridadOrden } from "@/types";
 import { requireAuth } from "@/lib/auth/guard";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * PUT /api/reparaciones/[id]/editar-info
@@ -30,6 +31,15 @@ export async function PUT(
         },
         { status: 400 }
       );
+    }
+
+    // SEGURIDAD: validar que la orden pertenece al distribuidor del usuario
+    if (!auth.isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: chk } = await supabase.from("ordenes_reparacion").select("distribuidor_id").eq("id", id).single();
+      if (!chk || chk.distribuidor_id !== auth.distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
     }
 
     // Validar datos requeridos

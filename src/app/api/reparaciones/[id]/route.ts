@@ -37,6 +37,15 @@ export async function GET(
       );
     }
 
+    // SEGURIDAD: toda lectura de orden requiere sesión activa
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
     const orden = await getOrdenReparacionDetalladaById(id);
 
     if (!orden) {
@@ -50,10 +59,18 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: orden,
-    });
+    // SEGURIDAD: validar que la orden pertenece al distribuidor del usuario
+    if (!isSuperAdmin && orden.distribuidorId !== distribuidorId) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, data: orden },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (error) {
     console.error("Error en GET /api/reparaciones/[id]:", error);
     return NextResponse.json(
@@ -98,9 +115,22 @@ export async function PUT(
       );
     }
 
-    const { userId, role, distribuidorId } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+
+    // SEGURIDAD: validar que la orden pertenece al distribuidor del usuario antes de mutar
+    if (!isSuperAdmin) {
+      const supabaseCheck = createAdminClient();
+      const { data: ordenCheck } = await supabaseCheck
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", id)
+        .single();
+      if (!ordenCheck || ordenCheck.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
     }
 
     let ordenActualizada;
