@@ -1113,6 +1113,14 @@ export interface Configuracion {
     mapeoEventos: Record<string, import("@/lib/sounds").SoundId>;
     sonidoCustomUrl?: string | null;
   };
+
+  // Identidad de franquicia / multi-tenant
+  /** URL del logo de la empresa en R2. Aparece en PDFs, tickets y páginas públicas. */
+  logoUrl?: string;
+  /** Zona horaria del negocio (ej: 'America/Mexico_City'). Afecta timestamps en reportes. */
+  timezone?: string;
+  /** Máximo de empleados activos. NULL = sin límite. Solo editable por super_admin. */
+  limiteUsuarios?: number | null;
 }
 
 // =====================================================

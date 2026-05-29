@@ -126,6 +126,11 @@ export async function updateConfiguracion(
   if (config.contadorTelefono !== undefined) updateData.contador_telefono = config.contadorTelefono;
   if (config.contadorEmail    !== undefined) updateData.contador_email    = config.contadorEmail;
   // FASE 55: WhatsApp Business API
+  // Identidad de franquicia
+  if (config.logoUrl        !== undefined) updateData.logo_url        = config.logoUrl || null;
+  if (config.timezone       !== undefined) updateData.timezone        = config.timezone;
+  if (config.limiteUsuarios !== undefined) updateData.limite_usuarios = config.limiteUsuarios;
+  // FASE 55: WhatsApp Business API
   if (config.waEnabled            !== undefined) updateData.wa_enabled              = config.waEnabled;
   if (config.waPhoneNumberId      !== undefined) updateData.wa_phone_number_id      = config.waPhoneNumberId;
   // SECURITY: solo actualizar si el cliente envió un token nuevo (no vacío y no el sentinel)
@@ -229,6 +234,10 @@ function mapConfigFromDB(db: any): Configuracion {
     contadorNombre:   db.contador_nombre   ?? undefined,
     contadorTelefono: db.contador_telefono ?? undefined,
     contadorEmail:    db.contador_email    ?? undefined,
+    // Identidad de franquicia
+    logoUrl:         db.logo_url     ?? undefined,
+    timezone:        db.timezone     ?? "America/Mexico_City",
+    limiteUsuarios:  db.limite_usuarios ?? null,
     // FASE 55: WhatsApp Business API
     waEnabled:             db.wa_enabled             ?? false,
     waPhoneNumberId:       db.wa_phone_number_id     ?? undefined,

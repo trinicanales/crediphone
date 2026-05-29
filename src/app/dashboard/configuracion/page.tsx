@@ -25,6 +25,10 @@ import {
   UserCog,
   Receipt,
   MessageCircle,
+  ImagePlus,
+  X,
+  Globe,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import PayjoyConfigSection from "@/components/payjoy/PayjoyConfigSection";
@@ -180,6 +184,31 @@ export default function ConfiguracionPage() {
   const [distribuidorPerfil, setDistribuidorPerfil] = useState<{ nombre: string; logoUrl: string }>({ nombre: "", logoUrl: "" });
   const [savingPerfil, setSavingPerfil] = useState(false);
   const [messagePerfil, setMessagePerfil] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Upload de logos
+  const [uploadingLogo, setUploadingLogo] = useState<"empresa" | "sistema" | null>(null);
+
+  const handleLogoUpload = async (file: File, destino: "empresa" | "sistema") => {
+    if (!file.type.startsWith("image/")) return;
+    setUploadingLogo(destino);
+    try {
+      const form = new FormData();
+      form.append("archivo", file);
+      form.append("carpeta", "configuracion/logos");
+      const res = await fetch("/api/storage/upload", { method: "POST", body: form });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      if (destino === "empresa") {
+        handleChange("logoUrl", data.url);
+      } else {
+        setDistribuidorPerfil((p) => ({ ...p, logoUrl: data.url }));
+      }
+    } catch {
+      // silencioso — el usuario puede reintentar
+    } finally {
+      setUploadingLogo(null);
+    }
+  };
 
   // FASE 39: Límites de descuento
   const [limites, setLimites] = useState<LimitesDescuento>({
@@ -396,6 +425,100 @@ export default function ConfiguracionPage() {
                 />
                 <p style={hintSt}>Número desde el que se envían recordatorios a clientes</p>
               </div>
+
+              {/* Logo de la empresa */}
+              <div className="md:col-span-2">
+                <label style={labelSt}>
+                  <ImagePlus className="inline w-4 h-4 mr-1" style={{ color: "var(--color-accent)" }} />
+                  Logo de la empresa
+                </label>
+                <div className="flex items-center gap-4">
+                  {formData.logoUrl ? (
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={formData.logoUrl}
+                        alt="Logo empresa"
+                        className="h-16 w-auto rounded-lg object-contain"
+                        style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-elevated)", padding: "0.25rem" }}
+                      />
+                      <button
+                        onClick={() => handleChange("logoUrl", "")}
+                        className="absolute -top-2 -right-2 rounded-full p-0.5"
+                        style={{ background: "var(--color-danger)", color: "#fff" }}
+                        title="Quitar logo"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className="h-16 w-24 rounded-lg flex items-center justify-center text-xs"
+                      style={{ border: "1px dashed var(--color-border)", color: "var(--color-text-muted)" }}
+                    >
+                      Sin logo
+                    </div>
+                  )}
+                  <div>
+                    <label
+                      className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+                      style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)", color: "var(--color-text-primary)" }}
+                    >
+                      <ImagePlus className="w-4 h-4" />
+                      {uploadingLogo === "empresa" ? "Subiendo..." : "Subir imagen"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingLogo !== null}
+                        onChange={(e) => { if (e.target.files?.[0]) handleLogoUpload(e.target.files[0], "empresa"); }}
+                      />
+                    </label>
+                    <p style={hintSt}>PNG, JPG o SVG. Aparece en PDFs, tickets y páginas de seguimiento</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Zona horaria */}
+              <div>
+                <label style={labelSt}>
+                  <Globe className="inline w-4 h-4 mr-1" style={{ color: "var(--color-accent)" }} />
+                  Zona horaria
+                </label>
+                <select
+                  value={formData.timezone || "America/Mexico_City"}
+                  onChange={(e) => handleChange("timezone", e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                  style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-primary)", color: "var(--color-text-primary)" }}
+                >
+                  <option value="America/Mexico_City">Ciudad de México / Centro (CST/CDT)</option>
+                  <option value="America/Hermosillo">Sonora / Hermosillo (MST, sin cambio)</option>
+                  <option value="America/Chihuahua">Chihuahua / Ojinaga (MST/MDT)</option>
+                  <option value="America/Tijuana">Tijuana / Baja California (PST/PDT)</option>
+                  <option value="America/Cancun">Cancún / Quintana Roo (EST, sin cambio)</option>
+                  <option value="America/Monterrey">Monterrey / Nuevo León (CST/CDT)</option>
+                </select>
+                <p style={hintSt}>Afecta los horarios en reportes y notificaciones automáticas</p>
+              </div>
+
+              {/* Límite de usuarios — solo super_admin */}
+              {user?.role === "super_admin" && (
+                <div>
+                  <label style={labelSt}>
+                    <Users className="inline w-4 h-4 mr-1" style={{ color: "var(--color-accent)" }} />
+                    Límite de empleados activos
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={formData.limiteUsuarios ?? ""}
+                    onChange={(e) => handleChange("limiteUsuarios", e.target.value ? parseInt(e.target.value) : null)}
+                    placeholder="Sin límite"
+                  />
+                  <p style={hintSt}>Máximo de usuarios que puede tener este negocio. Vacío = sin límite</p>
+                </div>
+              )}
             </div>
             <SaveButton saving={saving} onSave={handleSave} />
           </Card>
@@ -419,13 +542,55 @@ export default function ConfiguracionPage() {
                   <p style={hintSt}>Este nombre identifica tu negocio en el menú lateral y en los reportes internos</p>
                 </div>
                 <div>
-                  <label style={labelSt}>URL del logo</label>
-                  <Input
-                    value={distribuidorPerfil.logoUrl}
-                    onChange={(e) => setDistribuidorPerfil((p) => ({ ...p, logoUrl: e.target.value }))}
-                    placeholder="https://..."
-                  />
-                  <p style={hintSt}>Imagen que aparece en el menú lateral (PNG o SVG recomendado)</p>
+                  <label style={labelSt}>
+                    <ImagePlus className="inline w-4 h-4 mr-1" style={{ color: "var(--color-accent)" }} />
+                    Logo del sistema (menú lateral)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    {distribuidorPerfil.logoUrl ? (
+                      <div className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={distribuidorPerfil.logoUrl}
+                          alt="Logo sistema"
+                          className="h-14 w-auto rounded-lg object-contain"
+                          style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-elevated)", padding: "0.25rem" }}
+                        />
+                        <button
+                          onClick={() => setDistribuidorPerfil((p) => ({ ...p, logoUrl: "" }))}
+                          className="absolute -top-2 -right-2 rounded-full p-0.5"
+                          style={{ background: "var(--color-danger)", color: "#fff" }}
+                          title="Quitar logo"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className="h-14 w-20 rounded-lg flex items-center justify-center text-xs"
+                        style={{ border: "1px dashed var(--color-border)", color: "var(--color-text-muted)" }}
+                      >
+                        Sin logo
+                      </div>
+                    )}
+                    <div>
+                      <label
+                        className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
+                        style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)", color: "var(--color-text-primary)" }}
+                      >
+                        <ImagePlus className="w-4 h-4" />
+                        {uploadingLogo === "sistema" ? "Subiendo..." : "Subir"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingLogo !== null}
+                          onChange={(e) => { if (e.target.files?.[0]) handleLogoUpload(e.target.files[0], "sistema"); }}
+                        />
+                      </label>
+                      <p style={{ ...hintSt, marginTop: "0.375rem" }}>PNG o SVG recomendado</p>
+                    </div>
+                  </div>
                 </div>
               </div>
               {messagePerfil && (
