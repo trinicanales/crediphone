@@ -1,27 +1,19 @@
 import { NextResponse } from "next/server";
 import { getCargaTecnicos } from "@/lib/db/reparaciones";
+import { requireAuth } from "@/lib/auth/guard";
 
 /**
  * GET /api/reparaciones/tecnicos/carga
- * Obtiene estadísticas de carga de trabajo para todos los técnicos activos
- *
- * Información retornada:
- * - tecnicoId: UUID del técnico
- * - nombreTecnico: Nombre del técnico
- * - ordenesActivas: Número de órdenes activas (no entregadas, no canceladas, no_reparables)
- * - ordenesRecibidas: Órdenes en estado "recibido"
- * - ordenesDiagnostico: Órdenes en estado "diagnostico"
- * - ordenesEnReparacion: Órdenes en estado "en_reparacion"
- * - ordenesCompletadasHoy: Órdenes completadas hoy
- *
- * Uso principal:
- * - Debugging del sistema de balanceo round-robin
- * - Dashboard de asignación manual de técnicos
- * - Reportes de productividad
+ * Obtiene estadísticas de carga de trabajo para técnicos del distribuidor.
+ * Cada admin solo ve sus propios técnicos.
  */
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const cargaTecnicos = await getCargaTecnicos();
+    const auth = await requireAuth(["admin", "super_admin", "tecnico"]);
+    if (!auth.ok) return auth.response;
+
+    const distribuidorId = auth.isSuperAdmin ? undefined : (auth.distribuidorId ?? undefined);
+    const cargaTecnicos = await getCargaTecnicos(distribuidorId);
 
     return NextResponse.json({
       success: true,

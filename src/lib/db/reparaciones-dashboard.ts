@@ -77,7 +77,8 @@ export interface DashboardStats {
  */
 export async function getEstadisticasReparacionesPorFecha(
   fechaInicio: Date,
-  fechaFin: Date
+  fechaFin: Date,
+  distribuidorId?: string
 ): Promise<{
   total: number;
   porEstado: Record<string, number>;
@@ -87,18 +88,22 @@ export async function getEstadisticasReparacionesPorFecha(
   const supabase = createAdminClient();
 
   // Total de órdenes en el período
-  const { count: total } = await supabase
+  let countQuery = supabase
     .from("ordenes_reparacion")
     .select("*", { count: "exact", head: true })
     .gte("fecha_recepcion", fechaInicio.toISOString())
     .lte("fecha_recepcion", fechaFin.toISOString());
+  if (distribuidorId) countQuery = countQuery.eq("distribuidor_id", distribuidorId);
+  const { count: total } = await countQuery;
 
   // Órdenes por estado
-  const { data: ordenes } = await supabase
+  let ordenesQuery = supabase
     .from("ordenes_reparacion")
     .select("estado, costo_total, fecha_recepcion, fecha_completado")
     .gte("fecha_recepcion", fechaInicio.toISOString())
     .lte("fecha_recepcion", fechaFin.toISOString());
+  if (distribuidorId) ordenesQuery = ordenesQuery.eq("distribuidor_id", distribuidorId);
+  const { data: ordenes } = await ordenesQuery;
 
   const porEstado: Record<string, number> = {};
   let ingresosPeriodo = 0;
@@ -136,11 +141,12 @@ export async function getEstadisticasReparacionesPorFecha(
  * Obtiene órdenes vencidas o próximas a vencer
  */
 export async function getOrdenesVencidasOProximas(
-  diasAnticipacion: number = 2
+  diasAnticipacion: number = 2,
+  distribuidorId?: string
 ): Promise<OrdenReparacionDetallada[]> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("ordenes_reparacion")
     .select(
       `
@@ -157,6 +163,8 @@ export async function getOrdenesVencidasOProximas(
     )
     .order("fecha_estimada_entrega", { ascending: true })
     .limit(10);
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -210,7 +218,8 @@ export async function getOrdenesVencidasOProximas(
  */
 export async function getTop10DispositivosReparados(
   fechaInicio?: Date,
-  fechaFin?: Date
+  fechaFin?: Date,
+  distribuidorId?: string
 ): Promise<DispositivoStats[]> {
   const supabase = createAdminClient();
 
@@ -219,12 +228,9 @@ export async function getTop10DispositivosReparados(
     .select("marca_dispositivo, modelo_dispositivo, costo_total")
     .not("estado", "in", '("cancelado","no_reparable")');
 
-  if (fechaInicio) {
-    query = query.gte("fecha_recepcion", fechaInicio.toISOString());
-  }
-  if (fechaFin) {
-    query = query.lte("fecha_recepcion", fechaFin.toISOString());
-  }
+  if (fechaInicio) query = query.gte("fecha_recepcion", fechaInicio.toISOString());
+  if (fechaFin)    query = query.lte("fecha_recepcion", fechaFin.toISOString());
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
 
   const { data, error } = await query;
 
@@ -258,18 +264,20 @@ export async function getTop10DispositivosReparados(
 /**
  * Ingresos mensuales de los últimos N meses
  */
-export async function getIngresosPorMes(meses: number = 6): Promise<IngresoMes[]> {
+export async function getIngresosPorMes(meses: number = 6, distribuidorId?: string): Promise<IngresoMes[]> {
   const supabase = createAdminClient();
 
   const fechaInicio = new Date();
   fechaInicio.setMonth(fechaInicio.getMonth() - meses);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("ordenes_reparacion")
     .select("fecha_completado, costo_total")
     .not("fecha_completado", "is", null)
     .gte("fecha_completado", fechaInicio.toISOString())
     .order("fecha_completado", { ascending: true });
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -315,7 +323,7 @@ export async function getIngresosPorMes(meses: number = 6): Promise<IngresoMes[]
 /**
  * Tasa de aprobación de presupuestos
  */
-export async function getTasaAprobacionPresupuestos(): Promise<{
+export async function getTasaAprobacionPresupuestos(distribuidorId?: string): Promise<{
   totalPresupuestos: number;
   aprobados: number;
   rechazados: number;
@@ -324,10 +332,12 @@ export async function getTasaAprobacionPresupuestos(): Promise<{
 }> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("ordenes_reparacion")
     .select("aprobado_por_cliente, estado")
     .eq("requiere_aprobacion", true);
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -362,14 +372,15 @@ export async function getTasaAprobacionPresupuestos(): Promise<{
  * Presupuestos pendientes antiguos
  */
 export async function getPresupuestosPendientesAntiguos(
-  diasMinimo: number = 3
+  diasMinimo: number = 3,
+  distribuidorId?: string
 ): Promise<OrdenReparacionDetallada[]> {
   const supabase = createAdminClient();
 
   const fechaLimite = new Date();
   fechaLimite.setDate(fechaLimite.getDate() - diasMinimo);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("ordenes_reparacion")
     .select(
       `
@@ -382,6 +393,8 @@ export async function getPresupuestosPendientesAntiguos(
     .lte("updated_at", fechaLimite.toISOString())
     .order("updated_at", { ascending: true })
     .limit(10);
+  if (distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -434,7 +447,8 @@ export async function getPresupuestosPendientesAntiguos(
  * Garantías próximas a vencer
  */
 export async function getGarantiasProximasVencer(
-  diasAnticipacion: number = 7
+  diasAnticipacion: number = 7,
+  distribuidorId?: string
 ): Promise<GarantiaProxima[]> {
   try {
     const supabase = createAdminClient();
@@ -443,7 +457,7 @@ export async function getGarantiasProximasVencer(
     const fechaFin = new Date();
     fechaFin.setDate(fechaFin.getDate() + diasAnticipacion);
 
-    const { data, error } = await supabase
+    let garantiasQuery = supabase
       .from("garantias_reparacion")
       .select(
         `
@@ -452,6 +466,7 @@ export async function getGarantiasProximasVencer(
         fecha_vencimiento,
         orden:ordenes_reparacion!garantias_reparacion_orden_id_fkey(
           folio,
+          distribuidor_id,
           cliente:clientes(nombre, apellido)
         )
       `
@@ -460,31 +475,34 @@ export async function getGarantiasProximasVencer(
       .lte("fecha_vencimiento", fechaFin.toISOString())
       .eq("activa", true)
       .order("fecha_vencimiento", { ascending: true });
+    const { data, error } = await garantiasQuery;
 
     if (error) {
       console.warn("No se pudieron cargar garantías próximas a vencer:", error.message);
       return [];
     }
 
-    return (
-      data?.map((garantia: any) => {
-        const vencimiento = new Date(garantia.fecha_vencimiento);
-        const diasParaVencer = Math.ceil(
-          (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        );
+    // Filtrar por distribuidor en memoria (el join anidado no permite .eq directo)
+    const datosFiltrados = distribuidorId
+      ? (data || []).filter((g: any) => g.orden?.distribuidor_id === distribuidorId)
+      : (data || []);
 
-        return {
-          garantiaId: garantia.id,
-          ordenId: garantia.orden_id,
-          ordenFolio: garantia.orden?.folio || "Sin folio",
-          clienteNombre: garantia.orden?.cliente
-            ? `${garantia.orden.cliente.nombre} ${garantia.orden.cliente.apellido}`
-            : "Sin cliente",
-          diasParaVencer,
-          fechaVencimiento: vencimiento,
-        };
-      }) || []
-    );
+    return datosFiltrados.map((garantia: any) => {
+      const vencimiento = new Date(garantia.fecha_vencimiento);
+      const diasParaVencer = Math.ceil(
+        (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      );
+      return {
+        garantiaId: garantia.id,
+        ordenId: garantia.orden_id,
+        ordenFolio: garantia.orden?.folio || "Sin folio",
+        clienteNombre: garantia.orden?.cliente
+          ? `${garantia.orden.cliente.nombre} ${garantia.orden.cliente.apellido}`
+          : "Sin cliente",
+        diasParaVencer,
+        fechaVencimiento: vencimiento,
+      };
+    });
   } catch (error) {
     console.warn("Error al cargar garantías próximas a vencer:", error);
     return [];
@@ -496,11 +514,12 @@ export async function getGarantiasProximasVencer(
 // ============================================
 
 /**
- * Obtiene TODOS los datos del dashboard de una sola vez
- * Optimizado para reducir queries múltiples
+ * Obtiene TODOS los datos del dashboard de una sola vez.
+ * Si se pasa distribuidorId, todos los datos se filtran por ese distribuidor.
+ * super_admin puede pasar undefined para ver datos globales.
  */
-export async function getDashboardCompleto(): Promise<DashboardStats> {
-  // Ejecutar todas las queries en paralelo
+export async function getDashboardCompleto(distribuidorId?: string): Promise<DashboardStats> {
+  // Ejecutar todas las queries en paralelo, todas filtradas por distribuidor
   const [
     estadisticas,
     cargaTecnicos,
@@ -512,17 +531,17 @@ export async function getDashboardCompleto(): Promise<DashboardStats> {
     garantiasProximas,
     tasaAprobacion,
   ] = await Promise.all([
-    getEstadisticasReparaciones(),
-    getCargaTecnicos(),
-    getOrdenesReparacionDetalladas().then((ordenes) =>
+    getEstadisticasReparaciones(distribuidorId),
+    getCargaTecnicos(distribuidorId),
+    getOrdenesReparacionDetalladas(distribuidorId).then((ordenes) =>
       ordenes.slice(0, 10)
     ),
-    getIngresosPorMes(6),
-    getTop10DispositivosReparados(),
-    getOrdenesVencidasOProximas(2),
-    getPresupuestosPendientesAntiguos(3),
-    getGarantiasProximasVencer(7),
-    getTasaAprobacionPresupuestos(),
+    getIngresosPorMes(6, distribuidorId),
+    getTop10DispositivosReparados(undefined, undefined, distribuidorId),
+    getOrdenesVencidasOProximas(2, distribuidorId),
+    getPresupuestosPendientesAntiguos(3, distribuidorId),
+    getGarantiasProximasVencer(7, distribuidorId),
+    getTasaAprobacionPresupuestos(distribuidorId),
   ]);
 
   // Calcular KPIs

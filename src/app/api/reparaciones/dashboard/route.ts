@@ -4,14 +4,17 @@ import { requireAuth } from "@/lib/auth/guard";
 
 /**
  * GET /api/reparaciones/dashboard
- * Obtiene todos los datos del dashboard de reparaciones
+ * Obtiene todos los datos del dashboard de reparaciones.
+ * Cada admin solo ve datos de su propio distribuidor.
  */
 export async function GET() {
   try {
     const auth = await requireAuth(["admin", "tecnico", "super_admin"]);
     if (!auth.ok) return auth.response;
 
-    const data = await getDashboardCompleto();
+    // super_admin ve todo (undefined); admin/tecnico ven solo su distribuidor
+    const distribuidorId = auth.isSuperAdmin ? undefined : (auth.distribuidorId ?? undefined);
+    const data = await getDashboardCompleto(distribuidorId);
 
     return NextResponse.json({
       success: true,
