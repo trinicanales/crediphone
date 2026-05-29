@@ -1197,12 +1197,15 @@ export async function createOrdenGarantia(
 // =====================================================
 
 /**
- * Obtiene la carga de trabajo de todos los técnicos
+ * Obtiene la carga de trabajo de técnicos.
+ * Si se pasa distribuidorId, solo muestra técnicos de ese distribuidor.
  */
-export async function getCargaTecnicos(): Promise<EstadisticasTecnico[]> {
+export async function getCargaTecnicos(distribuidorId?: string): Promise<EstadisticasTecnico[]> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase.rpc("obtener_carga_tecnicos");
+  const { data, error } = await supabase.rpc("obtener_carga_tecnicos", {
+    p_distribuidor_id: distribuidorId ?? null,
+  });
 
   if (error) {
     console.error("Error al obtener carga de técnicos:", error);
