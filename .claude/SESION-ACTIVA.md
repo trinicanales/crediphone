@@ -1,6 +1,39 @@
 # Sesión Activa — CREDIPHONE
 
-## Estado: EN PROGRESO — Plan unificación piezas (2026-05-21)
+## Estado: COMPLETO — Auditoría cross-tenant + Anticipo 100% (2026-05-30)
+
+## Implementado 2026-05-30 — Auditoría seguridad cross-tenant (6 brechas corregidas)
+
+| Fix | Archivo | Descripción |
+|-----|---------|-------------|
+| ✅ Supabase | `obtener_tecnico_disponible(p_distribuidor_id)` | Filtra técnicos por franquicia. Retorna NULL (no excepción) si no hay técnico local |
+| ✅ Supabase | `obtener_carga_tecnicos(p_distribuidor_id)` | Filtra por `u.distribuidor_id` (corrige JOIN a tabla inexistente `empleados`) |
+| ✅ `src/lib/db/empleados.ts` | `getEmpleadosPorRol()` | Agrega parámetro `distribuidorId?` |
+| ✅ `src/lib/db/reparaciones.ts` | RPC call | Pasa `p_distribuidor_id` a `obtener_tecnico_disponible` |
+| ✅ `src/app/api/empleados/vendedores/route.ts` | GET vendedores | Filtra por distribuidor del admin |
+| ✅ `src/app/api/empleados/[id]/route.ts` | GET/PUT/DELETE | Ownership check cross-tenant en los 3 métodos |
+| ✅ `src/app/api/reparaciones/[id]/asignar-tecnico/route.ts` | Bug crítico | Corrige tabla `empleados` → `users`, campo `user_id` → `id` |
+| ✅ `supabase/fase8-reparaciones.sql` | Docs | `tecnico_id` nullable, `costo_total` columna regular, `distribuidor_id` en tabla |
+| ✅ `supabase/seguridad-cross-tenant.sql` | Docs nuevo | Documenta todas las migraciones de seguridad de esta sesión |
+
+## Implementado 2026-05-30 — Plan anticipo 100% + cotización (sesión anterior)
+
+| Fix | Archivo | Descripción |
+|-----|---------|-------------|
+| ✅ | `AnticipoCajaPanel.tsx` | Usa `presupuestoTotal` (no `costoTotal`) + badge naranja cuando pagado pero no entregable |
+| ✅ | `ReparacionesPOSPanel.tsx` | Botón "Entregar equipo" cuando saldo=0, `handleEntregarSinCobro` |
+| ✅ | `api/pos/reparacion-cobro/route.ts` | Valida estado entregable antes de marcar como entregado |
+| ✅ | `.claude/REGLAS-NEGOCIO.md` | Documenta `precio_total` vs `costo_total` |
+
+## REGLA NUEVA (2026-05-30): Supabase = fuente de verdad
+- Los archivos `supabase/*.sql` son documentación histórica, NO el estado actual
+- Siempre verificar en Supabase MCP antes de referenciar columnas/funciones
+- NO hacer sincronización masiva de SQL local — solo actualizar cuando se aplica una migración nueva
+- Ver sección "Supabase como fuente de verdad" en CLAUDE.md
+
+---
+
+## Estado anterior: EN PROGRESO — Plan unificación piezas (2026-05-21)
 
 **Última sesión:** 2026-05-17 — Plan auditoría inventario COMPLETO. Mergeado a master y pusheado.
 

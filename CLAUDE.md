@@ -82,6 +82,34 @@ Todas las funciones en `src/lib/db/` convierten snake_case → camelCase con `ma
 
 ---
 
+## Supabase como fuente de verdad (REGLA PERMANENTE)
+
+**Los archivos `supabase/*.sql` son documentación histórica — NO son el estado actual.**
+Supabase puede tener columnas, funciones y tablas que los archivos locales no reflejan.
+
+**Cuándo consultar Supabase directamente (vía MCP):**
+- Verificar si una columna existe antes de referenciarla
+- Confirmar la firma de una función SQL antes de llamarla
+- Auditar permisos o tablas antes de modificarlas
+- Diagnóstico de bugs relacionados con BD
+
+**Cuándo actualizar los archivos `.sql` locales:**
+- Solo cuando se aplica una migración nueva en esa sesión
+- Solo los archivos que corresponden a las tablas tocadas
+- NO hacer sincronización masiva — Supabase MCP es suficiente
+
+**Queries de verificación rápida:**
+```sql
+-- Columnas de una tabla:
+SELECT column_name, data_type, is_nullable FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'ordenes_reparacion';
+
+-- Definición de una función:
+SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'obtener_tecnico_disponible';
+```
+
+---
+
 ## Comandos de verificación (obligatorios antes de terminar)
 
 ```bash
