@@ -72,9 +72,9 @@ export async function POST(
     if (!auth.isSuperAdmin) {
       const supabase = createAdminClient();
       const { data: empTecnico } = await supabase
-        .from("empleados")
+        .from("users")
         .select("distribuidor_id, role")
-        .eq("user_id", body.tecnicoId)
+        .eq("id", body.tecnicoId)
         .single();
       if (!empTecnico || empTecnico.distribuidor_id !== auth.distribuidorId) {
         return NextResponse.json(

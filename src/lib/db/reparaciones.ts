@@ -486,9 +486,10 @@ export async function createOrdenReparacion(
       folio = folioData as string;
     }
 
-    // 2. Auto-asignar técnico disponible (no crítico — null es aceptable)
+    // 2. Auto-asignar técnico disponible del mismo distribuidor (no crítico — null es aceptable)
     const { data: tecnicoData } = await supabase.rpc(
-      "obtener_tecnico_disponible"
+      "obtener_tecnico_disponible",
+      { p_distribuidor_id: distribuidorId || null }
     );
     const tecnicoId = (tecnicoData as string) || null;
 

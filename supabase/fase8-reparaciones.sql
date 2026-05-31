@@ -15,9 +15,10 @@ CREATE TABLE IF NOT EXISTS public.ordenes_reparacion (
 
   -- Relaciones
   cliente_id UUID NOT NULL REFERENCES public.clientes(id) ON DELETE RESTRICT,
-  tecnico_id UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+  tecnico_id UUID REFERENCES public.users(id) ON DELETE SET NULL,  -- Nullable: orden puede crearse sin técnico si el distribuidor no tiene técnicos
   producto_id UUID REFERENCES public.productos(id) ON DELETE SET NULL,
   credito_id UUID REFERENCES public.creditos(id) ON DELETE SET NULL,
+  distribuidor_id UUID REFERENCES public.distribuidores(id) ON DELETE SET NULL,  -- Multi-tenant: franquicia dueña de la orden
 
   -- Información del dispositivo
   marca_dispositivo VARCHAR(100) NOT NULL,
@@ -45,10 +46,10 @@ CREATE TABLE IF NOT EXISTS public.ordenes_reparacion (
     )
   ),
 
-  -- Costos
+  -- Costos internos (margen/utilidad del negocio — NUNCA mostrar al cliente como precio)
   costo_reparacion DECIMAL(10, 2) DEFAULT 0,
   costo_partes DECIMAL(10, 2) DEFAULT 0,
-  costo_total DECIMAL(10, 2) GENERATED ALWAYS AS (costo_reparacion + costo_partes) STORED,
+  costo_total DECIMAL(10, 2) DEFAULT 0,  -- Actualizado por aplicación (era GENERATED, eliminado para permitir updates)
   partes_reemplazadas JSONB DEFAULT '[]'::jsonb,
 
   -- Fechas
@@ -234,21 +235,25 @@ COMMENT ON FUNCTION generar_folio_orden IS 'Genera folio único en formato ORD-Y
 -- =====================================================
 -- 7. FUNCIÓN: Auto-asignación de Técnico (Round-Robin)
 -- =====================================================
+-- ACTUALIZADO: Acepta p_distribuidor_id para filtrar por franquicia.
+-- Retorna NULL (no lanza excepción) si no hay técnicos en ese distribuidor.
+-- La capa TypeScript maneja null → orden sin técnico asignado.
 
-CREATE OR REPLACE FUNCTION obtener_tecnico_disponible()
+CREATE OR REPLACE FUNCTION obtener_tecnico_disponible(p_distribuidor_id UUID DEFAULT NULL)
 RETURNS UUID AS $$
 DECLARE
   tecnico_id_resultado UUID;
   total_tecnicos INTEGER;
 BEGIN
-  -- Contar técnicos activos
+  -- Contar técnicos activos del mismo distribuidor
   SELECT COUNT(*) INTO total_tecnicos
   FROM public.users
-  WHERE role = 'tecnico' AND activo = true;
+  WHERE role = 'tecnico' AND activo = true
+    AND (p_distribuidor_id IS NULL OR distribuidor_id = p_distribuidor_id);
 
-  -- Si no hay técnicos disponibles, lanzar error
+  -- Sin técnicos disponibles → retornar NULL (orden queda sin técnico)
   IF total_tecnicos = 0 THEN
-    RAISE EXCEPTION 'No hay técnicos activos disponibles';
+    RETURN NULL;
   END IF;
 
   -- Si hay solo 1 técnico, asignar directamente
@@ -256,12 +261,12 @@ BEGIN
     SELECT id INTO tecnico_id_resultado
     FROM public.users
     WHERE role = 'tecnico' AND activo = true
+      AND (p_distribuidor_id IS NULL OR distribuidor_id = p_distribuidor_id)
     LIMIT 1;
     RETURN tecnico_id_resultado;
   END IF;
 
-  -- Si hay múltiples técnicos, aplicar balanceo round-robin
-  -- Seleccionar el técnico con MENOS órdenes activas
+  -- Múltiples técnicos: round-robin por carga (técnico con menos órdenes activas)
   SELECT u.id INTO tecnico_id_resultado
   FROM public.users u
   LEFT JOIN (
@@ -271,6 +276,7 @@ BEGIN
     GROUP BY tecnico_id
   ) o ON u.id = o.tecnico_id
   WHERE u.role = 'tecnico' AND u.activo = true
+    AND (p_distribuidor_id IS NULL OR u.distribuidor_id = p_distribuidor_id)
   ORDER BY COALESCE(o.ordenes_activas, 0) ASC, u.created_at ASC
   LIMIT 1;
 
@@ -278,7 +284,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql VOLATILE;
 
-COMMENT ON FUNCTION obtener_tecnico_disponible IS 'Asigna técnico automáticamente: 1 técnico=directo, múltiples=round-robin por carga';
+COMMENT ON FUNCTION obtener_tecnico_disponible IS 'Asigna técnico del mismo distribuidor: round-robin por carga. Retorna NULL si no hay técnico disponible.';
 
 -- =====================================================
 -- 8. FUNCIÓN: Reasignar Técnico
@@ -312,8 +318,10 @@ COMMENT ON FUNCTION reasignar_tecnico IS 'Reasigna una orden a un técnico difer
 -- =====================================================
 -- 9. FUNCIÓN: Estadísticas de Carga por Técnico
 -- =====================================================
+-- ACTUALIZADO: Acepta p_distribuidor_id para filtrar técnicos y órdenes por franquicia.
+-- Usa u.distribuidor_id directamente — NO existe tabla public.empleados.
 
-CREATE OR REPLACE FUNCTION obtener_carga_tecnicos()
+CREATE OR REPLACE FUNCTION obtener_carga_tecnicos(p_distribuidor_id UUID DEFAULT NULL)
 RETURNS TABLE (
   tecnico_id UUID,
   nombre_tecnico TEXT,
@@ -328,20 +336,23 @@ BEGIN
   SELECT
     u.id,
     u.name,
-    COUNT(CASE WHEN o.estado NOT IN ('entregado', 'cancelado', 'no_reparable') THEN 1 END) as ordenes_activas,
-    COUNT(CASE WHEN o.estado = 'recibido' THEN 1 END) as ordenes_recibidas,
-    COUNT(CASE WHEN o.estado = 'diagnostico' THEN 1 END) as ordenes_diagnostico,
-    COUNT(CASE WHEN o.estado = 'en_reparacion' THEN 1 END) as ordenes_en_reparacion,
-    COUNT(CASE WHEN o.estado = 'completado' AND DATE(o.fecha_completado) = CURRENT_DATE THEN 1 END) as ordenes_completadas_hoy
+    COUNT(CASE WHEN o.estado NOT IN ('entregado', 'cancelado', 'no_reparable') THEN 1 END) AS ordenes_activas,
+    COUNT(CASE WHEN o.estado = 'recibido' THEN 1 END) AS ordenes_recibidas,
+    COUNT(CASE WHEN o.estado = 'diagnostico' THEN 1 END) AS ordenes_diagnostico,
+    COUNT(CASE WHEN o.estado = 'en_reparacion' THEN 1 END) AS ordenes_en_reparacion,
+    COUNT(CASE WHEN o.estado = 'completado' AND DATE(o.fecha_completado) = CURRENT_DATE THEN 1 END) AS ordenes_completadas_hoy
   FROM public.users u
   LEFT JOIN public.ordenes_reparacion o ON u.id = o.tecnico_id
-  WHERE u.role = 'tecnico' AND u.activo = true
+    AND (p_distribuidor_id IS NULL OR o.distribuidor_id = p_distribuidor_id)
+  WHERE u.role = 'tecnico'
+    AND u.activo = true
+    AND (p_distribuidor_id IS NULL OR u.distribuidor_id = p_distribuidor_id)
   GROUP BY u.id, u.name
   ORDER BY ordenes_activas ASC;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION obtener_carga_tecnicos IS 'Retorna estadísticas de carga de trabajo para todos los técnicos activos';
+COMMENT ON FUNCTION obtener_carga_tecnicos IS 'Retorna estadísticas de carga por técnico. Filtrable por distribuidor. Sin tabla empleados.';
 
 -- =====================================================
 -- 10. TRIGGER: Actualizar updated_at automáticamente

@@ -11,7 +11,8 @@ export async function GET() {
     const auth = await requireAuth(["admin", "super_admin"]);
     if (!auth.ok) return auth.response;
 
-    const vendedores = await getEmpleadosPorRol("vendedor");
+    const distribuidorId = auth.isSuperAdmin ? undefined : (auth.distribuidorId ?? undefined);
+    const vendedores = await getEmpleadosPorRol("vendedor", distribuidorId);
 
     return NextResponse.json({
       success: true,

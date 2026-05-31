@@ -67,16 +67,22 @@ export async function getEmpleadoById(id: string): Promise<Empleado | null> {
 
 /**
  * Obtiene empleados por rol específico
+ * @param distribuidorId - Si se proporciona, filtra por distribuidor (admin); si es undefined, devuelve todos (super_admin)
  */
-export async function getEmpleadosPorRol(rol: UserRole): Promise<Empleado[]> {
+export async function getEmpleadosPorRol(rol: UserRole, distribuidorId?: string): Promise<Empleado[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("users")
     .select("*")
     .eq("role", rol)
     .eq("activo", true)
     .order("name", { ascending: true });
 
+  if (distribuidorId) {
+    query = query.eq("distribuidor_id", distribuidorId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return mapEmpleadosFromDB(data);
 }

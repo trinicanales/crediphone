@@ -5,6 +5,7 @@ import {
   deleteEmpleado,
 } from "@/lib/db/empleados";
 import { requireAuth } from "@/lib/auth/guard";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * GET /api/empleados/[id]
@@ -32,6 +33,22 @@ export async function GET(
         },
         { status: 400 }
       );
+    }
+
+    // Validar que el empleado pertenece al mismo distribuidor (si no es super_admin)
+    if (!auth.isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: emp } = await supabase
+        .from("users")
+        .select("distribuidor_id")
+        .eq("id", id)
+        .single();
+      if (!emp || emp.distribuidor_id !== auth.distribuidorId) {
+        return NextResponse.json(
+          { success: false, error: "Empleado no encontrado" },
+          { status: 404 }
+        );
+      }
     }
 
     const empleado = await getEmpleadoById(id);
@@ -91,6 +108,22 @@ export async function PUT(
         },
         { status: 400 }
       );
+    }
+
+    // Validar que el empleado pertenece al mismo distribuidor (si no es super_admin)
+    if (!auth.isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: emp } = await supabase
+        .from("users")
+        .select("distribuidor_id")
+        .eq("id", id)
+        .single();
+      if (!emp || emp.distribuidor_id !== auth.distribuidorId) {
+        return NextResponse.json(
+          { success: false, error: "Empleado no encontrado" },
+          { status: 404 }
+        );
+      }
     }
 
     // Validar rol si se proporciona
@@ -154,6 +187,22 @@ export async function DELETE(
         },
         { status: 400 }
       );
+    }
+
+    // Validar que el empleado pertenece al mismo distribuidor (si no es super_admin)
+    if (!auth.isSuperAdmin) {
+      const supabase = createAdminClient();
+      const { data: emp } = await supabase
+        .from("users")
+        .select("distribuidor_id")
+        .eq("id", id)
+        .single();
+      if (!emp || emp.distribuidor_id !== auth.distribuidorId) {
+        return NextResponse.json(
+          { success: false, error: "Empleado no encontrado" },
+          { status: 404 }
+        );
+      }
     }
 
     await deleteEmpleado(id);
