@@ -54,7 +54,7 @@ function ModalCobrarEntregar({
     .filter((a) => a.estado === "pendiente")
     .reduce((sum, a) => sum + a.monto, 0);
 
-  const costoTotal = orden.costoTotal || orden.presupuestoTotal || 0 || 0;
+  const costoTotal = orden.presupuestoTotal || 0;
   const saldo = Math.max(0, costoTotal - totalAnticipos);
 
   async function handleEntregar() {
@@ -311,10 +311,11 @@ export function AnticipoCajaPanel({ orden, onOrdenUpdated }: AnticipoCajaPanelPr
   const totalAnticiposDevueltos   = anticipos.filter((a) => a.estado === "devuelto").reduce((s, a) => s + a.monto, 0);
   // Total a devolver = anticipos pendientes + aplicados (el backend marca ambos como 'devuelto')
   const totalAnticiposDevolvibles = totalAnticiposPendientes + totalAnticiposAplicados;
-  const costoTotal = orden.costoTotal || orden.presupuestoTotal || 0 || 0;
+  const costoTotal = orden.presupuestoTotal || 0;
   const saldoPendiente = Math.max(0, costoTotal - totalAnticiposPendientes);
 
-  const puedeCobrarEntregar = !["entregado", "cancelado"].includes(orden.estado) && costoTotal > 0;
+  const ESTADOS_ENTREGABLES = ["listo_entrega", "completado", "aprobado", "en_reparacion"];
+  const puedeCobrarEntregar = ESTADOS_ENTREGABLES.includes(orden.estado) && costoTotal > 0;
   const puedeAgregarAnticipo = !["entregado", "cancelado"].includes(orden.estado);
   // Devolver: disponible siempre que haya anticipos pendientes o aplicados y la orden no esté ya entregada
   const puedeDevolver = totalAnticiposDevolvibles > 0 && orden.estado !== "entregado";
@@ -345,13 +346,25 @@ export function AnticipoCajaPanel({ orden, onOrdenUpdated }: AnticipoCajaPanelPr
       </div>
 
       {/* Barra de estado pago completo */}
-      {saldoPendiente === 0 && costoTotal > 0 && (
+      {saldoPendiente === 0 && costoTotal > 0 && ESTADOS_ENTREGABLES.includes(orden.estado) && (
         <div className="flex items-center gap-3 rounded-xl px-4 py-3"
           style={{ background: "var(--color-success-bg)", border: "1px solid var(--color-success)" }}
         >
           <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: "var(--color-success)" }} />
           <p className="text-sm font-semibold" style={{ color: "var(--color-success-text)" }}>
             Servicio pagado completamente con anticipo(s)
+          </p>
+        </div>
+      )}
+
+      {/* Badge informativo: pagado pero equipo aún en diagnóstico/recepción */}
+      {saldoPendiente === 0 && costoTotal > 0 && !ESTADOS_ENTREGABLES.includes(orden.estado) && !["entregado", "cancelado"].includes(orden.estado) && (
+        <div className="flex items-center gap-3 rounded-xl px-4 py-3"
+          style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}
+        >
+          <AlertTriangle className="w-5 h-5 shrink-0" style={{ color: "var(--color-warning)" }} />
+          <p className="text-sm" style={{ color: "var(--color-warning)" }}>
+            <span className="font-semibold">Servicio pagado</span> — el equipo aún no está listo para entrega. Cuando el técnico cambie el estado a &quot;Listo para entrega&quot;, podrás entregar sin cobrar nada adicional.
           </p>
         </div>
       )}

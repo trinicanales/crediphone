@@ -174,6 +174,64 @@ Si se modifica el precio/pieza de un servicio desde el drawer:
 
 **Por qué:** El servicio está vivo hasta que se entrega. Si el técnico encuentra algo diferente, el precio puede cambiar — todos los sistemas deben respetar esa actualización.
 
+## 💲 PRECIO AL CLIENTE vs COSTO INTERNO — Regla crítica (confirmada Trini 2026-05-30)
+
+### Dos columnas, dos propósitos distintos
+
+| Columna DB | Tipo TS | Significado | ¿Quién la modifica? |
+|------------|---------|-------------|---------------------|
+| `precio_total` | `presupuestoTotal` | **Lo que paga el cliente** | Creación + técnico vía `recalcularTotalesOrden()` |
+| `costo_total` | `costoTotal` | **Costo interno del servicio** | Creación + piezas (independiente) |
+
+**REGLA:** La UI de cobro SIEMPRE usa `presupuestoTotal` (= `precio_total`), NUNCA `costoTotal`.
+El `costoTotal` es información interna de margen — el cliente nunca debe verlo.
+
+**Por qué difieren:** El técnico puede modificar `precio_mano_obra` (lo que cobra al cliente por mano de obra) sin cambiar los costos internos. `recalcularTotalesOrden()` actualiza `precio_total` pero NO `costo_total`. Son dos cálculos independientes.
+
+**Flujo cuando el técnico modifica el presupuesto:**
+1. Técnico cambia `precio_mano_obra` → PATCH `/api/reparaciones/[id]/presupuesto`
+2. Se llama `recalcularTotalesOrden()` → actualiza `precio_total` en BD
+3. `precio_total` queda correcto → `presupuestoTotal` en TS refleja el precio del cliente
+4. `costo_total` NO cambia → sigue siendo el costo interno
+5. La UI de cobro lee `presupuestoTotal` → muestra el precio correcto al cliente
+
+**Casos reales que confirman la distinción:**
+- ORD-20260522-0002: cliente paga $1,000 pero costo interno es $700
+- ORD-20260519-0004: cliente paga $200 pero costo interno es $250 (servicio con descuento)
+
+**NUNCA escribir:** `orden.costoTotal || orden.presupuestoTotal` — esto lee el costo interno primero y puede mostrar valores incorrectos (incluso cobrar de más al cliente como en el ejemplo de $250 vs $200).
+
+---
+
+## 🎯 ANTICIPO 100% — Flujo de entrega (confirmado Trini 2026-05-30)
+
+### ¿Qué pasa cuando el anticipo cubre el 100% del servicio?
+
+- El anticipo vive en `anticipos_reparacion` con `estado = "pendiente"` hasta la entrega
+- El dinero físico ya está en caja (o transferencia recibida), pero contablemente no "cierra" hasta la entrega
+- La bolsa virtual recibe `ingresoNeto = precio_total - costos_piezas` SOLO cuando `ejecutarEntregaCompleta()` corre
+- **Entregar con saldo=0:** se puede desde reparaciones (botón "Cobrar y Entregar" → modal sin selector de pago) y desde POS (botón "Entregar equipo")
+
+### Estados válidos para entrega (constante en backend y frontend)
+
+```typescript
+const ESTADOS_ENTREGABLES = ["listo_entrega", "completado", "aprobado", "en_reparacion"];
+```
+
+**Si el estado NO está en esta lista (recibido, diagnostico, presupuesto):**
+- El equipo NO se puede entregar aunque tenga saldo = $0
+- El técnico todavía tiene que diagnosticar/reparar
+- La UI muestra badge informativo: "Servicio pagado — pendiente de diagnóstico/reparación"
+
+### Flujo correcto desde POS cuando saldo = 0
+1. Buscar la orden por folio/nombre/teléfono
+2. Si `saldoPendiente = 0` Y `ESTADOS_ENTREGABLES.includes(orden.estado)` → botón "Entregar equipo"
+3. Click → llama `POST /api/reparaciones/[id]/entregar` con `metodoPago: "anticipo"`
+4. El backend aplica los anticipos pendientes, registra entrega en bolsa virtual, marca "entregado"
+5. **No se registra nada adicional en caja** (el dinero ya entró con el anticipo)
+
+---
+
 ## ❓ Preguntas abiertas para Trini
 
 1. **Fotos post-entrega:** ¿Cuánto tiempo conservar después de entregar la reparación? ¿6 meses, 12, indefinido?

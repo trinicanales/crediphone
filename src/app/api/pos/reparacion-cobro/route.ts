@@ -342,6 +342,14 @@ export async function POST(request: Request) {
     // Si es saldo final y el nuevo saldo es 0 o negativo, marcar como entregado + flujo completo
     let entregado = false;
     if (tipo === "saldo_final" && nuevoSaldo <= 0) {
+      const estadosEntregables = ["listo_entrega", "completado", "aprobado", "en_reparacion"];
+      if (!estadosEntregables.includes(orden.estado)) {
+        return NextResponse.json({
+          success: false,
+          error: `No se puede entregar: la orden está en estado "${orden.estado}". Debe estar lista para entrega primero.`,
+        }, { status: 400 });
+      }
+
       const estadoAnterior = orden.estado || "listo_entrega";
       const { error: updateError } = await supabase
         .from("ordenes_reparacion")

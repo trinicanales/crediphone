@@ -449,6 +449,7 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
   const [procesandoCobroSaldo, setProcesandoCobroSaldo] = useState(false);
   const [procesandoAnticipo, setProcesandoAnticipo] = useState(false);
   const [procesandoCancelacion, setProcesandoCancelacion] = useState(false);
+  const [procesandoEntrega, setProcesandoEntrega] = useState(false);
   const [mensajeExito, setMensajeExito] = useState("");
   const [posDrawerOrdenId, setPosDrawerOrdenId] = useState<string | null>(null);
 
@@ -494,7 +495,8 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
     }
   }, []);
 
-  const saldoPendiente = orden ? (orden.costoTotal - totalAnticipos) : 0;
+  const ESTADOS_ENTREGABLES_POS = ["listo_entrega", "completado", "aprobado", "en_reparacion"];
+  const saldoPendiente = orden ? ((orden.presupuestoTotal ?? orden.costoTotal) - totalAnticipos) : 0;
   const hayDeuda = saldoPendiente > 0;
 
   const handleRegistrarAnticipo = async (monto: number, metodoPago: TipoPago) => {
@@ -571,6 +573,34 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
       setError("Error de conexión");
     } finally {
       setProcesandoCobroSaldo(false);
+    }
+  };
+
+  const handleEntregarSinCobro = async () => {
+    if (!orden) return;
+    setProcesandoEntrega(true);
+    try {
+      const res = await fetch(`/api/reparaciones/${orden.id}/entregar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metodoPago: "anticipo" }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error ?? "Error al entregar equipo");
+        return;
+      }
+      setMensajeExito("✅ Equipo entregado exitosamente.");
+      setOrden(null);
+      setTotalAnticipos(0);
+      setSearchQuery("");
+      void fetchListosParaCobrar();
+      if (onCobroCompleto) onCobroCompleto(orden.id);
+      setTimeout(() => setMensajeExito(""), 4000);
+    } catch {
+      setError("Error de conexión");
+    } finally {
+      setProcesandoEntrega(false);
     }
   };
 
@@ -783,10 +813,10 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
             {/* "Registrar anticipo" siempre visible en órdenes activas (costo_total puede ser 0 en diagnóstico) */}
             {orden.estado !== "entregado" && orden.estado !== "cancelado" ? (
               <div className="flex flex-col gap-2">
-                <div className={hayDeuda ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setShowModalAnticipo(true)}
-                    disabled={procesandoAnticipo || procesandoCobroSaldo || procesandoCancelacion}
+                    disabled={procesandoAnticipo || procesandoCobroSaldo || procesandoCancelacion || procesandoEntrega}
                     className="py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
                     style={{
                       background: "var(--color-bg-elevated)",
@@ -796,10 +826,10 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
                   >
                     Registrar anticipo
                   </button>
-                  {hayDeuda && (
+                  {hayDeuda ? (
                     <button
                       onClick={() => setShowModalCobroSaldo(true)}
-                      disabled={procesandoCobroSaldo || procesandoAnticipo || procesandoCancelacion}
+                      disabled={procesandoCobroSaldo || procesandoAnticipo || procesandoCancelacion || procesandoEntrega}
                       className="py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
                       style={{
                         background: "var(--color-accent)",
@@ -808,6 +838,25 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
                     >
                       Cobrar saldo
                     </button>
+                  ) : ESTADOS_ENTREGABLES_POS.includes(orden.estado) ? (
+                    <button
+                      onClick={handleEntregarSinCobro}
+                      disabled={procesandoEntrega || procesandoAnticipo || procesandoCobroSaldo || procesandoCancelacion}
+                      className="py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                      style={{
+                        background: "var(--color-success)",
+                        color: "#fff",
+                      }}
+                    >
+                      {procesandoEntrega ? "Entregando..." : "Entregar equipo"}
+                    </button>
+                  ) : (
+                    <div
+                      className="py-2.5 rounded-xl text-xs font-medium text-center flex items-center justify-center"
+                      style={{ background: "var(--color-warning-bg)", color: "var(--color-warning)", border: "1px solid var(--color-warning)" }}
+                    >
+                      Pagado — pendiente diagnóstico
+                    </div>
                   )}
                 </div>
                 {/* Botón de cancelación — solo en estados donde todavía no hay reparación activa */}
