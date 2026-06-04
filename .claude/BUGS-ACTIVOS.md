@@ -5,19 +5,19 @@
 ---
 
 ## ✅ BUG-TRACK-001 — Token de tracking no se genera si se salta estado "presupuesto"
-**Estado:** ✅ Resuelto (verificado 2026-05-26)
+**Severidad:** Alta | **Estado:** ✅ Resuelto (verificado 2026-05-26)
 **Solución:** `src/app/api/reparaciones/[id]/route.ts` línea ~336. Al cambiar a cualquier estado activo (excepto recibido, presupuesto, cancelado, no_reparable), se verifica si existe token y se genera automáticamente si no.
 
 ---
 
 ## ✅ BUG-TRACK-002 — Costo y cotización ocultos en tracking cuando requiereAprobacion = false
-**Estado:** ✅ Resuelto (verificado 2026-05-26)
+**Severidad:** Media | **Estado:** ✅ Resuelto (verificado 2026-05-26)
 **Solución:** `clienteAprobado = aprobadoPorCliente || !requiereAprobacion` en tracking page. El costo y los servicios cotizados se muestran correctamente cuando `requiereAprobacion = false`.
 
 ---
 
 ## ✅ BUG-WA-001 — WhatsApp en OrdenCard abre sin mensaje precargado
-**Estado:** ✅ Resuelto (verificado 2026-05-26)
+**Severidad:** Media | **Estado:** ✅ Resuelto (verificado 2026-05-26)
 **Solución:** `OrdenCard.tsx` usa `generarLinkWhatsApp(orden.clienteTelefono, generarMensajeSeguimiento(orden))` en `PhoneMenu`.
 
 ---
