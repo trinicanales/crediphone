@@ -7,6 +7,7 @@ import { useCarritoStore } from "@/store/carritoStore";
 import { CarritoFlotante } from "@/components/ecommerce/CarritoFlotante";
 import { FormularioCotizacion } from "@/components/ecommerce/FormularioCotizacion";
 import { obtenerUrlImagen } from "@/lib/storage";
+import { useConfig } from "@/components/ConfigProvider";
 import type { Producto } from "@/types";
 import {
   Search,
@@ -497,6 +498,9 @@ function FilterChip({
    PÁGINA PRINCIPAL
 ───────────────────────────────────────────── */
 export default function CatalogoPage() {
+  const { config } = useConfig();
+  const WA_NUMERO = config?.whatsappNumero || process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+
   const [productos, setProductos]               = useState<Producto[]>([]);
   const [filteredProductos, setFilteredProductos] = useState<Producto[]>([]);
   const [searchQuery, setSearchQuery]           = useState("");
@@ -506,16 +510,30 @@ export default function CatalogoPage() {
   const [errorProductos, setErrorProductos]     = useState(false);
   const [mostrarCotizacion, setMostrarCotizacion] = useState(false);
   const [tabActivo, setTabActivo]               = useState<"productos" | "servicios">("servicios");
+  const [distribuidorSlug, setDistribuidorSlug] = useState<string | undefined>();
   const searchRef                               = useRef<HTMLInputElement>(null);
 
   const agregarProducto = useCarritoStore((s) => s.agregarProducto);
+
+  /* ── Extraer subdominio para filtrar productos por franquicia ── */
+  useEffect(() => {
+    const host = window.location.hostname;
+    const main = "crediphone.com.mx";
+    if (host.endsWith(`.${main}`)) {
+      const sub = host.slice(0, -(main.length + 1));
+      if (sub && sub !== "www") setDistribuidorSlug(sub);
+    }
+  }, []);
 
   /* ── Fetch productos ─────────────────────── */
   const fetchProductos = useCallback(async () => {
     try {
       setLoadingProductos(true);
       setErrorProductos(false);
-      const res  = await fetch("/api/public/productos");
+      const url = distribuidorSlug
+        ? `/api/public/productos?distribuidorSlug=${distribuidorSlug}`
+        : "/api/public/productos";
+      const res  = await fetch(url);
       const data = await res.json();
       if (data.success) {
         // El endpoint ya filtra stock > 0, pero lo dejamos por seguridad
@@ -530,7 +548,7 @@ export default function CatalogoPage() {
     } finally {
       setLoadingProductos(false);
     }
-  }, []);
+  }, [distribuidorSlug]);
 
   useEffect(() => { fetchProductos(); }, [fetchProductos]);
 
@@ -1079,7 +1097,7 @@ export default function CatalogoPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391"}?text=${encodeURIComponent("Hola CREDIPHONE, necesito ayuda con la reparación de mi celular.")}`}
+              href={`https://wa.me/${WA_NUMERO}?text=${encodeURIComponent(`Hola ${config?.nombreEmpresa || "CREDIPHONE"}, necesito ayuda con la reparación de mi celular.`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-semibold"

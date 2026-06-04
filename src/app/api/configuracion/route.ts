@@ -1,22 +1,45 @@
 import { NextResponse } from "next/server";
 import { getConfiguracion, updateConfiguracion } from "@/lib/db/configuracion";
 import { getAuthContext } from "@/lib/auth/server";
+import { getDistribuidorBySlug } from "@/lib/db/distribuidores";
+
+/** Extrae el subdominio del header Host. Retorna null si es el dominio raíz. */
+function getSubdominioFromHost(host: string): string | null {
+  const mainDomain = "crediphone.com.mx";
+  if (!host.endsWith(`.${mainDomain}`)) return null;
+  const sub = host.slice(0, -(mainDomain.length + 1));
+  if (!sub || sub === "www" || sub.includes(".")) return null;
+  return sub;
+}
 
 /**
  * GET /api/configuracion
  * Obtiene la configuracion del sistema.
- * Acceso: Cualquier usuario autenticado (necesario para filtrar sidebar por modulos).
- * Si getAuthContext falla (sesión no iniciada aún), responde igualmente con la config por defecto.
+ * Resolución de distribuidor (en orden de prioridad):
+ *   1. distribuidorId de la sesión autenticada
+ *   2. Subdominio del Host header (páginas públicas por franquicia)
+ *   3. null → primera config disponible (dominio raíz o sin contexto)
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Intentar obtener distribuidorId — si falla (ej: sin sesión), continuar sin filtro
     let distribuidorId: string | null = null;
+
+    // 1. Intentar obtener distribuidorId de sesión autenticada
     try {
       const auth = await getAuthContext();
       distribuidorId = auth.distribuidorId ?? null;
     } catch {
-      // Sin sesión o error de auth → usar config sin filtro de distribuidor
+      // Sin sesión o error de auth — continuar con resolución por Host
+    }
+
+    // 2. Si no hay sesión, resolver por subdominio (ej: lalo.crediphone.com.mx)
+    if (!distribuidorId) {
+      const host = request.headers.get("host") ?? "";
+      const slug = getSubdominioFromHost(host);
+      if (slug) {
+        const dist = await getDistribuidorBySlug(slug);
+        distribuidorId = dist?.id ?? null;
+      }
     }
 
     const config = await getConfiguracion(distribuidorId);

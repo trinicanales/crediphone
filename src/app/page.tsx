@@ -5,14 +5,15 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { obtenerUrlImagen } from "@/lib/storage";
+import { useConfig } from "@/components/ConfigProvider";
 import { CreditCard, Wrench, Smartphone } from "lucide-react";
 import type { Producto } from "@/types";
 
-// Número de WhatsApp — se usa solo en el cliente para evitar
-// que extensiones del navegador modifiquen el href antes de que React hidrate
-const WA_NUMERO = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE ?? "526181245391";
-
 export default function Home() {
+  const { config } = useConfig();
+  const WA_NUMERO = config?.whatsappNumero || process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+  const NOMBRE_EMPRESA = config?.nombreEmpresa || "CREDIPHONE";
+
   const [productos, setProductos] = useState<Producto[]>([]);
   // mounted controla que los links wa.me NO se rendericen en el servidor.
   // Esto evita la hydration mismatch causada por extensiones de Chrome que

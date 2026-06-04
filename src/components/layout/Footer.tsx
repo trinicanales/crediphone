@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-
-// Número de WhatsApp — se lee solo en el cliente para evitar
-// hydration mismatch causada por extensiones de Chrome que modifican
-// URLs wa.me en el DOM SSR antes de que React hidrate.
-const WA_NUMERO = process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+import { useConfig } from "@/components/ConfigProvider";
 
 export function Footer() {
+  const { config } = useConfig();
+  const WA_NUMERO = config?.whatsappNumero || process.env.NEXT_PUBLIC_WHATSAPP_SOPORTE || "526181245391";
+  const NOMBRE_EMPRESA = config?.nombreEmpresa || "CREDIPHONE";
+
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -18,7 +18,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <h3 className="text-xl font-bold text-blue-400 mb-2">CREDIPHONE</h3>
+            <h3 className="text-xl font-bold text-blue-400 mb-2">{NOMBRE_EMPRESA}</h3>
             <p className="text-gray-400 text-sm">
               Venta de celulares a credito, accesorios y servicio de reparacion profesional.
             </p>
@@ -65,7 +65,7 @@ export function Footer() {
         <div className="border-t border-gray-800 mt-8 pt-6 text-center">
           {/* getFullYear() también es client-only para evitar mismatch en año nuevo */}
           <p className="text-gray-500 text-xs">
-            &copy; {mounted ? new Date().getFullYear() : "2026"} CREDIPHONE. Todos los derechos reservados.
+            &copy; {mounted ? new Date().getFullYear() : "2026"} {NOMBRE_EMPRESA}. Todos los derechos reservados.
           </p>
         </div>
       </div>

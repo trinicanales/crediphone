@@ -60,7 +60,17 @@
 
   "observability": {
     "enabled": true
-  }
+  },
+
+  // Subdominios por franquicia — un solo route wildcard captura todos:
+  // lalo.crediphone.com.mx, cellman.crediphone.com.mx, jl.crediphone.com.mx
+  // Requiere registro DNS: CNAME * → crediphone.com.mx (proxied) en Cloudflare Dashboard
+  "routes": [
+    {
+      "pattern": "*.crediphone.com.mx/*",
+      "zone_name": "crediphone.com.mx"
+    }
+  ]
 
   // CRON — Para activar recordatorios automáticos:
   // 1. Agregar CRON_SECRET en Cloudflare Dashboard > crediphone > Settings > Variables (secret)
