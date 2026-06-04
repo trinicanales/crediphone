@@ -2,8 +2,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Configuracion } from "@/types";
 
 /**
- * Obtiene la configuracion del sistema.
- * Si se pasa distribuidorId, filtra por ese distribuidor (multi-tenant).
+ * Obtiene la configuracion del sistema para un distribuidor.
+ * Si no existe fila para ese distribuidor, la crea con valores por defecto (auto-provisioning).
+ * Si no se pasa distribuidorId (super_admin), retorna la primera fila disponible.
  */
 export async function getConfiguracion(
   distribuidorId?: string | null
@@ -16,9 +17,21 @@ export async function getConfiguracion(
     query = query.eq("distribuidor_id", distribuidorId);
   }
 
-  const { data, error } = await query.limit(1).single();
+  const { data, error } = await query.limit(1).maybeSingle();
+
+  // Si no hay fila y sí hay distribuidorId → crear una con defaults
+  if (!data && distribuidorId && (!error || error.code === "PGRST116")) {
+    const { data: nueva, error: insertError } = await supabase
+      .from("configuracion")
+      .insert({ distribuidor_id: distribuidorId })
+      .select()
+      .single();
+    if (insertError) throw insertError;
+    return mapConfigFromDB(nueva);
+  }
 
   if (error) throw error;
+  if (!data) throw new Error("No se encontró configuración del sistema.");
   return mapConfigFromDB(data);
 }
 
