@@ -113,6 +113,7 @@ export default function POSPage() {
 
   // FASE 36/41/61: Sección activa del panel izquierdo
   const [posSection, setPosSection] = useState<"productos" | "servicios" | "reparaciones" | "kits">("productos");
+  const [reparacionesCount, setReparacionesCount] = useState(0);
 
   // Bolsa Virtual
   const [showBolsaVirtual, setShowBolsaVirtual] = useState(false);
@@ -180,6 +181,12 @@ export default function POSPage() {
       fetch("/api/pos/reparaciones-activas?resumen=true")
         .then((r) => r.json())
         .then((d) => { if (d.success) setBolsaTotal(d.data.totalBolsa || 0); })
+        .catch(() => {});
+
+      // Badge de reparaciones listas para cobrar
+      fetch("/api/pos/reparaciones-activas?estado=listo_entrega")
+        .then((r) => r.json())
+        .then((d) => { if (d.success && Array.isArray(d.data)) setReparacionesCount(d.data.length); })
         .catch(() => {});
 
       // PO2: cargar promociones activas
@@ -1469,15 +1476,15 @@ export default function POSPage() {
             }}
           >
             {[
-              { id: "productos"    as const, icon: <LayoutGrid className="w-3.5 h-3.5" />, label: "Productos"   },
-              { id: "servicios"    as const, icon: <Wrench     className="w-3.5 h-3.5" />, label: "Servicios"   },
-              { id: "kits"         as const, icon: <Package2   className="w-3.5 h-3.5" />, label: "Kits"        },
-              { id: "reparaciones" as const, icon: <FileText   className="w-3.5 h-3.5" />, label: "Cobrar Rep." },
-            ].map(({ id, icon, label }) => (
+              { id: "reparaciones" as const, icon: <FileText   className="w-4 h-4" />, label: "Cobrar Rep.", badge: reparacionesCount },
+              { id: "productos"    as const, icon: <LayoutGrid className="w-4 h-4" />, label: "Productos",    badge: 0 },
+              { id: "servicios"    as const, icon: <Wrench     className="w-4 h-4" />, label: "Servicios",    badge: 0 },
+              { id: "kits"         as const, icon: <Package2   className="w-4 h-4" />, label: "Kits",         badge: 0 },
+            ].map(({ id, icon, label, badge }) => (
               <button
                 key={id}
                 onClick={() => setPosSection(id)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all relative"
                 style={{
                   background: posSection === id ? "var(--color-bg-surface)" : "transparent",
                   color: posSection === id ? "var(--color-accent)" : "var(--color-text-muted)",
@@ -1486,6 +1493,14 @@ export default function POSPage() {
               >
                 {icon}
                 {label}
+                {badge > 0 && posSection !== id && (
+                  <span
+                    className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full px-1"
+                    style={{ background: "var(--color-accent)", color: "#fff" }}
+                  >
+                    {badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -1571,7 +1586,7 @@ export default function POSPage() {
             <KitsPOSPanel onAgregarKit={handleAgregarKit} />
           ) : (
             /* FASE 41: Panel de cobro de Reparaciones desde POS */
-            <ReparacionesPOSPanel />
+            <ReparacionesPOSPanel onCountChange={setReparacionesCount} />
           )}
 
         </div>

@@ -410,9 +410,10 @@ function ModalCancelarReparacion({
 
 interface ReparacionesPOSPanelProps {
   onCobroCompleto?: (ordenId: string) => void;
+  onCountChange?: (count: number) => void;
 }
 
-export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelProps) {
+export function ReparacionesPOSPanel({ onCobroCompleto, onCountChange }: ReparacionesPOSPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -429,7 +430,9 @@ export function ReparacionesPOSPanel({ onCobroCompleto }: ReparacionesPOSPanelPr
       const res = await fetch("/api/pos/reparaciones-activas?estado=listo_entrega");
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        setListasParaCobrar(data.data as OrdenListaCobro[]);
+        const lista = data.data as OrdenListaCobro[];
+        setListasParaCobrar(lista);
+        onCountChange?.(lista.length);
       }
     } catch {
       // silencioso — no bloquear el panel
