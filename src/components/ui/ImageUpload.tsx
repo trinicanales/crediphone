@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Button } from "./Button";
 import { ImageCropModal } from "./ImageCropModal";
+import { AlertTriangle } from "lucide-react";
 import { subirImagen, eliminarImagen, obtenerUrlImagen, type CategoriaImagen } from "@/lib/storage";
 
 interface ImageUploadProps {
@@ -239,7 +240,7 @@ export function ImageUpload({
               border: "1px solid var(--color-danger)",
             }}
           >
-            ⚠️ {error}
+            <span className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}</span>
           </div>
         )}
 

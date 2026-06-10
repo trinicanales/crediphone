@@ -50,6 +50,7 @@ import {
   Star,             // Programa de puntos / loyalty
   ArrowLeftRight,   // Movimientos de stock (C2)
   Archive,          // Panel almacenaje / equipos sin recoger
+  Check,            // Indicador activo en selector de distribuidor
 } from "lucide-react";
 
 /* ── Tipos de navegación ────────────────────────────────────── */
@@ -318,7 +319,7 @@ function DistribuidorSelector() {
                 />
                 <span className="truncate font-medium">{d.nombre}</span>
                 {isActive && (
-                  <span className="ml-auto text-[10px]" style={{ color: "var(--color-sidebar-active)" }}>✓</span>
+                  <Check className="ml-auto w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-sidebar-active)" }} />
                 )}
               </button>
             );
@@ -343,7 +344,7 @@ function DistribuidorSelector() {
             <Eye className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">Vista Global</span>
             {distribuidorActivo === null && (
-              <span className="ml-auto text-[10px]" style={{ color: "var(--color-sidebar-active)" }}>✓</span>
+              <Check className="ml-auto w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--color-sidebar-active)" }} />
             )}
           </button>
         </div>

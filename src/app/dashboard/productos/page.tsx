@@ -956,8 +956,9 @@ function ProductoRow({ producto, fmt, onEdit, onDelete, onPrint, onVerHistorial,
           {[producto.marca, producto.modelo].filter(Boolean).join(" · ")}
         </div>
         {(ubicacionNombre || producto.ubicacionFisica) && (
-          <div className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-            📍 {ubicacionNombre || producto.ubicacionFisica}
+          <div className="text-xs mt-0.5 flex items-center gap-0.5" style={{ color: "var(--color-text-muted)" }}>
+            <MapPin className="w-3 h-3 flex-shrink-0" />
+            {ubicacionNombre || producto.ubicacionFisica}
           </div>
         )}
         {producto.esSerializado && (

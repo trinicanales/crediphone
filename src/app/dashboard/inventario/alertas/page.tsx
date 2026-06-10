@@ -7,7 +7,7 @@ import {
   AlertTriangle, PackageX, TrendingDown, CheckCircle, XCircle, Clock,
   Barcode, User, RefreshCw, ExternalLink, Flame, ShoppingCart,
   Archive, Square, CheckSquare, ChevronDown, ChevronUp, Plus, Minus,
-  Package, Tag,
+  Package, Tag, MapPin,
 } from "lucide-react";
 import type { Producto, AlertaProductoNuevoDetallada, EstadisticasPOS } from "@/types";
 
@@ -481,8 +481,9 @@ function ProductoAlertaRow({
             </span>
           )}
           {producto.ubicacionFisica && (
-            <span className="text-xs px-2 py-1 rounded-lg" style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)" }}>
-              📍 {producto.ubicacionFisica}
+            <span className="text-xs px-2 py-1 rounded-lg inline-flex items-center gap-1" style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)" }}>
+              <MapPin className="w-3 h-3 flex-shrink-0" />
+              {producto.ubicacionFisica}
             </span>
           )}
         </div>

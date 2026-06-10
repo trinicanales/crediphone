@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { AlertTriangle, Smartphone, CheckCircle } from "lucide-react";
 import type { AlertaRecordatorio } from "@/lib/types/notificaciones";
 import {
   generarMensajeRecordatorio,
@@ -37,9 +38,9 @@ export function AlertaCard({ alerta, onEnviado }: AlertaCardProps) {
     baja: "info" as const,
   };
 
-  const iconoPrioridad = {
+  const iconoPrioridad: Record<string, string | ReactNode> = {
     urgente: "🚨",
-    alta: "⚠️",
+    alta: <AlertTriangle className="w-4 h-4 inline" />,
     media: "⏰",
     baja: "📋",
   };
@@ -110,8 +111,8 @@ export function AlertaCard({ alerta, onEnviado }: AlertaCardProps) {
             <h3 className="text-lg font-semibold text-gray-900">
               {cliente.nombre} {cliente.apellido}
             </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              📱 {formatearTelefono(cliente.telefono)}
+            <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
+              <Smartphone className="w-3.5 h-3.5 flex-shrink-0" /> {formatearTelefono(cliente.telefono)}
             </p>
             {cliente.email && (
               <p className="text-sm text-gray-600">
@@ -169,7 +170,7 @@ export function AlertaCard({ alerta, onEnviado }: AlertaCardProps) {
           >
             {enviado ? (
               <>
-                <span className="text-green-600">✓</span>
+                <CheckCircle className="w-4 h-4 text-green-600" />
                 Enviado
               </>
             ) : enviando ? (

@@ -8,7 +8,7 @@ import {
   MessageSquare, Package, Timer, FileText, Image as ImageIcon,
   DollarSign, Phone, CheckCircle, GitBranch, Printer, Plus, PackageCheck, PackagePlus,
   Download, History, ShieldAlert, UserCog, Link2, Copy, MessageCircle, RotateCcw, Pencil,
-  Smartphone, ChevronDown,
+  Smartphone, ChevronDown, AlertTriangle, Lock,
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { PresupuestoSummary } from "@/components/reparaciones/detail/PresupuestoSummary";
@@ -1387,7 +1387,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
         {/* Acceso al dispositivo */}
         {(orden.patronDesbloqueo || orden.passwordDispositivo) && (
           <div className="rounded-xl p-4" style={{ background: "var(--color-warning-bg)", border: "2px solid var(--color-warning)" }}>
-            <p className="text-sm font-semibold mb-2" style={{ color: "var(--color-warning-text)" }}>🔐 Acceso al Dispositivo</p>
+            <p className="text-sm font-semibold mb-2 flex items-center gap-1.5" style={{ color: "var(--color-warning-text)" }}><Lock className="w-4 h-4 flex-shrink-0" /> Acceso al Dispositivo</p>
             <div className="grid grid-cols-1 gap-2">
               {orden.patronDesbloqueo && (
                 <div>
@@ -1411,7 +1411,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
 
         {orden.aprobacionParcial && (
           <div className="rounded-xl p-4" style={{ background: "var(--color-warning-bg)", border: "2px solid var(--color-warning)" }}>
-            <p className="text-sm font-bold" style={{ color: "var(--color-warning-text)" }}>⚠️ Aprobación Parcial</p>
+            <p className="text-sm font-bold flex items-center gap-1.5" style={{ color: "var(--color-warning-text)" }}><AlertTriangle className="w-4 h-4 flex-shrink-0" /> Aprobación Parcial</p>
             {orden.notasCliente && (
               <p className="text-xs mt-1" style={{ color: "var(--color-warning-text)" }}>{orden.notasCliente}</p>
             )}
@@ -2342,7 +2342,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
               <Clock className="w-5 h-5" style={{ color: overdueAlert ? "var(--color-danger)" : "var(--color-accent)" }} />
               <p className="text-sm font-medium" style={{ color: overdueAlert ? "var(--color-danger)" : "var(--color-accent)" }}>
                 {formatFecha(orden.fechaEstimadaEntrega)}
-                {overdueAlert && " · ⚠️ Vencida"}
+                {overdueAlert && <span className="inline-flex items-center gap-1 ml-1"> · <AlertTriangle className="w-3.5 h-3.5 inline" /> Vencida</span>}
               </p>
             </div>
           </Card>
@@ -3205,7 +3205,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
             style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}
           >
             <p className="text-xs font-semibold" style={{ color: "var(--color-warning-text)" }}>
-              ⚠️ Cotización modificada — el precio fue ajustado después del presupuesto inicial
+              <span className="inline-flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> Cotización modificada — el precio fue ajustado después del presupuesto inicial</span>
             </p>
             <details>
               <summary className="text-xs cursor-pointer" style={{ color: "var(--color-warning)" }}>
@@ -3364,7 +3364,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
 
         {/* Solicitudes de cambio de precio — solo admin */}
         {solicitudesPrecio.filter((s) => s.estado === "pendiente").length > 0 && (
-          <Card title="⚠️ Cambios de precio pendientes">
+          <Card title="Cambios de precio pendientes">
             <div className="space-y-3">
               {solicitudesPrecio.filter((s) => s.estado === "pendiente").map((sol) => {
                 const fmt = (n: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);

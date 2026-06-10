@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  ShoppingBag, RefreshCw, AlertCircle, DollarSign, User, Clock,
+  ShoppingBag, RefreshCw, AlertCircle, AlertTriangle, DollarSign, User, Clock,
   ChevronDown, ChevronRight, Banknote, CreditCard, ArrowUpDown, Printer,
 } from "lucide-react";
 import type { TipoPago } from "@/types";
@@ -528,7 +528,7 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
         <div className="flex-1 overflow-y-auto p-3 space-y-3">
           {totalDisputa > 0 && (
             <div className="flex justify-between items-center px-3 py-2 rounded-lg" style={{ background: "#fee2e2" }}>
-              <span className="text-sm font-medium" style={{ color: "#991b1b" }}>⚠️ Total retenido en disputa</span>
+              <span className="text-sm font-medium flex items-center gap-1.5" style={{ color: "#991b1b" }}><AlertTriangle className="w-4 h-4 flex-shrink-0" /> Total retenido en disputa</span>
               <span className="text-sm font-bold" style={{ color: "#dc2626", fontFamily: "var(--font-data)" }}>{fmtPrecio(totalDisputa)}</span>
             </div>
           )}

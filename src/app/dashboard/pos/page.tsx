@@ -1521,7 +1521,7 @@ export default function POSPage() {
                   >
                     <div className="min-w-0">
                       <p className="text-xs font-bold truncate" style={{ color: "var(--color-warning-text)" }}>
-                        🏷️ {promo.titulo}
+                        <Tag className="w-3 h-3 inline-block mr-1 flex-shrink-0" style={{ verticalAlign: "middle" }} />{promo.titulo}
                       </p>
                       {promo.precioPromocion ? (
                         <p className="text-xs" style={{ color: "var(--color-warning-text)", fontFamily: "var(--font-data)" }}>
