@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
 // Listar fotos de una orden
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json(
         { success: false, message: "No autenticado" },
@@ -222,6 +222,18 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createAdminClient();
+
+    // Validar que la orden pertenece a la franquicia del usuario
+    if (!isSuperAdmin) {
+      const { data: ordenCheck } = await supabase
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", ordenId)
+        .single();
+      if (!ordenCheck || ordenCheck.distribuidor_id !== distribuidorId) {
+        return NextResponse.json({ success: false, message: "No autorizado" }, { status: 403 });
+      }
+    }
 
     const { data: imagenes, error } = await supabase
       .from("imagenes_reparacion")

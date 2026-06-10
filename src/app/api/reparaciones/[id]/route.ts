@@ -496,6 +496,20 @@ export async function PUT(
         return NextResponse.json({ success: false, error: "Solo admin puede reasignar técnicos" }, { status: 403 });
       }
       const supabase = createAdminClient();
+      // Validar que el técnico pertenece a la misma franquicia
+      if (body.tecnicoId && !isSuperAdmin && distribuidorId) {
+        const { data: empCheck } = await supabase
+          .from("users")
+          .select("distribuidor_id")
+          .eq("id", body.tecnicoId)
+          .single();
+        if (!empCheck || empCheck.distribuidor_id !== distribuidorId) {
+          return NextResponse.json(
+            { success: false, error: "El técnico no pertenece a esta franquicia" },
+            { status: 403 }
+          );
+        }
+      }
       const patchData: Record<string, unknown> = {};
       if (body.fechaEstimadaEntrega !== undefined) {
         patchData.fecha_estimada_entrega = body.fechaEstimadaEntrega || null;

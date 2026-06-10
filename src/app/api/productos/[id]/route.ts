@@ -14,7 +14,8 @@ export async function GET(
     if (!auth.ok) return auth.response;
 
     const { id } = await params;
-    const producto = await getProductoById(id);
+    const filterDist = auth.isSuperAdmin ? undefined : (auth.distribuidorId ?? undefined);
+    const producto = await getProductoById(id, filterDist);
 
     if (!producto) {
       return NextResponse.json(
@@ -47,7 +48,7 @@ export async function PUT(
 ) {
   try {
     // Vendedores con permiso producto_editar también pueden actualizar
-    const { userId, role, permisosExplicitos } = await getAuthContext();
+    const { userId, role, permisosExplicitos, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     if (!tienePermiso(role, permisosExplicitos, "producto_editar")) {
       return NextResponse.json({ success: false, error: "No autorizado para editar productos" }, { status: 403 });
@@ -55,8 +56,9 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
+    const filterDist = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
 
-    const productoActualizado = await updateProducto(id, body);
+    const productoActualizado = await updateProducto(id, body, filterDist);
 
     return NextResponse.json({
       success: true,
@@ -97,12 +99,16 @@ export async function PATCH(
       // Verificar que el producto existe y no tiene código ya
       const { data: prod } = await supabase
         .from("productos")
-        .select("id, codigo_barras, sku")
+        .select("id, codigo_barras, sku, distribuidor_id")
         .eq("id", id)
         .single();
 
       if (!prod) {
         return NextResponse.json({ success: false, error: "Producto no encontrado" }, { status: 404 });
+      }
+
+      if (!auth.isSuperAdmin && auth.distribuidorId && prod.distribuidor_id !== auth.distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
       }
 
       // Si ya tiene código, devolver el existente sin modificar
@@ -160,6 +166,10 @@ export async function PATCH(
         .single();
 
       if (!prod) return NextResponse.json({ success: false, error: "Producto no encontrado" }, { status: 404 });
+
+      if (!authAdmin.isSuperAdmin && authAdmin.distribuidorId && prod.distribuidor_id !== authAdmin.distribuidorId) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
+      }
 
       const stockAntes = Number(prod.stock ?? 0);
       const stockDespues = Math.max(0, Math.round(cantidadNueva));

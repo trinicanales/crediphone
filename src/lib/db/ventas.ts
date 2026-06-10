@@ -408,7 +408,8 @@ export async function createVenta(
  */
 export async function cancelarVenta(
   id: string,
-  motivo?: string
+  motivo?: string,
+  distribuidorId?: string
 ): Promise<Venta> {
   const supabase = createAdminClient();
 
@@ -421,12 +422,9 @@ export async function cancelarVenta(
     updateData.notas = motivo;
   }
 
-  const { data, error } = await supabase
-    .from("ventas")
-    .update(updateData)
-    .eq("id", id)
-    .select()
-    .single();
+  let q = supabase.from("ventas").update(updateData).eq("id", id);
+  if (distribuidorId) q = q.eq("distribuidor_id", distribuidorId);
+  const { data, error } = await q.select().single();
 
   if (error || !data) {
     console.error("Error canceling venta:", error);

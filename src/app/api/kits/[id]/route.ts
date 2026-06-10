@@ -7,10 +7,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     const { id } = await params;
-    const kit = await getKitById(id);
+    const filterDist = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
+    const kit = await getKitById(id, filterDist);
     if (!kit) return NextResponse.json({ success: false, error: "Kit no encontrado" }, { status: 404 });
     return NextResponse.json({ success: true, data: kit });
   } catch (error) {
@@ -23,13 +24,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     if (!["admin", "super_admin"].includes(role ?? ""))
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     const { id } = await params;
     const body = await request.json();
-    const kit = await updateKit(id, body);
+    const filterDist = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
+    const kit = await updateKit(id, body, filterDist);
     return NextResponse.json({ success: true, data: kit });
   } catch (error) {
     console.error("PUT /api/kits/[id]:", error);
@@ -42,12 +44,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     if (!["admin", "super_admin"].includes(role ?? ""))
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     const { id } = await params;
-    await deleteKit(id);
+    const filterDist = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
+    await deleteKit(id, filterDist);
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ success: false, error: "Error al eliminar kit" }, { status: 500 });

@@ -140,6 +140,7 @@ export interface RecordatoriosOptions {
   soloVencidos?: boolean;
   prioridad?: PrioridadAlerta;
   vendedorId?: string;
+  distribuidorId?: string;
 }
 
 /**

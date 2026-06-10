@@ -77,9 +77,9 @@ export async function getKits(distribuidorId: string, soloActivos = false): Prom
   return (data ?? []).map((r) => mapKitFromDB(r as Record<string, unknown>));
 }
 
-export async function getKitById(id: string): Promise<Kit | null> {
+export async function getKitById(id: string, distribuidorId?: string): Promise<Kit | null> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  let q = supabase
     .from("kits")
     .select(`
       *,
@@ -91,8 +91,9 @@ export async function getKitById(id: string): Promise<Kit | null> {
                     created_at, updated_at )
       )
     `)
-    .eq("id", id)
-    .single();
+    .eq("id", id);
+  if (distribuidorId) q = q.eq("distribuidor_id", distribuidorId);
+  const { data, error } = await q.single();
   if (error) return null;
   return mapKitFromDB(data as Record<string, unknown>);
 }
@@ -136,7 +137,8 @@ export async function createKit(
 
 export async function updateKit(
   id: string,
-  data: Partial<NuevoKitFormData> & { activo?: boolean }
+  data: Partial<NuevoKitFormData> & { activo?: boolean },
+  distribuidorId?: string
 ): Promise<Kit> {
   const supabase = createAdminClient();
 
@@ -147,7 +149,9 @@ export async function updateKit(
   if (data.imagen      !== undefined) updates.imagen      = data.imagen;
   if (data.activo      !== undefined) updates.activo      = data.activo;
 
-  const { error: kitErr } = await supabase.from("kits").update(updates).eq("id", id);
+  let updateQ = supabase.from("kits").update(updates).eq("id", id);
+  if (distribuidorId) updateQ = updateQ.eq("distribuidor_id", distribuidorId);
+  const { error: kitErr } = await updateQ;
   if (kitErr) throw kitErr;
 
   // Reemplazar items si se envían
@@ -167,8 +171,10 @@ export async function updateKit(
   return (await getKitById(id))!;
 }
 
-export async function deleteKit(id: string): Promise<void> {
+export async function deleteKit(id: string, distribuidorId?: string): Promise<void> {
   const supabase = createAdminClient();
-  const { error } = await supabase.from("kits").delete().eq("id", id);
+  let q = supabase.from("kits").delete().eq("id", id);
+  if (distribuidorId) q = q.eq("distribuidor_id", distribuidorId);
+  const { error } = await q;
   if (error) throw error;
 }

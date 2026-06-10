@@ -485,8 +485,8 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
     if (!nuevoTecnicoId || !ordenId) return;
     setReasignando(true);
     try {
-      const res = await fetch(`/api/reparaciones/${ordenId}`, {
-        method: "PUT",
+      const res = await fetch(`/api/reparaciones/${ordenId}/asignar-tecnico`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tecnicoId: nuevoTecnicoId }),
       });

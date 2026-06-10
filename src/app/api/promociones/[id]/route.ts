@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     if (!["admin", "super_admin"].includes(role ?? "")) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
@@ -22,7 +22,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (body.activa !== undefined) updates.activa = body.activa;
     if (body.fechaInicio !== undefined) updates.fecha_inicio = body.fechaInicio;
     if (body.fechaFin !== undefined) updates.fecha_fin = body.fechaFin;
-    const { error } = await supabase.from("promociones").update(updates).eq("id", id);
+    let q = supabase.from("promociones").update(updates).eq("id", id);
+    if (!isSuperAdmin && distribuidorId) q = q.eq("distribuidor_id", distribuidorId);
+    const { error } = await q;
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -32,14 +34,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     if (!["admin", "super_admin"].includes(role ?? "")) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
     const { id } = await params;
     const supabase = createAdminClient();
-    const { error } = await supabase.from("promociones").delete().eq("id", id);
+    let qDel = supabase.from("promociones").delete().eq("id", id);
+    if (!isSuperAdmin && distribuidorId) qDel = qDel.eq("distribuidor_id", distribuidorId);
+    const { error } = await qDel;
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) {

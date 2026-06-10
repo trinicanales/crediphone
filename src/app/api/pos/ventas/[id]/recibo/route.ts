@@ -30,17 +30,18 @@ export async function POST(
       );
     }
 
-    // Obtener venta
-    const venta = await getVentaById(id);
+    // Obtener configuración del distribuidor correcto
+    const { distribuidorId, isSuperAdmin } = await getAuthContext();
+    const filterDist = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
+
+    // Obtener venta (filtrada por franquicia)
+    const venta = await getVentaById(id, filterDist);
     if (!venta) {
       return NextResponse.json(
         { success: false, error: "Venta no encontrada" },
         { status: 404 }
       );
     }
-
-    // Obtener configuración del distribuidor correcto
-    const { distribuidorId } = await getAuthContext();
     const config = await getConfiguracion(distribuidorId ?? null);
 
     // Crear PDF (formato térmico 80mm = 3.15 pulgadas ≈ 226px a 72dpi)

@@ -38,12 +38,16 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Sin acceso" }, { status: 403 });
     }
 
-    // Créditos activos
-    const { data: creditos } = await supabase
+    // Créditos activos (filtrados por franquicia para evitar mezcla cross-tenant)
+    let creditosQuery = supabase
       .from("creditos")
       .select("id, monto_credito, saldo_pendiente, estado, created_at")
       .eq("cliente_id", clienteId)
       .in("estado", ["activo", "vencido"]);
+    if (!isSuperAdmin && distribuidorId) {
+      creditosQuery = creditosQuery.eq("distribuidor_id", distribuidorId);
+    }
+    const { data: creditos } = await creditosQuery;
 
     const creditosActivos = (creditos ?? []).length;
     const deudaTotal = (creditos ?? []).reduce(
@@ -51,13 +55,17 @@ export async function GET(
       0
     );
 
-    // Última venta en POS
-    const { data: ultimasVentas } = await supabase
+    // Última venta en POS (filtrada por franquicia)
+    let ventasQuery = supabase
       .from("ventas")
       .select("id, total, created_at, folio")
       .eq("cliente_id", clienteId)
       .order("created_at", { ascending: false })
       .limit(1);
+    if (!isSuperAdmin && distribuidorId) {
+      ventasQuery = ventasQuery.eq("distribuidor_id", distribuidorId);
+    }
+    const { data: ultimasVentas } = await ventasQuery;
 
     const ultimaVenta = ultimasVentas?.[0] ?? null;
 

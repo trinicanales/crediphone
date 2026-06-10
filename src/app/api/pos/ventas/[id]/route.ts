@@ -14,7 +14,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json(
         { success: false, error: "No autenticado" },
@@ -29,8 +29,9 @@ export async function GET(
       );
     }
 
+    const filterDist = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
     // Obtener venta
-    const venta = await getVentaById(id);
+    const venta = await getVentaById(id, filterDist);
 
     if (!venta) {
       return NextResponse.json(
@@ -64,7 +65,7 @@ export async function PUT(
   try {
     const { id } = await params;
 
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json(
         { success: false, error: "No autenticado" },
@@ -82,12 +83,13 @@ export async function PUT(
       );
     }
 
+    const filterDist = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
     // Obtener datos del body
     const body = await request.json();
     const { action, motivo } = body;
 
     if (action === "cancelar") {
-      const venta = await cancelarVenta(id, motivo);
+      const venta = await cancelarVenta(id, motivo, filterDist);
       return NextResponse.json({
         success: true,
         data: venta,

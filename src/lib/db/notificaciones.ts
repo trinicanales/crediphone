@@ -44,6 +44,11 @@ export async function getCreditosParaRecordatorio(
     )
     .eq("estado", "activo");
 
+  // Filtrar por distribuidor si se especifica (aislamiento multi-tenant)
+  if (options?.distribuidorId) {
+    query = query.eq("distribuidor_id", options.distribuidorId);
+  }
+
   // Filtrar por vendedor si se especifica
   if (options?.vendedorId) {
     query = query.eq("vendedor_id", options.vendedorId);

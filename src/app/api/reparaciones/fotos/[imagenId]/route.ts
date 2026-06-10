@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { r2Delete } from "@/lib/r2";
+import { getAuthContext } from "@/lib/auth/server";
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ imagenId: string }> }
 ) {
   try {
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { imagenId } = await params;
 
     if (!imagenId) {
@@ -30,6 +39,21 @@ export async function DELETE(
         { success: false, message: "Imagen no encontrada" },
         { status: 404 }
       );
+    }
+
+    // Validar que la imagen pertenece a la franquicia del usuario
+    if (!isSuperAdmin) {
+      const { data: orden } = await supabase
+        .from("ordenes_reparacion")
+        .select("distribuidor_id")
+        .eq("id", imagen.orden_id)
+        .single();
+      if (!orden || orden.distribuidor_id !== distribuidorId) {
+        return NextResponse.json(
+          { success: false, message: "No autorizado" },
+          { status: 403 }
+        );
+      }
     }
 
     // Eliminar de R2 (no bloquea si falla — continúa para eliminar de BD)

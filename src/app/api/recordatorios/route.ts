@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       soloVencidos,
       prioridad: prioridad || undefined,
       vendedorId,
+      distribuidorId: auth.isSuperAdmin ? undefined : (auth.distribuidorId ?? undefined),
     };
 
     // Obtener alertas
