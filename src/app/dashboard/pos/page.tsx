@@ -12,12 +12,13 @@ import { BolsaVirtualPanel } from "@/components/pos/BolsaVirtualPanel";
 import { KitsPOSPanel } from "@/components/pos/KitsPOSPanel";
 import { PaymentMethodSelector } from "@/components/pos/PaymentMethodSelector";
 import { VentaCreditoModal } from "@/components/pos/VentaCreditoModal";
+import { ApartadoModal } from "@/components/pos/ApartadoModal";
 import { ReciboModal } from "@/components/pos/ReciboModal";
 import { DescuentoPOS } from "@/components/pos/DescuentoPOS";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
-import { ShoppingCart as CartIcon, DollarSign, Receipt, LogOut as CloseIcon, X, LayoutGrid, Search as SearchIcon, User, ScanLine, FileText, Tag, Wrench, Package2, UserCheck, Clock as ClockIn, ShoppingBag, Star, CreditCard } from "lucide-react";
+import { ShoppingCart as CartIcon, DollarSign, Receipt, LogOut as CloseIcon, X, LayoutGrid, Search as SearchIcon, User, ScanLine, FileText, Tag, Wrench, Package2, UserCheck, Clock as ClockIn, ShoppingBag, Star, CreditCard, Package as PackageIcon } from "lucide-react";
 import { generarReporteX, abrirReporte } from "@/lib/utils/reportes";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { OfflineBanner } from "@/components/pos/OfflineBanner";
@@ -121,6 +122,9 @@ export default function POSPage() {
 
   // Venta a crédito
   const [showCreditoModal, setShowCreditoModal] = useState(false);
+
+  // Apartados
+  const [showApartadoModal, setShowApartadoModal] = useState(false);
 
   // Panel extras compacto: qué sección está expandida (null = todas cerradas)
   const [extrasPanel, setExtrasPanel] = useState<"descuento" | "cliente" | "notas" | "puntos" | null>(null);
@@ -2001,6 +2005,24 @@ export default function POSPage() {
                 </button>
               )}
 
+              {/* Botón Apartar — con cualquier producto en carrito y cliente seleccionado */}
+              {cartItems.length > 0 && clienteSeleccionado && (
+                <button
+                  onClick={() => setShowApartadoModal(true)}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+                  style={{
+                    background: "var(--color-bg-elevated)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-text-secondary)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; e.currentTarget.style.color = "var(--color-accent)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
+                >
+                  <PackageIcon className="w-4 h-4" />
+                  Apartar
+                </button>
+              )}
+
               {/* Botón oculto F12 pago rápido */}
               <button
                 id="btn-pago-rapido-f12"
@@ -2520,6 +2542,25 @@ export default function POSPage() {
             setBusquedaCliente("");
             setNotasVenta("");
             alert(`✓ Venta a crédito registrada. ID: ${creditoId}`);
+          }}
+        />
+      )}
+
+      {/* Modal: Apartar */}
+      {showApartadoModal && clienteSeleccionado && (
+        <ApartadoModal
+          cartItems={cartItems}
+          total={total}
+          cliente={clienteSeleccionado}
+          onClose={() => setShowApartadoModal(false)}
+          onSuccess={(apartadoId, folio) => {
+            setShowApartadoModal(false);
+            setCartItems([]);
+            setDescuento(0);
+            setClienteSeleccionado(null);
+            setBusquedaCliente("");
+            setNotasVenta("");
+            alert(`Apartado registrado — Folio: ${folio}`);
           }}
         />
       )}

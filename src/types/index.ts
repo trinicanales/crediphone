@@ -142,6 +142,8 @@ export interface Credito {
   pagoQuincenal: number; // mantener por compatibilidad con DB
   fechaInicio: Date;
   fechaFin: Date;
+  tipo?: "credito" | "apartado"; // credito = lleva producto hoy; apartado = deja depósito y regresa
+  fechaVencimientoApartado?: Date; // Fecha límite para recoger (solo tipo=apartado)
   estado: "activo" | "pagado" | "vencido" | "cancelado";
   diasMora?: number; // Días de retraso
   montoMora?: number; // Monto acumulado por mora

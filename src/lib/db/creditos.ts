@@ -78,6 +78,8 @@ export async function createCredito(credito: Omit<Credito, "id" | "createdAt" | 
     .insert({
       distribuidor_id: credito.distribuidorId, // FASE 21
       cliente_id: credito.clienteId,
+      tipo: credito.tipo ?? "credito",
+      fecha_vencimiento_apartado: credito.fechaVencimientoApartado ?? null,
       monto: credito.monto,
       monto_original: credito.montoOriginal,
       enganche: credito.enganche ?? 0,
@@ -494,4 +496,165 @@ export async function getCarteraVencida(
       nivelRiesgo,
     };
   });
+}
+
+// =====================================================
+// SISTEMA DE APARTADOS
+// =====================================================
+
+export interface CreateApartadoParams {
+  distribuidorId: string;
+  clienteId: string;
+  vendedorId: string;
+  productosIds: string[];
+  montoTotal: number;
+  depositoPorcentaje: number; // 30-100%
+  metodoPagoDeposito: "efectivo" | "transferencia" | "tarjeta";
+  montoRecibido?: number;
+  referenciaPago?: string;
+  diasParaRecoger: number; // e.g. 15 o 30
+}
+
+/**
+ * Crea un apartado — el cliente paga un depósito y regresa a recoger.
+ * No decrementa stock físico (reserva via stock_apartado del producto).
+ */
+export async function createApartado(params: CreateApartadoParams): Promise<{ apartadoId: string; folio: string }> {
+  const supabase = createAdminClient();
+  const hoy = new Date();
+  const fechaVencimiento = new Date(hoy);
+  fechaVencimiento.setDate(hoy.getDate() + params.diasParaRecoger);
+
+  const deposito = params.montoTotal * (params.depositoPorcentaje / 100);
+  const saldoPendiente = params.montoTotal - deposito;
+
+  // Generar folio secuencial
+  const { data: folioData } = await supabase
+    .from("creditos")
+    .select("folio")
+    .eq("distribuidor_id", params.distribuidorId)
+    .like("folio", "APAR-%")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  let folioNum = 1;
+  if (folioData?.folio) {
+    const match = folioData.folio.match(/APAR-(\d+)$/);
+    if (match) folioNum = parseInt(match[1]) + 1;
+  }
+  const folio = `APAR-${String(folioNum).padStart(5, "0")}`;
+
+  const { data, error } = await supabase
+    .from("creditos")
+    .insert({
+      distribuidor_id: params.distribuidorId,
+      cliente_id: params.clienteId,
+      vendedor_id: params.vendedorId,
+      tipo: "apartado",
+      folio,
+      estado: "activo",
+      monto: saldoPendiente,
+      monto_original: params.montoTotal,
+      enganche: deposito,
+      enganche_porcentaje: params.depositoPorcentaje,
+      plazo: 1,
+      tasa_interes: 0,
+      pago_quincenal: saldoPendiente,
+      monto_pago: saldoPendiente,
+      frecuencia_pago: "mensual",
+      fecha_inicio: hoy.toISOString().split("T")[0],
+      fecha_fin: fechaVencimiento.toISOString().split("T")[0],
+      fecha_vencimiento_apartado: fechaVencimiento.toISOString().split("T")[0],
+      dias_mora: 0,
+      monto_mora: 0,
+      tasa_mora_diaria: 0,
+      productos_ids: JSON.stringify(params.productosIds),
+    })
+    .select("id, folio")
+    .single();
+
+  if (error) throw error;
+  return { apartadoId: data.id, folio: data.folio ?? folio };
+}
+
+export interface ApartadosActivosResult {
+  id: string;
+  folio: string;
+  clienteId: string;
+  clienteNombre: string;
+  montoTotal: number;
+  deposito: number;
+  saldoPendiente: number;
+  fechaVencimiento: Date;
+  productosIds: string[];
+  vencido: boolean;
+}
+
+/**
+ * Lista apartados activos para el POS (por distribuidor).
+ */
+export async function getApartadosActivos(distribuidorId: string): Promise<ApartadosActivosResult[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("creditos")
+    .select("id, folio, cliente_id, monto, monto_original, enganche, fecha_vencimiento_apartado, productos_ids")
+    .eq("tipo", "apartado")
+    .eq("estado", "activo")
+    .eq("distribuidor_id", distribuidorId)
+    .order("fecha_vencimiento_apartado", { ascending: true });
+
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  // Enriquecer con nombre del cliente
+  const clienteIds = [...new Set(data.map((a) => a.cliente_id))];
+  const { data: clientes } = await supabase
+    .from("clientes")
+    .select("id, nombre, apellido")
+    .in("id", clienteIds);
+
+  const clienteMap: Record<string, string> = {};
+  clientes?.forEach((c: { id: string; nombre: string; apellido: string }) => {
+    clienteMap[c.id] = `${c.nombre} ${c.apellido}`.trim();
+  });
+
+  const hoy = new Date();
+  return data.map((a: Record<string, unknown>) => {
+    const fechaVenc = a.fecha_vencimiento_apartado ? new Date(a.fecha_vencimiento_apartado as string) : new Date();
+    return {
+      id: a.id as string,
+      folio: (a.folio as string) ?? "",
+      clienteId: a.cliente_id as string,
+      clienteNombre: clienteMap[a.cliente_id as string] ?? "Cliente",
+      montoTotal: Number(a.monto_original) || 0,
+      deposito: Number(a.enganche) || 0,
+      saldoPendiente: Number(a.monto) || 0,
+      fechaVencimiento: fechaVenc,
+      productosIds: a.productos_ids ? (a.productos_ids as string[]) : [],
+      vencido: fechaVenc < hoy,
+    };
+  });
+}
+
+/**
+ * Completa un apartado: cobra el saldo pendiente, convierte en estado "pagado".
+ * El stock se decrementa por la ruta normal de ventas.
+ */
+export async function completarApartado(
+  apartadoId: string,
+  distribuidorId: string
+): Promise<void> {
+  const supabase = createAdminClient();
+
+  let q = supabase
+    .from("creditos")
+    .update({ estado: "pagado", updated_at: new Date().toISOString() })
+    .eq("id", apartadoId)
+    .eq("tipo", "apartado");
+
+  q = q.eq("distribuidor_id", distribuidorId);
+
+  const { error } = await q;
+  if (error) throw error;
 }
