@@ -135,3 +135,31 @@ export default async function Page() {
 ```
 
 **⚠️ REGLA:** Nunca usar `useSearchParams()` directamente en el nivel de `page.tsx` de App Router con Turbopack. Siempre usar Opción A (preferida por simplicidad) o Opción B.
+
+---
+
+### DEPLOY-BUG-007 — `routes` en `wrangler.jsonc` falla con `Authentication error [code: 10000]`
+
+**Error:**
+```
+A request to the Cloudflare API (/zones/.../workers/routes) failed.
+Authentication error [code: 10000]
+```
+**Cuándo ocurre:** Al final del deploy, cuando wrangler intenta registrar la ruta wildcard `*.crediphone.com.mx/*` en la zona de Cloudflare.
+**Causa raíz:** El token `CLOUDFLARE_API_TOKEN` en GitHub Actions solo tiene permiso `Workers:Edit`, pero registrar rutas con `zone_name` requiere adicionalmente `Zone:Worker Routes:Edit`.
+**Detectado:** 2026-06-11 (afectó deploys desde commit `51c695c`)
+
+**Historial de la solución:**
+1. **Fix temporal (commit `adca9df`):** Se eliminó `routes` de `wrangler.jsonc` para desbloquear el deploy mientras se resolvía el permiso.
+2. **Fix definitivo (commit `df17eed`):** Trini actualizó el token `CLOUDFLARE_API_TOKEN` en GitHub Actions Secrets para incluir el permiso `Zone > Worker Routes > Edit`. Se restauró `routes` en `wrangler.jsonc`.
+
+**Estado actual: ✅ RESUELTO** — `routes` está activo en `wrangler.jsonc` y el token tiene los permisos correctos.
+
+**Si vuelve a ocurrir (p.ej. token expirado o regenerado sin el permiso):**
+- Verificar que el token en GitHub Actions Secrets tenga:
+  - `Workers Scripts:Edit`
+  - `Zone:Worker Routes:Edit` para la zona `crediphone.com.mx`
+- El token se administra en: dash.cloudflare.com/profile/api-tokens → `crediphone-wrangler-deploy`
+
+**DNS requerido (ya configurado — no tocar):**
+- `CNAME  *  →  crediphone.com.mx` (Proxy ON) — registrado en Cloudflare DNS
