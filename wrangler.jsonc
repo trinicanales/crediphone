@@ -62,15 +62,15 @@
     "enabled": true
   },
 
-  // Subdominios por franquicia — un solo route wildcard captura todos:
-  // lalo.crediphone.com.mx, cellman.crediphone.com.mx, jl.crediphone.com.mx
-  // Requiere registro DNS: CNAME * → crediphone.com.mx (proxied) en Cloudflare Dashboard
-  "routes": [
-    {
-      "pattern": "*.crediphone.com.mx/*",
-      "zone_name": "crediphone.com.mx"
-    }
-  ]
+  // Subdominios por franquicia — CONFIGURAR MANUALMENTE en Cloudflare Dashboard:
+  // Workers & Pages > crediphone > Settings > Triggers > Routes > Add route
+  //   Pattern: *.crediphone.com.mx/*   Zone: crediphone.com.mx
+  // NO usar "routes" aquí — el CLOUDFLARE_API_TOKEN en GitHub Actions no tiene
+  // permiso Zone:Worker Routes, lo que causa Authentication error [code: 10000].
+  // Ver DEPLOY-BUG-007 en .claude/DEPLOY.md
+  //
+  // DNS requerido (en Cloudflare Dashboard > DNS):
+  //   CNAME  *  →  crediphone.com.mx  (proxy ON)
 
   // CRON — Para activar recordatorios automáticos:
   // 1. Agregar CRON_SECRET en Cloudflare Dashboard > crediphone > Settings > Variables (secret)
