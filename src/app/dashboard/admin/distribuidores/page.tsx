@@ -521,6 +521,7 @@ export default function DistribuidoresPage() {
 
   const [editTarget, setEditTarget] = useState<Distribuidor | null>(null);
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM);
+  const [slugDesbloqueado, setSlugDesbloqueado] = useState(false);
 
   // MÓDULO FRANQUICIA
   const [franquiciaTarget, setFranquiciaTarget] = useState<Distribuidor | null>(null);
@@ -587,6 +588,7 @@ export default function DistribuidoresPage() {
   const openEdit = (dist: Distribuidor) => {
     setEditTarget(dist);
     setEditForm({ nombre: dist.nombre, slug: dist.slug, logoUrl: dist.logoUrl || "", activo: dist.activo });
+    setSlugDesbloqueado(false);
     setError("");
   };
 
@@ -808,9 +810,23 @@ export default function DistribuidoresPage() {
               placeholder="crediphone-centro"
               required
             />
-            <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-              Solo minúsculas, números y guiones. Se auto-genera del nombre.
-            </p>
+            <div className="mt-1.5 rounded-lg px-3 py-2 space-y-1" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-subtle)" }}>
+              <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: "var(--color-text-secondary)" }}>
+                <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                ¿Para qué sirve el slug?
+              </p>
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                Es el identificador corto de la franquicia. Se usa para:
+              </p>
+              <ul className="text-xs space-y-0.5 pl-3" style={{ color: "var(--color-text-muted)", listStyleType: "disc" }}>
+                <li>El <strong>subdominio</strong> en internet: <span style={{ fontFamily: "var(--font-mono)" }}>lalo.crediphone.com.mx</span></li>
+                <li>Los <strong>links de tracking</strong> que se envían al cliente por WhatsApp</li>
+                <li>Filtrar el <strong>catálogo público</strong> de productos de esa franquicia</li>
+              </ul>
+              <p className="text-xs font-medium" style={{ color: "var(--color-warning-text)" }}>
+                Definirlo corto desde el inicio (ej: <span style={{ fontFamily: "var(--font-mono)" }}>lalo</span>) y no cambiarlo después.
+              </p>
+            </div>
           </div>
           <Input
             label="URL del Logo (opcional)"
@@ -860,15 +876,65 @@ export default function DistribuidoresPage() {
             required
           />
           <div>
-            <Input
-              label="Slug *"
-              value={editForm.slug}
-              onChange={(e) => setEditForm((p) => ({ ...p, slug: slugify(e.target.value) }))}
-              required
-            />
-            <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-              Cambiar el slug puede afectar referencias internas.
-            </p>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Slug *
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                value={editForm.slug}
+                onChange={(e) => slugDesbloqueado && setEditForm((p) => ({ ...p, slug: slugify(e.target.value) }))}
+                disabled={!slugDesbloqueado}
+                required
+                className="flex-1 px-3 py-2 rounded-lg text-sm"
+                style={{
+                  background: slugDesbloqueado ? "var(--color-bg-sunken)" : "var(--color-bg-elevated)",
+                  border: `1px solid ${slugDesbloqueado ? "var(--color-warning)" : "var(--color-border)"}`,
+                  color: "var(--color-text-primary)",
+                  fontFamily: "var(--font-mono)",
+                  opacity: slugDesbloqueado ? 1 : 0.7,
+                  outline: "none",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!slugDesbloqueado) {
+                    const ok = window.confirm(
+                      "⚠️ Cambiar el slug afecta:\n\n" +
+                      "• El subdominio de la franquicia (lalo.crediphone.com.mx)\n" +
+                      "• Los links de tracking enviados por WhatsApp\n" +
+                      "• El catálogo público de esa franquicia\n\n" +
+                      "¿Estás seguro de que quieres editarlo?"
+                    );
+                    if (ok) setSlugDesbloqueado(true);
+                  } else {
+                    setSlugDesbloqueado(false);
+                    setEditForm((p) => ({ ...p, slug: editTarget?.slug ?? p.slug }));
+                  }
+                }}
+                className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 flex-shrink-0"
+                style={{
+                  background: slugDesbloqueado ? "var(--color-warning-bg)" : "var(--color-bg-elevated)",
+                  border: `1px solid ${slugDesbloqueado ? "var(--color-warning)" : "var(--color-border)"}`,
+                  color: slugDesbloqueado ? "var(--color-warning-text)" : "var(--color-text-muted)",
+                }}
+              >
+                {slugDesbloqueado
+                  ? <><Unlock className="w-3.5 h-3.5" /> Bloquear</>
+                  : <><Lock className="w-3.5 h-3.5" /> Editar</>
+                }
+              </button>
+            </div>
+            {slugDesbloqueado ? (
+              <p className="text-xs mt-1.5 font-medium flex items-center gap-1" style={{ color: "var(--color-warning-text)" }}>
+                <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                El subdominio y los links de WhatsApp anteriores dejarán de funcionar con la franquicia correcta.
+              </p>
+            ) : (
+              <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+                Bloqueado para evitar cambios accidentales. Clic en "Editar" para modificar.
+              </p>
+            )}
           </div>
           <Input
             label="URL del Logo (opcional)"
