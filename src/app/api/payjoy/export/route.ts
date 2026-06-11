@@ -8,9 +8,13 @@
 
 import { NextResponse } from "next/server";
 import { getAllWebhooks, getAllApiLogs, getPayjoyStats } from "@/lib/db/payjoy";
+import { getAuthContext } from "@/lib/auth/server";
 
 export async function GET() {
     try {
+        const { userId, isSuperAdmin } = await getAuthContext();
+        if (!userId) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+        if (!isSuperAdmin) return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
         // Obtener todos los datos
         const [webhooksResult, logsResult, stats] = await Promise.all([
             getAllWebhooks(1000, 0),

@@ -4,8 +4,11 @@ import { createDistribuidor, updateDistribuidor } from "@/lib/db/distribuidores"
 import { type Distribuidor } from "@/types";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getAuthContext } from "@/lib/auth/server";
 
 export async function createDistribuidorAction(formData: FormData) {
+    const { userId, isSuperAdmin } = await getAuthContext();
+    if (!userId || !isSuperAdmin) return { error: "Acceso denegado" };
     const nombre = formData.get("nombre") as string;
     const slug = formData.get("slug") as string;
     const logoUrl = formData.get("logoUrl") as string || undefined;
@@ -31,6 +34,9 @@ export async function createDistribuidorAction(formData: FormData) {
 }
 
 export async function updateDistribuidorAction(id: string, formData: FormData) {
+    const { userId, isSuperAdmin } = await getAuthContext();
+    if (!userId || !isSuperAdmin) return { error: "Acceso denegado" };
+
     const nombre = formData.get("nombre") as string;
     const slug = formData.get("slug") as string;
     const logoUrl = formData.get("logoUrl") as string || undefined;

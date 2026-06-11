@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recalcularScoring } from "@/lib/db/scoring";
+import { getAuthContext } from "@/lib/auth/server";
 
 /**
  * POST /api/scoring/:clienteId/recalcular
@@ -10,6 +11,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { userId } = await getAuthContext();
+    if (!userId) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
     const { id: clienteId } = await params;
 
     const scoring = await recalcularScoring(clienteId);

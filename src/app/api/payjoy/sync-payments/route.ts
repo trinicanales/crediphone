@@ -9,9 +9,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWebhooksByCredito } from "@/lib/db/payjoy";
+import { getAuthContext } from "@/lib/auth/server";
 
 export async function POST(request: NextRequest) {
     try {
+        const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+        if (!userId) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
         const body = await request.json();
 
         if (!body.creditoId) {
@@ -26,7 +30,7 @@ export async function POST(request: NextRequest) {
         // Verificar que el crédito está vinculado a Payjoy
         const { data: credito, error: creditoError } = await supabase
             .from("creditos")
-            .select("id, payjoy_finance_order_id, payjoy_customer_id, payjoy_sync_enabled, payjoy_last_sync_at")
+            .select("id, distribuidor_id, payjoy_finance_order_id, payjoy_customer_id, payjoy_sync_enabled, payjoy_last_sync_at")
             .eq("id", body.creditoId)
             .single();
 
@@ -35,6 +39,11 @@ export async function POST(request: NextRequest) {
                 { error: "Crédito no encontrado" },
                 { status: 404 }
             );
+        }
+
+        // Validar aislamiento por franquicia
+        if (!isSuperAdmin && credito.distribuidor_id && credito.distribuidor_id !== distribuidorId) {
+            return NextResponse.json({ error: "No autorizado" }, { status: 403 });
         }
 
         if (!credito.payjoy_finance_order_id) {
