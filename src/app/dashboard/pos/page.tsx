@@ -125,6 +125,19 @@ export default function POSPage() {
 
   // Apartados
   const [showApartadoModal, setShowApartadoModal] = useState(false);
+  const [apartadosActivos, setApartadosActivos] = useState<Array<{
+    id: string; folio: string; clienteNombre: string;
+    montoTotal: number; deposito: number; saldoPendiente: number;
+    fechaVencimiento: string; vencido: boolean;
+  }>>([]);
+  const [completandoApartado, setCompletandoApartado] = useState<string | null>(null);
+
+  const recargarApartados = () => {
+    fetch("/api/apartados")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setApartadosActivos(d.data); })
+      .catch(() => {});
+  };
 
   // Panel extras compacto: qué sección está expandida (null = todas cerradas)
   const [extrasPanel, setExtrasPanel] = useState<"descuento" | "cliente" | "notas" | "puntos" | null>(null);
@@ -191,6 +204,12 @@ export default function POSPage() {
       fetch("/api/pos/reparaciones-activas?estado=listo_entrega")
         .then((r) => r.json())
         .then((d) => { if (d.success && Array.isArray(d.data)) setReparacionesCount(d.data.length); })
+        .catch(() => {});
+
+      // Apartados activos
+      fetch("/api/apartados")
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setApartadosActivos(d.data); })
         .catch(() => {});
 
       // PO2: cargar promociones activas
@@ -600,6 +619,23 @@ export default function POSPage() {
       alert("Error al procesar la venta");
     } finally {
       setProcessingVenta(false);
+    }
+  };
+
+  const handleCompletarApartado = async (apartadoId: string) => {
+    setCompletandoApartado(apartadoId);
+    try {
+      const res = await fetch(`/api/creditos/${apartadoId}/completar-apartado`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        recargarApartados();
+      } else {
+        alert(data.error || "Error al completar apartado");
+      }
+    } catch {
+      alert("Error de conexión");
+    } finally {
+      setCompletandoApartado(null);
     }
   };
 
@@ -1590,7 +1626,59 @@ export default function POSPage() {
             <KitsPOSPanel onAgregarKit={handleAgregarKit} />
           ) : (
             /* FASE 41: Panel de cobro de Reparaciones desde POS */
-            <ReparacionesPOSPanel onCountChange={setReparacionesCount} />
+            <div className="space-y-4">
+              <ReparacionesPOSPanel onCountChange={setReparacionesCount} />
+
+              {/* Panel de Apartados activos */}
+              {apartadosActivos.length > 0 && (
+                <div
+                  className="rounded-xl p-4 space-y-3"
+                  style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)" }}
+                >
+                  <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--color-text-primary)" }}>
+                    <PackageIcon className="w-4 h-4" style={{ color: "var(--color-accent)" }} />
+                    Apartados activos ({apartadosActivos.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {apartadosActivos.map((ap) => (
+                      <div
+                        key={ap.id}
+                        className="rounded-lg px-3 py-2.5 flex items-center justify-between gap-3"
+                        style={{
+                          background: ap.vencido ? "var(--color-danger-bg)" : "var(--color-bg-elevated)",
+                          border: `1px solid ${ap.vencido ? "var(--color-danger)" : "var(--color-border-subtle)"}`,
+                        }}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold truncate" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}>
+                            {ap.folio}
+                          </p>
+                          <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+                            {ap.clienteNombre}
+                          </p>
+                          <p className="text-xs" style={{ color: ap.vencido ? "var(--color-danger)" : "var(--color-text-muted)" }}>
+                            Saldo: <span style={{ fontFamily: "var(--font-data)", fontWeight: 600 }}>${ap.saldoPendiente.toFixed(2)}</span>
+                            {" · "}{ap.vencido ? "Vencido" : `Límite: ${new Date(ap.fechaVencimiento).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleCompletarApartado(ap.id)}
+                          disabled={completandoApartado === ap.id}
+                          className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                          style={{
+                            background: "var(--color-success)",
+                            color: "#fff",
+                            opacity: completandoApartado === ap.id ? 0.6 : 1,
+                          }}
+                        >
+                          {completandoApartado === ap.id ? "..." : "Completar"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
         </div>

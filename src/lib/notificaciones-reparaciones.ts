@@ -59,7 +59,7 @@ export async function notificarCambioEstado(
     // Para estado "presupuesto": crear token de tracking y usarlo en el mensaje
     let trackingUrlPresupuesto: string | undefined;
     if (nuevoEstado === "presupuesto") {
-      trackingUrlPresupuesto = await crearTrackingToken(orden.id);
+      trackingUrlPresupuesto = await crearTrackingToken(orden.id, orden.distribuidorId ?? undefined);
     }
 
     // Para estado "listo_entrega": obtener PDF URL y días de garantía del distribuidor
@@ -311,7 +311,8 @@ function getConfiguracionNotificacion(
  * Retorna la URL completa del tracking link, o undefined si falla.
  */
 async function crearTrackingToken(
-  ordenId: string
+  ordenId: string,
+  distribuidorId?: string
 ): Promise<string | undefined> {
   try {
     const supabase = createAdminClient();
@@ -333,8 +334,19 @@ async function crearTrackingToken(
       return undefined;
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone.com.mx";
+    // Construir URL con subdominio del distribuidor si tiene slug
+    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://crediphone.com.mx";
+    if (distribuidorId) {
+      try {
+        const { getDistribuidorById } = await import("@/lib/db/distribuidores");
+        const dist = await getDistribuidorById(distribuidorId);
+        if (dist?.slug && dist.slug !== "default") {
+          baseUrl = `https://${dist.slug}.crediphone.com.mx`;
+        }
+      } catch {
+        // fallback a baseUrl por defecto
+      }
+    }
     return `${baseUrl}/tracking/${token}`;
   } catch (err) {
     console.error("Error en crearTrackingToken:", err);

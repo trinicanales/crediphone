@@ -118,7 +118,7 @@ export async function GET(
       ...productosTop.map((p) => ({
         id: `prod-${p.id}`,
         titulo: p.nombre,
-        descripcion: p.descripcion ?? `${p.marca} ${p.modelo}`.trim() || null,
+        descripcion: (p.descripcion ?? `${p.marca} ${p.modelo}`.trim()) || null,
         imagenUrl: p.imagen ?? null,
         precioNormal: p.precio ? Number(p.precio) : null,
         precioPromocion: null,
