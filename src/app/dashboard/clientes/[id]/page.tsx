@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   User, Phone, Mail, Star, ShieldCheck, Wrench, CreditCard, DollarSign,
-  ArrowLeft, ChevronDown, ChevronRight, ExternalLink,
+  ArrowLeft, ChevronDown, ChevronRight, ExternalLink, MessageCircle,
+  Loader2, CheckCircle2,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -104,6 +105,8 @@ export default function ClientePerfilPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [mostrarArchivadas, setMostrarArchivadas] = useState(false);
   const [mostrarPagos, setMostrarPagos] = useState(false);
+  const [enviandoAcceso, setEnviandoAcceso] = useState(false);
+  const [accesoEnviado, setAccesoEnviado] = useState(false);
 
   useEffect(() => {
     const cargar = async () => {
@@ -126,6 +129,29 @@ export default function ClientePerfilPage() {
     };
     void cargar();
   }, [id]);
+
+  const handleEnviarAcceso = async () => {
+    setEnviandoAcceso(true);
+    try {
+      const res = await fetch("/api/cliente/enviar-acceso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId: id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.waLink) {
+          window.open(data.waLink, "_blank");
+        }
+        setAccesoEnviado(true);
+        setTimeout(() => setAccesoEnviado(false), 4000);
+      }
+    } catch {
+      // silencioso
+    } finally {
+      setEnviandoAcceso(false);
+    }
+  };
 
   const ordenesActivas = ordenes.filter(
     (o) => !["entregado", "cancelado", "no_reparable"].includes(o.estado)
@@ -218,6 +244,32 @@ export default function ClientePerfilPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Acciones */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleEnviarAcceso}
+            disabled={enviandoAcceso || accesoEnviado}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
+            style={{
+              background: accesoEnviado ? "var(--color-success-bg)" : "var(--color-bg-sunken)",
+              color: accesoEnviado ? "var(--color-success)" : "var(--color-text-secondary)",
+              border: `1px solid ${accesoEnviado ? "var(--color-success)" : "var(--color-border)"}`,
+              cursor: enviandoAcceso ? "not-allowed" : "pointer",
+              opacity: enviandoAcceso ? 0.7 : 1,
+              transition: "all 0.2s",
+            }}
+          >
+            {enviandoAcceso ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+            ) : accesoEnviado ? (
+              <><CheckCircle2 className="w-4 h-4" /> ¡Link enviado!</>
+            ) : (
+              <><MessageCircle className="w-4 h-4" /> Enviar acceso por WhatsApp</>
+            )}
+          </button>
         </div>
 
         {/* KPIs */}
