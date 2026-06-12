@@ -71,9 +71,14 @@ function ClienteRow({
       }}
     >
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="font-medium" style={{ color: "var(--color-text-primary)" }}>
+        <a
+          href={`/dashboard/clientes/${cliente.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="font-medium hover:underline"
+          style={{ color: "var(--color-text-primary)" }}
+        >
           {cliente.nombre} {cliente.apellido}
-        </div>
+        </a>
         <div className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
           INE: <span style={{ fontFamily: "var(--font-mono)" }}>{cliente.ine}</span>
         </div>

@@ -406,7 +406,7 @@ function TableRow({
       }}
     >
       <td className="px-6 py-4">
-        <div className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
+        <div className="text-sm font-medium max-w-[180px] truncate" style={{ color: "var(--color-text-primary)" }} title={credito.clienteNombre ?? undefined}>
           {credito.clienteNombre}
         </div>
         <div className="text-xs" style={{ color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>

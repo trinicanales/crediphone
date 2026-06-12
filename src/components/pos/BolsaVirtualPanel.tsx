@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   ShoppingBag, RefreshCw, AlertCircle, AlertTriangle, DollarSign, User, Clock,
-  ChevronDown, ChevronRight, Banknote, CreditCard, ArrowUpDown, Printer,
+  ChevronDown, ChevronRight, Banknote, CreditCard, ArrowUpDown, Printer, X,
 } from "lucide-react";
 import type { TipoPago } from "@/types";
 import { generarComprobanteBolsa, abrirReporte } from "@/lib/utils/reportes";
@@ -486,10 +486,10 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-lg leading-none"
+            className="p-1.5 rounded-lg"
             style={{ color: "var(--color-text-muted)" }}
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -510,13 +510,13 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
           onClick={() => setActiveTab("disputa")}
           className="flex-1 py-2 text-xs font-semibold transition-colors relative"
           style={{
-            color: activeTab === "disputa" ? "#dc2626" : "var(--color-text-muted)",
-            borderBottom: activeTab === "disputa" ? "2px solid #dc2626" : "2px solid transparent",
+            color: activeTab === "disputa" ? "var(--color-danger)" : "var(--color-text-muted)",
+            borderBottom: activeTab === "disputa" ? "2px solid var(--color-danger)" : "2px solid transparent",
           }}
         >
           En disputa
           {disputas.length > 0 && (
-            <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold" style={{ background: "#fee2e2", color: "#dc2626" }}>
+            <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold" style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)" }}>
               {disputas.length}
             </span>
           )}
@@ -527,14 +527,14 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
         /* ── Tab En disputa ────────────────────────────────────────────── */
         <div className="flex-1 overflow-y-auto p-3 space-y-3">
           {totalDisputa > 0 && (
-            <div className="flex justify-between items-center px-3 py-2 rounded-lg" style={{ background: "#fee2e2" }}>
-              <span className="text-sm font-medium flex items-center gap-1.5" style={{ color: "#991b1b" }}><AlertTriangle className="w-4 h-4 flex-shrink-0" /> Total retenido en disputa</span>
-              <span className="text-sm font-bold" style={{ color: "#dc2626", fontFamily: "var(--font-data)" }}>{fmtPrecio(totalDisputa)}</span>
+            <div className="flex justify-between items-center px-3 py-2 rounded-lg" style={{ background: "var(--color-danger-bg)" }}>
+              <span className="text-sm font-medium flex items-center gap-1.5" style={{ color: "var(--color-danger)" }}><AlertTriangle className="w-4 h-4 flex-shrink-0" /> Total retenido en disputa</span>
+              <span className="text-sm font-bold" style={{ color: "var(--color-danger)", fontFamily: "var(--font-data)" }}>{fmtPrecio(totalDisputa)}</span>
             </div>
           )}
           {cargandoDisputa && (
             <div className="flex justify-center py-8">
-              <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#dc2626", borderTopColor: "transparent" }} />
+              <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--color-danger)", borderTopColor: "transparent" }} />
             </div>
           )}
           {!cargandoDisputa && disputas.length === 0 && (
@@ -544,16 +544,16 @@ export function BolsaVirtualPanel({ onClose }: BolsaVirtualPanelProps) {
             </div>
           )}
           {!cargandoDisputa && disputas.map((d) => (
-            <div key={d.id} className="rounded-xl p-3 space-y-1.5" style={{ background: "var(--color-bg-elevated)", border: "1px solid #fecaca" }}>
+            <div key={d.id} className="rounded-xl p-3 space-y-1.5" style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-danger-bg)" }}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-mono)" }}>{d.folio}</p>
                   <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>{d.clienteNombre} · {d.dispositivo}</p>
                 </div>
-                <span className="text-sm font-bold flex-shrink-0" style={{ color: "#dc2626", fontFamily: "var(--font-data)" }}>{fmtPrecio(d.monto)}</span>
+                <span className="text-sm font-bold flex-shrink-0" style={{ color: "var(--color-danger)", fontFamily: "var(--font-data)" }}>{fmtPrecio(d.monto)}</span>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "#fee2e2", color: "#991b1b" }}>
+                <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)" }}>
                   🔧 {d.pieza.nombre}
                 </span>
                 {d.pieza.motivoDefecto && (

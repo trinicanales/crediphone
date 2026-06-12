@@ -1,6 +1,64 @@
 # Sesión Activa — CREDIPHONE
 
-## Estado: COMPLETO — Auditoría cross-tenant + Anticipo 100% (2026-05-30)
+## Estado: EN PROGRESO — Worktree elated-kapitsa (2026-06-12)
+
+### Trabajo pendiente de esta sesión (merge a master cuando Trini apruebe)
+
+| Item | Estado | Notas |
+|------|--------|-------|
+| Subdominios Fase 4 — page.tsx, catalogo/page.tsx, Footer.tsx | ⏳ Pendiente | Usar `useConfig()` en lugar de WA hardcodeado |
+| Tracking URL con subdominio en WhatsApp | ⏳ Pendiente | `notificaciones-reparaciones.ts` — construir con slug del distribuidor |
+| Apartados — panel gestión en POS | ⏳ Pendiente | Listar activos + botón "Completar apartado" |
+
+### Implementado en esta sesión (worktree elated-kapitsa)
+
+| Commit | Descripción |
+|--------|-------------|
+| (pendiente) | ux: UX polish + búsqueda IMEI global + módulo garantías + perfil cliente |
+| `92ad56d` | feat: sistema de apartados — BD + API + ApartadoModal + botón POS |
+| `6943de9` | fix: emojis residuales → íconos Lucide (MapPin, AlertTriangle, Lock, Smartphone, Check, Tag) |
+| `79279f3` | feat: POS tabs reordenados + badge Cobrar Rep. + página facturación placeholder |
+| `9c337c7` | security: 11 brechas multi-tenant corregidas (C1-C4, A1-A6, M1-M4) |
+| `7a936d0` | feat: promociones automáticas desde inventario en tracking |
+| `51c695c` | feat: subdominios Fases 1-3 |
+
+### Cambios en el commit pendiente (2026-06-12)
+
+**Fase 1 — UX Visual polish:**
+- `BolsaVirtualPanel.tsx` — `✕` → `<X />` Lucide, colores `#fee2e2`/`#dc2626` → CSS vars
+- `ReparacionesPOSPanel.tsx` — badge de estado con colores por tipo (`ESTADO_BADGE` map)
+- `PaymentMethodSelector.tsx` — `text-gray-700 dark:text-gray-300` → CSS vars en todos los labels
+- `IconosFuncionamiento.tsx` — Tailwind colors → CSS vars, sub-componente `ComponenteBtn` con hover state
+- `pos/page.tsx` — tab icons `w-4 h-4` → `w-5 h-5`
+- `VentaCreditoModal.tsx` — botón dos líneas: "Crear crédito" + "enganche $X.XX"
+- `ApartadoModal.tsx` — botón dos líneas: "Apartar artículos" + "depósito $X.XX"
+- `creditos/page.tsx` — columna Cliente: `max-w-[180px] truncate` + `title` tooltip
+- `ReciboModal.tsx` — emojis `📄🖨️💬👁️` → Lucide `FileText Printer MessageCircle Eye`
+
+**Fase 2 — Búsqueda IMEI global:**
+- `api/reparaciones/buscar/route.ts` — nuevo endpoint que usa `searchOrdenes()` (incluye archivadas)
+- `reparaciones/page.tsx` — debounced search (400ms), resultados globales con badge "Archivada"
+
+**Fase 3 — Módulo Garantías:**
+- `api/garantias/route.ts` — nuevo endpoint con join ordenes+clientes, filtro por distribuidor
+- `dashboard/garantias/page.tsx` — página completa: activas, vence esta semana, reclamaciones, historial
+- `Sidebar.tsx` — link "Garantías" en sección Reparaciones con `ShieldCheck` icon
+
+**Fase 4 — Perfil completo del cliente:**
+- `api/clientes/[id]/perfil/route.ts` — endpoint consolidado: órdenes + garantías activas + créditos + pagos
+- `dashboard/clientes/[id]/page.tsx` — página completa: header, KPIs, reparaciones activas+archivadas, créditos, pagos
+- `dashboard/clientes/page.tsx` — nombre del cliente es link a `/dashboard/clientes/${id}`
+
+### Para hacer merge a master:
+```bash
+git checkout master
+git merge claude/elated-kapitsa
+git push origin master
+```
+
+---
+
+## Estado anterior: COMPLETO — Auditoría cross-tenant + Anticipo 100% (2026-05-30)
 
 ## Implementado 2026-05-30 — Auditoría seguridad cross-tenant (6 brechas corregidas)
 

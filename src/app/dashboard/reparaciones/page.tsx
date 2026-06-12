@@ -81,6 +81,9 @@ export default function ReparacionesPage() {
   const [filteredOrdenes, setFilteredOrdenes] = useState<OrdenReparacionDetallada[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  // Global IMEI/folio search against BD (includes archived orders)
+  const [globalResults, setGlobalResults] = useState<OrdenReparacionDetallada[] | null>(null);
+  const [globalSearching, setGlobalSearching] = useState(false);
   const [filterEstado, setFilterEstado] = useState<EstadoOrdenReparacion | "todas" | "activas" | "garantias" | "vencidas" | "mis_ordenes">("todas");
   const [verArchivadas, setVerArchivadas] = useState(false);
   const [diasListoEntregaMaximo, setDiasListoEntregaMaximo] = useState(30);
@@ -155,6 +158,27 @@ export default function ReparacionesPage() {
   useEffect(() => {
     calculateStats();
   }, [ordenes, diasListoEntregaMaximo, user]);
+
+  // Búsqueda global contra BD (incluye archivadas) con debounce de 400ms
+  useEffect(() => {
+    if (searchQuery.length < 3) {
+      setGlobalResults(null);
+      return;
+    }
+    setGlobalSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/reparaciones/buscar?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json();
+        if (data.success) setGlobalResults(data.data as OrdenReparacionDetallada[]);
+      } catch {
+        // silencioso
+      } finally {
+        setGlobalSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   async function fetchOrdenes() {
     try {
@@ -532,6 +556,62 @@ export default function ReparacionesPage() {
           <option value="cancelado">Cancelado</option>
         </select>
       </div>
+
+      {/* Resultados de búsqueda global (BD completa, incluye archivadas) */}
+      {searchQuery.length >= 3 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+              Búsqueda global en BD
+            </span>
+            {globalSearching && (
+              <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>buscando...</span>
+            )}
+            {!globalSearching && globalResults !== null && (
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)" }}>
+                {globalResults.length} resultado{globalResults.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+          {!globalSearching && globalResults !== null && globalResults.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {globalResults.map((orden) => (
+                <div key={orden.id} className="relative">
+                  {["entregado", "cancelado", "no_reparable"].includes(orden.estado) && (
+                    <span
+                      className="absolute top-2 right-2 z-10 text-[10px] font-bold px-1.5 py-0.5 rounded"
+                      style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-muted)", border: "1px solid var(--color-border)" }}
+                    >
+                      Archivada
+                    </span>
+                  )}
+                  <OrdenCard
+                    orden={orden}
+                    userRole={user?.role || ""}
+                    onOpenDrawer={(o) => handleOpenDrawer(o)}
+                    onDiagnostico={(o) => {
+                      setSelectedOrden(o);
+                      setModalDiagnosticoOpen(true);
+                    }}
+                    onCambiarEstado={handleCambiarEstadoInline}
+                    onEliminar={(o) => {
+                      setDeleteConfirmId(o.id);
+                      setDeleteConfirmFolio(o.folio);
+                    }}
+                    onRefresh={fetchOrdenes}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {!globalSearching && globalResults !== null && globalResults.length === 0 && (
+            <p className="text-sm py-4" style={{ color: "var(--color-text-muted)" }}>
+              No se encontraron órdenes para "{searchQuery}" en toda la base de datos
+            </p>
+          )}
+          <div style={{ borderBottom: "1px solid var(--color-border-subtle)", marginTop: "1rem", marginBottom: "1rem" }} />
+        </div>
+      )}
 
       {/* Grid de Tarjetas */}
       {loading ? (

@@ -232,6 +232,41 @@ const ESTADOS_ENTREGABLES = ["listo_entrega", "completado", "aprobado", "en_repa
 
 ---
 
+## 🛡️ MÓDULO DE GARANTÍAS — Lógica implementada (2026-06-12)
+
+### Ciclo de vida de una garantía
+
+1. **Creación:** Se genera automáticamente al cambiar estado de la orden a `entregado` (vía `ejecutarEntregaCompleta()` si la orden tiene configurado `dias_garantia > 0`)
+2. **Estados posibles:**
+   - `activa` — garantía vigente (`fecha_vencimiento > hoy`)
+   - `usada` — cliente reclamó la garantía (se creó orden hija con `es_garantia = true`)
+   - `vencida` — fecha_vencimiento ya pasó
+   - `cancelada` — cancelada manualmente por admin
+
+### Acceso en base de datos
+
+Tabla: `garantias_reparacion`
+Columnas clave: `orden_id`, `cliente_id`, `distribuidor_id` (vía join), `dias_garantia`, `fecha_vencimiento`, `estado`, `orden_garantia_id` (id de la orden hija si se reclamó)
+
+### Filtro por distribuidor
+
+La tabla no tiene `distribuidor_id` directo — se obtiene vía join con `ordenes_reparacion`. Por eso el filtro en `/api/garantias` se hace en código Python/JS post-query, no con `.eq()` en el join anidado de Supabase.
+
+### Flujo de reclamación
+
+1. Cliente llega con equipo dentro de vigencia → admin crea nueva orden desde el perfil del cliente o desde garantías
+2. La orden nueva se crea con `es_garantia = true` y `orden_origen_id = orden_original.id`
+3. La garantía original cambia a `estado = "usada"` y recibe el `orden_garantia_id` de la nueva orden
+
+### Pantalla de garantías (`/dashboard/garantias`)
+
+- **Vencen esta semana:** garantías activas con `fecha_vencimiento <= hoy+7días` — color warning
+- **Activas:** garantías normales vigentes — color success
+- **Reclamaciones abiertas:** garantías con `estado = "usada"` — color info
+- **Historial:** vencidas y canceladas (colapsado por defecto)
+
+---
+
 ## ❓ Preguntas abiertas para Trini
 
 1. **Fotos post-entrega:** ¿Cuánto tiempo conservar después de entregar la reparación? ¿6 meses, 12, indefinido?

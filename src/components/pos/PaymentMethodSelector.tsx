@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DollarSign, CreditCard, ArrowRightLeft, Banknote } from "lucide-react";
+import { DollarSign, CreditCard, ArrowRightLeft } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
 import type { MetodoPagoVenta, DesglosePagoMixtoVenta } from "@/types";
@@ -20,6 +20,16 @@ interface PaymentMethodSelectorProps {
   total: number;
   onChange: (paymentData: PaymentData) => void;
 }
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "0.875rem",
+  fontWeight: 500,
+  color: "var(--color-text-secondary)",
+  marginBottom: "0.5rem",
+};
+
+const iconStyle: React.CSSProperties = { color: "var(--color-text-muted)" };
 
 export function PaymentMethodSelector({
   total,
@@ -102,11 +112,11 @@ export function PaymentMethodSelector({
       content: (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label style={labelStyle}>
               Monto recibido *
             </label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={iconStyle} />
               <Input
                 type="number"
                 step="0.01"
@@ -120,10 +130,13 @@ export function PaymentMethodSelector({
           </div>
 
           {montoRecibido && parseFloat(montoRecibido) >= total && (
-            <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
+            <div
+              className="p-4 rounded-lg"
+              style={{ background: "var(--color-success-bg)", border: "1px solid var(--color-border-subtle)" }}
+            >
+              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                 <span className="font-medium">Cambio:</span>{" "}
-                <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                <span className="text-xl font-bold" style={{ color: "var(--color-success)", fontFamily: "var(--font-data)" }}>
                   ${(parseFloat(montoRecibido) - total).toFixed(2)}
                 </span>
               </p>
@@ -138,11 +151,11 @@ export function PaymentMethodSelector({
       content: (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label style={labelStyle}>
               Últimos 4 dígitos (opcional)
             </label>
             <div className="relative">
-              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={iconStyle} />
               <Input
                 type="text"
                 maxLength={4}
@@ -154,10 +167,13 @@ export function PaymentMethodSelector({
             </div>
           </div>
 
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <p className="text-sm text-gray-700 dark:text-gray-300">
+          <div
+            className="p-4 rounded-lg"
+            style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-border-subtle)" }}
+          >
+            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
               Total a cobrar:{" "}
-              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              <span className="text-xl font-bold" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
                 ${total.toFixed(2)}
               </span>
             </p>
@@ -171,11 +187,11 @@ export function PaymentMethodSelector({
       content: (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label style={labelStyle}>
               Número de referencia (opcional)
             </label>
             <div className="relative">
-              <ArrowRightLeft className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <ArrowRightLeft className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={iconStyle} />
               <Input
                 type="text"
                 value={referencia}
@@ -186,10 +202,13 @@ export function PaymentMethodSelector({
             </div>
           </div>
 
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <p className="text-sm text-gray-700 dark:text-gray-300">
+          <div
+            className="p-4 rounded-lg"
+            style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-border-subtle)" }}
+          >
+            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
               Total a recibir:{" "}
-              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              <span className="text-xl font-bold" style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
                 ${total.toFixed(2)}
               </span>
             </p>
@@ -202,16 +221,14 @@ export function PaymentMethodSelector({
       label: "Mixto",
       content: (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
             La suma debe ser igual al total: ${total.toFixed(2)}
           </p>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Efectivo
-            </label>
+            <label style={labelStyle}>Efectivo</label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={iconStyle} />
               <Input
                 type="number"
                 step="0.01"
@@ -225,11 +242,9 @@ export function PaymentMethodSelector({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Transferencia
-            </label>
+            <label style={labelStyle}>Transferencia</label>
             <div className="relative">
-              <ArrowRightLeft className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <ArrowRightLeft className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={iconStyle} />
               <Input
                 type="number"
                 step="0.01"
@@ -243,11 +258,9 @@ export function PaymentMethodSelector({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Tarjeta
-            </label>
+            <label style={labelStyle}>Tarjeta</label>
             <div className="relative">
-              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style={iconStyle} />
               <Input
                 type="number"
                 step="0.01"
@@ -261,12 +274,14 @@ export function PaymentMethodSelector({
           </div>
 
           {/* Resumen de suma */}
-          <div className="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg space-y-2">
+          <div
+            className="p-4 rounded-lg space-y-2"
+            style={{ background: "var(--color-bg-sunken)", border: "1px solid var(--color-border)" }}
+          >
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Suma:</span>
-              <span className="font-medium text-gray-900 dark:text-white">
-                $
-                {(
+              <span style={{ color: "var(--color-text-muted)" }}>Suma:</span>
+              <span className="font-medium" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
+                ${(
                   (parseFloat(mixtoEfectivo) || 0) +
                   (parseFloat(mixtoTransferencia) || 0) +
                   (parseFloat(mixtoTarjeta) || 0)
@@ -274,8 +289,8 @@ export function PaymentMethodSelector({
               </span>
             </div>
             <div className="flex justify-between text-sm font-semibold">
-              <span className="text-gray-700 dark:text-gray-300">Total requerido:</span>
-              <span className="text-blue-600 dark:text-blue-400">
+              <span style={{ color: "var(--color-text-secondary)" }}>Total requerido:</span>
+              <span style={{ color: "var(--color-accent)", fontFamily: "var(--font-data)" }}>
                 ${total.toFixed(2)}
               </span>
             </div>
@@ -289,7 +304,7 @@ export function PaymentMethodSelector({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <h3 className="text-lg font-semibold" style={{ color: "var(--color-text-primary)" }}>
         Método de Pago
       </h3>
 
@@ -308,8 +323,11 @@ export function PaymentMethodSelector({
 
       {/* Error message */}
       {paymentData.errorMessage && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-800 dark:text-red-200">
+        <div
+          className="p-3 rounded-lg"
+          style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger)" }}
+        >
+          <p className="text-sm" style={{ color: "var(--color-danger)" }}>
             {paymentData.errorMessage}
           </p>
         </div>

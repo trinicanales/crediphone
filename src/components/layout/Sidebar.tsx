@@ -51,6 +51,7 @@ import {
   ArrowLeftRight,   // Movimientos de stock (C2)
   Archive,          // Panel almacenaje / equipos sin recoger
   Check,            // Indicador activo en selector de distribuidor
+  ShieldCheck,      // Garantías
 } from "lucide-react";
 
 /* ── Tipos de navegación ────────────────────────────────────── */
@@ -100,6 +101,7 @@ const navGroups: NavGroup[] = [
     label: "REPARACIONES",
     items: [
       { href: "/dashboard/reparaciones",           label: "Órdenes",            icon: Wrench,       roles: ["admin", "tecnico", "vendedor", "cobrador", "super_admin"], moduleKey: "reparaciones" },
+      { href: "/dashboard/garantias",             label: "Garantías",           icon: ShieldCheck,  roles: ["admin", "super_admin"],                                    moduleKey: "reparaciones" },
       { href: "/dashboard/dashboard-reparaciones", label: "Panel KPIs",          icon: Cpu,          roles: ["admin", "super_admin"],                                    moduleKey: "dashboard-reparaciones" },
       { href: "/dashboard/tecnico",                label: "Mi Panel Técnico",    icon: Cpu,          roles: ["tecnico"],                                                  moduleKey: "tecnico" },
       { href: "/dashboard/almacenaje",             label: "Almacenaje",          icon: Archive,      roles: ["admin", "super_admin"],                                    moduleKey: "reparaciones" },

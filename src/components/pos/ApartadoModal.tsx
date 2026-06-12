@@ -291,10 +291,21 @@ export function ApartadoModal({ cartItems, total, cliente, onClose, onSuccess }:
           <Button
             onClick={handleSubmit}
             disabled={processing || !isValid}
-            className="flex-1"
+            className="flex-1 flex-col items-center gap-0.5 py-2"
           >
-            <Package className="w-4 h-4 mr-2" />
-            {processing ? "Guardando..." : `Apartar — depósito $${deposito.toFixed(2)}`}
+            {processing ? (
+              "Guardando..."
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <Package className="w-4 h-4" />
+                  Apartar artículos
+                </span>
+                <span className="text-xs opacity-80" style={{ fontFamily: "var(--font-data)" }}>
+                  depósito ${deposito.toFixed(2)}
+                </span>
+              </>
+            )}
           </Button>
         </div>
       </div>

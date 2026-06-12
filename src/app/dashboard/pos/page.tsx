@@ -1516,10 +1516,10 @@ export default function POSPage() {
             }}
           >
             {[
-              { id: "reparaciones" as const, icon: <FileText   className="w-4 h-4" />, label: "Cobrar Rep.", badge: reparacionesCount },
-              { id: "productos"    as const, icon: <LayoutGrid className="w-4 h-4" />, label: "Productos",    badge: 0 },
-              { id: "servicios"    as const, icon: <Wrench     className="w-4 h-4" />, label: "Servicios",    badge: 0 },
-              { id: "kits"         as const, icon: <Package2   className="w-4 h-4" />, label: "Kits",         badge: 0 },
+              { id: "reparaciones" as const, icon: <FileText   className="w-5 h-5" />, label: "Cobrar Rep.", badge: reparacionesCount },
+              { id: "productos"    as const, icon: <LayoutGrid className="w-5 h-5" />, label: "Productos",    badge: 0 },
+              { id: "servicios"    as const, icon: <Wrench     className="w-5 h-5" />, label: "Servicios",    badge: 0 },
+              { id: "kits"         as const, icon: <Package2   className="w-5 h-5" />, label: "Kits",         badge: 0 },
             ].map(({ id, icon, label, badge }) => (
               <button
                 key={id}

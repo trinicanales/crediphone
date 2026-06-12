@@ -406,6 +406,32 @@ function ModalCancelarReparacion({
   );
 }
 
+// ─── Estado badge colors ──────────────────────────────────────────────────────
+
+const ESTADO_BADGE: Record<string, { bg: string; text: string }> = {
+  listo_entrega:    { bg: "var(--color-success-bg)",  text: "var(--color-success)" },
+  en_reparacion:    { bg: "var(--color-info-bg)",     text: "var(--color-info)" },
+  esperando_piezas: { bg: "var(--color-warning-bg)",  text: "var(--color-warning)" },
+  presupuesto:      { bg: "var(--color-bg-elevated)", text: "var(--color-accent)" },
+  aprobado:         { bg: "var(--color-success-bg)",  text: "var(--color-success)" },
+  diagnostico:      { bg: "var(--color-info-bg)",     text: "var(--color-info)" },
+  recibido:         { bg: "var(--color-bg-elevated)", text: "var(--color-text-muted)" },
+};
+
+function getEstadoBadge(estado: string) {
+  return ESTADO_BADGE[estado] ?? { bg: "var(--color-info-bg)", text: "var(--color-info)" };
+}
+
+const ESTADO_LABEL: Record<string, string> = {
+  listo_entrega:    "Listo entrega",
+  en_reparacion:    "En reparación",
+  esperando_piezas: "Esp. piezas",
+  presupuesto:      "Presupuesto",
+  aprobado:         "Aprobado",
+  diagnostico:      "Diagnóstico",
+  recibido:         "Recibido",
+};
+
 // ─── Panel principal ──────────────────────────────────────────────────────────
 
 interface ReparacionesPOSPanelProps {
@@ -744,11 +770,11 @@ export function ReparacionesPOSPanel({ onCobroCompleto, onCountChange }: Reparac
                 <div
                   className="text-xs font-semibold px-2 py-1 rounded-lg"
                   style={{
-                    background: "var(--color-info-bg)",
-                    color: "var(--color-info)",
+                    background: getEstadoBadge(orden.estado).bg,
+                    color: getEstadoBadge(orden.estado).text,
                   }}
                 >
-                  {orden.estado === "listo_entrega" ? "Listo entrega" : orden.estado}
+                  {ESTADO_LABEL[orden.estado] ?? orden.estado}
                 </div>
               </div>
 

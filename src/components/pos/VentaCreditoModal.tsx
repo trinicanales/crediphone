@@ -358,10 +358,21 @@ export function VentaCreditoModal({ cartItems, total, cliente, onClose, onSucces
           <Button
             onClick={handleSubmit}
             disabled={processing || !isValid || !tieneImei}
-            className="flex-1"
+            className="flex-1 flex-col items-center gap-0.5 py-2"
           >
-            <CreditCard className="w-4 h-4 mr-2" />
-            {processing ? "Procesando..." : `Crear crédito — enganche $${engancheMin.toFixed(2)}`}
+            {processing ? (
+              "Procesando..."
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <CreditCard className="w-4 h-4" />
+                  Crear crédito
+                </span>
+                <span className="text-xs opacity-80" style={{ fontFamily: "var(--font-data)" }}>
+                  enganche ${engancheMin.toFixed(2)}
+                </span>
+              </>
+            )}
           </Button>
         </div>
       </div>
