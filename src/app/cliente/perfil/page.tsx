@@ -16,7 +16,6 @@ interface ClienteData {
   apellido: string;
   telefono: string;
   email?: string;
-  scoring?: number;
 }
 
 interface OrdenData {
@@ -26,7 +25,7 @@ interface OrdenData {
   marcaDispositivo: string;
   modeloDispositivo: string;
   imei?: string;
-  costoTotal: number;
+  precioTotal: number;
   fechaRecepcion: string;
   fechaCompletado?: string;
   esGarantia: boolean;
@@ -41,7 +40,7 @@ interface CreditoData {
   estado: string;
   fechaInicio: string;
   tasaInteres: number;
-  plazoSemanas: number;
+  plazo: number;
 }
 
 interface PortalData {
@@ -190,7 +189,7 @@ function OrdenRow({ orden }: { orden: OrdenData }) {
             )}
             <dt style={{ color: "var(--color-text-muted)" }}>Costo del servicio</dt>
             <dd className="font-semibold" style={{ color: "var(--color-text-primary)" }}>
-              {fmtPrecio(orden.costoTotal)}
+              {fmtPrecio(orden.precioTotal)}
             </dd>
             {orden.garantiaActiva && (
               <>
@@ -434,7 +433,7 @@ export default function ClientePerfilPage() {
                       />
                     </div>
                     <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-                      {pct}% pagado · {c.plazoSemanas} semanas
+                      {pct}% pagado · {c.plazo} pagos
                     </p>
                   </div>
                 );

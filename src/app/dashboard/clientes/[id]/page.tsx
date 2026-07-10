@@ -16,7 +16,6 @@ interface ClientePerfil {
   apellido: string;
   telefono: string;
   email?: string;
-  scoring?: number;
   puntosDisponibles: number;
   puntosAcumulados: number;
 }
@@ -43,7 +42,7 @@ interface CreditoPerfil {
   estado: string;
   fechaInicio: string;
   tasaInteres: number;
-  plazoSemanas: number;
+  plazo: number;
 }
 
 interface PagoPerfil {
@@ -224,19 +223,8 @@ export default function ClientePerfilPage() {
             </div>
           </div>
 
-          {/* Scoring + Puntos */}
+          {/* Puntos */}
           <div className="flex gap-4">
-            {cliente.scoring !== undefined && (
-              <div className="text-center">
-                <p className="text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>Scoring</p>
-                <p
-                  className="text-2xl font-bold font-mono"
-                  style={{ color: cliente.scoring >= 70 ? "var(--color-success)" : cliente.scoring >= 40 ? "var(--color-warning)" : "var(--color-danger)" }}
-                >
-                  {cliente.scoring}
-                </p>
-              </div>
-            )}
             <div className="text-center">
               <p className="text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>Puntos</p>
               <p className="text-2xl font-bold font-mono" style={{ color: "var(--color-accent)" }}>
@@ -362,7 +350,7 @@ export default function ClientePerfilPage() {
                       {c.folio ?? c.id.substring(0, 8)}
                     </span>
                     <span className="ml-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                      {fmtFecha(c.fechaInicio)} · {c.plazoSemanas}sem
+                      {fmtFecha(c.fechaInicio)} · {c.plazo} pagos
                     </span>
                   </div>
                   <div className="flex items-center gap-3">

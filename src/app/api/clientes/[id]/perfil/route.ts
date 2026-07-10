@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext } from "@/lib/auth/server";
+import { getSaldoPuntos } from "@/lib/db/puntos";
 
 /**
  * GET /api/clientes/[id]/perfil
@@ -17,10 +18,10 @@ export async function GET(
     const { id: clienteId } = await params;
     const supabase = createAdminClient();
 
-    // Datos del cliente
+    // Datos del cliente (scoring vive en tabla separada scoring_clientes)
     const { data: cliente, error: clienteError } = await supabase
       .from("clientes")
-      .select("id, nombre, apellido, telefono, email, distribuidor_id, scoring, puntos_disponibles, puntos_acumulados")
+      .select("id, nombre, apellido, telefono, email, distribuidor_id")
       .eq("id", clienteId)
       .single();
 
@@ -53,27 +54,34 @@ export async function GET(
       .eq("estado", "activa")
       .gte("fecha_vencimiento", hoy);
 
-    // Créditos
+    // Créditos (incluye tipo para poder distinguir apartados si se requiere en el futuro)
     let creditosQuery = supabase
       .from("creditos")
-      .select("id, folio, monto, saldo_pendiente, estado, fecha_inicio, tasa_interes, plazo_semanas")
+      .select("id, folio, monto, estado, fecha_inicio, tasa_interes, plazo, tipo")
       .eq("cliente_id", clienteId)
       .order("fecha_inicio", { ascending: false });
     if (filterDist) creditosQuery = creditosQuery.eq("distribuidor_id", filterDist);
     const { data: creditos } = await creditosQuery;
 
-    // Últimos 20 pagos (via créditos del cliente)
+    // Últimos 20 pagos (via créditos del cliente) + total pagado por crédito (saldo_pendiente no es columna)
     let pagosData: any[] = [];
+    const pagosPorCredito: Record<string, number> = {};
     if (creditos && creditos.length > 0) {
       const creditoIds = creditos.map((c: any) => c.id);
       const { data: pagos } = await supabase
         .from("pagos")
-        .select("id, monto, fecha_pago, metodo_pago, credito_id")
+        .select("id, monto, fecha_pago, metodo_pago, credito_id, estado")
         .in("credito_id", creditoIds)
-        .order("fecha_pago", { ascending: false })
-        .limit(20);
-      pagosData = pagos || [];
+        .order("fecha_pago", { ascending: false });
+      for (const p of pagos ?? []) {
+        if (p.estado === "cancelado") continue;
+        pagosPorCredito[p.credito_id] = (pagosPorCredito[p.credito_id] ?? 0) + Number(p.monto);
+      }
+      pagosData = (pagos || []).slice(0, 20);
     }
+
+    // Puntos disponibles (helper centralizado — respeta el corte anual)
+    const saldoPuntos = await getSaldoPuntos(clienteId, filterDist ?? cliente.distribuidor_id ?? undefined);
 
     // Construir mapa de garantías por orden_id
     const garantiasMap = new Map<string, { diasGarantia: number; fechaVencimiento: string }>();
@@ -107,21 +115,26 @@ export async function GET(
           apellido: cliente.apellido,
           telefono: cliente.telefono,
           email: cliente.email,
-          scoring: cliente.scoring,
-          puntosDisponibles: cliente.puntos_disponibles ?? 0,
-          puntosAcumulados: cliente.puntos_acumulados ?? 0,
+          puntosDisponibles: saldoPuntos.saldoDisponible,
+          puntosAcumulados: saldoPuntos.totalGanado,
         },
         ordenes: ordenesConGarantia,
-        creditos: (creditos || []).map((c: any) => ({
-          id: c.id,
-          folio: c.folio,
-          monto: parseFloat(c.monto),
-          saldoPendiente: parseFloat(c.saldo_pendiente || "0"),
-          estado: c.estado,
-          fechaInicio: c.fecha_inicio,
-          tasaInteres: c.tasa_interes,
-          plazoSemanas: c.plazo_semanas,
-        })),
+        creditos: (creditos || [])
+          .filter((c: any) => (c.tipo ?? "credito") === "credito")
+          .map((c: any) => {
+            const monto = parseFloat(c.monto);
+            const totalPagado = pagosPorCredito[c.id] ?? 0;
+            return {
+              id: c.id,
+              folio: c.folio,
+              monto,
+              saldoPendiente: Math.max(0, monto - totalPagado),
+              estado: c.estado,
+              fechaInicio: c.fecha_inicio,
+              tasaInteres: c.tasa_interes,
+              plazo: c.plazo,
+            };
+          }),
         pagos: pagosData.map((p: any) => ({
           id: p.id,
           monto: parseFloat(p.monto),
@@ -135,7 +148,9 @@ export async function GET(
             !["entregado", "cancelado", "no_reparable"].includes(o.estado)
           ).length,
           garantiasActivas: garantias?.length ?? 0,
-          creditosActivos: (creditos || []).filter((c: any) => c.estado === "activo").length,
+          creditosActivos: (creditos || []).filter(
+            (c: any) => (c.tipo ?? "credito") === "credito" && c.estado === "activo"
+          ).length,
         },
       },
     });
