@@ -849,6 +849,50 @@ export async function cambiarEstadoOrden(
 }
 
 /**
+ * Si la orden está en "esperando_piezas" y TODOS sus pedidos_pieza_reparacion
+ * ya llegaron a un estado final (instalada, defectuosa, cancelada), reanuda
+ * automáticamente la reparación pasando la orden a "en_reparacion".
+ * No-op si la orden no está en "esperando_piezas" o si aún hay piezas pendientes/en_camino/recibida.
+ * Diseñado para llamarse fire-and-forget después de: recibir/verificar/cancelar un pedido de pieza.
+ */
+export async function checkYTransicionarEsperandoPiezas(ordenId: string): Promise<void> {
+  const supabase = createAdminClient();
+
+  const { data: orden } = await supabase
+    .from("ordenes_reparacion")
+    .select("estado")
+    .eq("id", ordenId)
+    .single();
+
+  if (!orden || orden.estado !== "esperando_piezas") return;
+
+  const { data: pedidos } = await supabase
+    .from("pedidos_pieza_reparacion")
+    .select("estado")
+    .eq("orden_id", ordenId);
+
+  if (!pedidos || pedidos.length === 0) return;
+
+  const estadosFinales = ["instalada", "defectuosa", "cancelada"];
+  const todasResueltas = pedidos.every((p: any) => estadosFinales.includes(p.estado));
+  if (!todasResueltas) return;
+
+  await cambiarEstadoOrden(
+    ordenId,
+    "en_reparacion",
+    "Todas las piezas quedaron resueltas (recibidas/canceladas) — reparación reanudada automáticamente"
+  );
+
+  await supabase.from("historial_estado_orden").insert({
+    orden_id: ordenId,
+    estado_anterior: "esperando_piezas",
+    estado_nuevo: "en_reparacion",
+    comentario: "Auto-transición: todas las piezas pedidas quedaron resueltas (instaladas/defectuosas/canceladas)",
+    usuario_id: null,
+  });
+}
+
+/**
  * Actualiza la información básica de una orden de reparación
  * No modifica: folio, técnico, estado, costos, firma
  */

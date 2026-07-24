@@ -96,7 +96,7 @@ function ComponenteBtn({ imagen, nombre, nombreCompleto, esOk, onClick }: Compon
       </div>
       <div
         className="text-[10px] font-semibold leading-none w-full text-center"
-        style={{ color: esOk ? "var(--color-success)" : "var(--color-danger)" }}
+        style={{ color: hovered ? "var(--color-text-inverted)" : esOk ? "var(--color-success)" : "var(--color-danger)" }}
       >
         {nombre}
       </div>

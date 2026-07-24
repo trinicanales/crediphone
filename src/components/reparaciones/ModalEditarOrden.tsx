@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { OrdenReparacionDetallada, PrioridadOrden } from "@/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 interface Cliente {
   id: string;
@@ -31,6 +31,11 @@ export function ModalEditarOrden({
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busquedaCliente, setBusquedaCliente] = useState("");
+  const [clienteDropdownAbierto, setClienteDropdownAbierto] = useState(false);
+  const [clienteNombreCompleto, setClienteNombreCompleto] = useState(
+    `${orden.clienteNombre ?? ""} ${orden.clienteApellido ?? ""}`.trim()
+  );
 
   const [formData, setFormData] = useState({
     clienteId: orden.clienteId || "",
@@ -157,22 +162,69 @@ export function ModalEditarOrden({
               Cargando clientes...
             </div>
           ) : (
-            <select
-              value={formData.clienteId}
-              onChange={(e) =>
-                setFormData({ ...formData, clienteId: e.target.value })
-              }
-              className="w-full px-4 py-2 rounded-lg focus:outline-none"
-              style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)" }}
-              required
-            >
-              <option value="">-- Seleccione un cliente --</option>
-              {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.nombre} {cliente.apellido} - {cliente.telefono}
-                </option>
-              ))}
-            </select>
+            <div style={{ position: "relative" }}>
+              <div style={{ position: "relative" }}>
+                <Search
+                  className="h-4 w-4"
+                  style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)", pointerEvents: "none" }}
+                />
+                <input
+                  type="text"
+                  placeholder="Buscar cliente por nombre o teléfono..."
+                  value={clienteDropdownAbierto ? busquedaCliente : (formData.clienteId ? clienteNombreCompleto : busquedaCliente)}
+                  onChange={(e) => setBusquedaCliente(e.target.value)}
+                  onFocus={() => {
+                    setClienteDropdownAbierto(true);
+                    setBusquedaCliente("");
+                  }}
+                  onBlur={() => setTimeout(() => setClienteDropdownAbierto(false), 150)}
+                  required={!formData.clienteId}
+                  className="w-full px-4 py-2 rounded-lg focus:outline-none"
+                  style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", paddingLeft: "2.25rem" }}
+                />
+              </div>
+
+              {clienteDropdownAbierto && (
+                <div style={{ position: "absolute", top: "calc(100% + 0.25rem)", left: 0, right: 0, zIndex: 50, maxHeight: "220px", overflowY: "auto", borderRadius: "0.5rem", border: "1px solid var(--color-border)", background: "var(--color-bg-surface)", boxShadow: "var(--shadow-lg)" }}>
+                  {clientes
+                    .filter((c) => {
+                      const q = busquedaCliente.trim().toLowerCase();
+                      if (!q) return true;
+                      const nombreCompleto = `${c.nombre} ${c.apellido ?? ""}`.toLowerCase();
+                      return nombreCompleto.includes(q) || (c.telefono ?? "").includes(q);
+                    })
+                    .sort((a, b) => `${a.nombre} ${a.apellido ?? ""}`.localeCompare(`${b.nombre} ${b.apellido ?? ""}`))
+                    .slice(0, 50)
+                    .map((cliente) => (
+                      <div
+                        key={cliente.id}
+                        onMouseDown={() => {
+                          setFormData({ ...formData, clienteId: cliente.id });
+                          setClienteNombreCompleto(`${cliente.nombre} ${cliente.apellido ?? ""}`.trim());
+                          setBusquedaCliente("");
+                          setClienteDropdownAbierto(false);
+                        }}
+                        style={{ padding: "0.5rem 0.75rem", cursor: "pointer", fontSize: "0.875rem", color: "var(--color-text-primary)", borderBottom: "1px solid var(--color-border-subtle)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-bg-sunken)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <div style={{ fontWeight: 600 }}>{cliente.nombre} {cliente.apellido}</div>
+                        <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontFamily: "var(--font-data)" }}>{cliente.telefono}</div>
+                      </div>
+                    ))}
+                  {clientes.filter((c) => {
+                    const q = busquedaCliente.trim().toLowerCase();
+                    if (!q) return true;
+                    const nombreCompleto = `${c.nombre} ${c.apellido ?? ""}`.toLowerCase();
+                    return nombreCompleto.includes(q) || (c.telefono ?? "").includes(q);
+                  }).length === 0 && (
+                    <div style={{ padding: "0.75rem", fontSize: "0.875rem", color: "var(--color-text-muted)", textAlign: "center" }}>
+                      Sin resultados
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {errors.clienteId && (
             <p className="mt-1 text-sm" style={{ color: "var(--color-danger)" }}>{errors.clienteId}</p>

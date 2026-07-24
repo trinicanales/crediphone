@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkYTransicionarEsperandoPiezas } from "@/lib/db/reparaciones";
 
 /**
  * PATCH /api/reparaciones/[id]/pedidos-pieza/[pedidoId]
@@ -123,6 +124,87 @@ export async function PATCH(
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
 
     return NextResponse.json({ success: true, message: "Pieza actualizada" });
+  } catch {
+    return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/reparaciones/[id]/pedidos-pieza/[pedidoId]
+ * Cancela UN pedido de pieza individual (no cancela toda la orden).
+ * Solo permitido en estados "pendiente" o "en_camino" — piezas que aún no llegaron
+ * físicamente. Revierte el gasto que se registró en bolsa virtual al crear el pedido
+ * y, si la orden estaba "esperando_piezas" y ya no quedan piezas sin resolver,
+ * la reanuda automáticamente a "en_reparacion".
+ * Roles: admin, super_admin, vendedor (mismos roles que la cancelación de orden completa)
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string; pedidoId: string }> }
+) {
+  try {
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+
+    if (!role || !["admin", "super_admin", "vendedor"].includes(role)) {
+      return NextResponse.json({ success: false, error: "Sin permisos para cancelar piezas" }, { status: 403 });
+    }
+
+    const { id: ordenId, pedidoId } = await params;
+    const supabase = createAdminClient();
+
+    const { data: pedido } = await supabase
+      .from("pedidos_pieza_reparacion")
+      .select("id, estado, nombre_pieza, costo_estimado, costo_envio, ordenes_reparacion!inner(distribuidor_id)")
+      .eq("id", pedidoId)
+      .eq("orden_id", ordenId)
+      .single();
+
+    if (!pedido) return NextResponse.json({ success: false, error: "Pedido no encontrado" }, { status: 404 });
+
+    const distId = (pedido as any).ordenes_reparacion?.distribuidor_id;
+    if (!isSuperAdmin && distribuidorId && distId !== distribuidorId) {
+      return NextResponse.json({ success: false, error: "Sin acceso" }, { status: 403 });
+    }
+
+    if (!["pendiente", "en_camino"].includes(pedido.estado)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No se puede cancelar una pieza en estado "${pedido.estado}". Solo aplica a piezas pendientes o en camino.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    const { error } = await supabase
+      .from("pedidos_pieza_reparacion")
+      .update({ estado: "cancelada" })
+      .eq("id", pedidoId);
+
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+
+    // Revertir el gasto registrado en bolsa virtual al crear el pedido (insertando el
+    // monto en negativo, misma lógica que usa el cálculo de saldoDisponible en el POST)
+    const costoTotal = Number(pedido.costo_estimado || 0) + Number(pedido.costo_envio || 0);
+    if (costoTotal > 0) {
+      await supabase.from("movimientos_bolsa_virtual").insert({
+        orden_id: ordenId,
+        distribuidor_id: distId,
+        tipo: "gasto_pieza",
+        monto: -costoTotal,
+        concepto: `Pieza cancelada: ${pedido.nombre_pieza} (revierte gasto de $${costoTotal.toFixed(2)})`,
+        pedido_pieza_id: pedido.id,
+        registrado_por: userId,
+      });
+    }
+
+    // Auto-transición: si ya no quedan piezas pendientes, reanudar la reparación
+    checkYTransicionarEsperandoPiezas(ordenId).catch((e) =>
+      console.error("[pedidos-pieza/cancelar-individual] auto-transición falló:", e)
+    );
+
+    return NextResponse.json({ success: true, message: "Pieza cancelada" });
   } catch {
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
   }

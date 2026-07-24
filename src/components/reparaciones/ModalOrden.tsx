@@ -16,6 +16,7 @@ import {
   UserPlus,
   Wrench,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -169,6 +170,9 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
   const [tipoFirma, setTipoFirma] = useState<TipoFirma | null>(null);
   const [firmaData, setFirmaData] = useState<string | null>(null);
   const [clienteNombreCompleto, setClienteNombreCompleto] = useState<string>("");
+  // Búsqueda de cliente (combobox): texto escrito por el usuario y visibilidad del dropdown
+  const [busquedaCliente, setBusquedaCliente] = useState<string>("");
+  const [clienteDropdownAbierto, setClienteDropdownAbierto] = useState(false);
   // Flag para saber si el usuario ya escribió manualmente en "Problema Reportado"
   const [problemaEditadoManualmente, setProblemaEditadoManualmente] = useState(false);
 
@@ -668,6 +672,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     setTipoFirma(null);
     setFirmaData(null);
     setClienteNombreCompleto("");
+    setBusquedaCliente("");
+    setClienteDropdownAbierto(false);
     setArchivosPendientes([]);
     setDistribuidorSeleccionado("");
     setProblemaEditadoManualmente(false);
@@ -861,29 +867,77 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
 
                   {!mostrarFormNuevoCliente ? (
                     <div className="flex gap-2">
-                      <select
-                        name="clienteId"
-                        value={formData.clienteId}
-                        onChange={(e) => {
-                          handleChange(e);
-                          const cli = clientes.find(c => c.id === e.target.value);
-                          setClienteNombreCompleto(
-                            cli ? `${cli.nombre} ${cli.apellido ?? ""}`.trim() : ""
-                          );
-                        }}
-                        required
-                        disabled={loadingClientes}
-                        style={{ flex: 1, borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem" }}
-                      >
-                        <option value="">
-                          {loadingClientes ? "Cargando clientes..." : "Seleccionar cliente"}
-                        </option>
-                        {clientes.map((cliente) => (
-                          <option key={cliente.id} value={cliente.id}>
-                            {cliente.nombre} {cliente.apellido} - {cliente.telefono}
-                          </option>
-                        ))}
-                      </select>
+                      <div style={{ position: "relative", flex: 1 }}>
+                        <div style={{ position: "relative" }}>
+                          <Search
+                            className="h-4 w-4"
+                            style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)", pointerEvents: "none" }}
+                          />
+                          <input
+                            type="text"
+                            placeholder={loadingClientes ? "Cargando clientes..." : "Buscar cliente por nombre o teléfono..."}
+                            value={
+                              clienteDropdownAbierto
+                                ? busquedaCliente
+                                : formData.clienteId
+                                  ? clienteNombreCompleto
+                                  : busquedaCliente
+                            }
+                            onChange={(e) => setBusquedaCliente(e.target.value)}
+                            onFocus={() => {
+                              setClienteDropdownAbierto(true);
+                              setBusquedaCliente("");
+                            }}
+                            onBlur={() => setTimeout(() => setClienteDropdownAbierto(false), 150)}
+                            disabled={loadingClientes}
+                            required={!formData.clienteId}
+                            style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem 0.75rem 2.25rem", fontWeight: 500, fontSize: "0.875rem" }}
+                          />
+                        </div>
+
+                        {clienteDropdownAbierto && (
+                          <div
+                            style={{ position: "absolute", top: "calc(100% + 0.25rem)", left: 0, right: 0, zIndex: 50, maxHeight: "220px", overflowY: "auto", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-surface)", boxShadow: "var(--shadow-lg)" }}
+                          >
+                            {clientes
+                              .filter((c) => {
+                                const q = busquedaCliente.trim().toLowerCase();
+                                if (!q) return true;
+                                const nombreCompleto = `${c.nombre} ${c.apellido ?? ""}`.toLowerCase();
+                                return nombreCompleto.includes(q) || (c.telefono ?? "").includes(q);
+                              })
+                              .sort((a, b) => `${a.nombre} ${a.apellido ?? ""}`.localeCompare(`${b.nombre} ${b.apellido ?? ""}`))
+                              .slice(0, 50)
+                              .map((cliente) => (
+                                <div
+                                  key={cliente.id}
+                                  onMouseDown={() => {
+                                    setFormData({ ...formData, clienteId: cliente.id });
+                                    setClienteNombreCompleto(`${cliente.nombre} ${cliente.apellido ?? ""}`.trim());
+                                    setBusquedaCliente("");
+                                    setClienteDropdownAbierto(false);
+                                  }}
+                                  style={{ padding: "0.5rem 0.75rem", cursor: "pointer", fontSize: "0.875rem", color: "var(--color-text-primary)", borderBottom: "1px solid var(--color-border-subtle)" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-bg-sunken)")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                >
+                                  <div style={{ fontWeight: 600 }}>{cliente.nombre} {cliente.apellido}</div>
+                                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontFamily: "var(--font-data)" }}>{cliente.telefono}</div>
+                                </div>
+                              ))}
+                            {clientes.filter((c) => {
+                              const q = busquedaCliente.trim().toLowerCase();
+                              if (!q) return true;
+                              const nombreCompleto = `${c.nombre} ${c.apellido ?? ""}`.toLowerCase();
+                              return nombreCompleto.includes(q) || (c.telefono ?? "").includes(q);
+                            }).length === 0 && (
+                              <div style={{ padding: "0.75rem", fontSize: "0.875rem", color: "var(--color-text-muted)", textAlign: "center" }}>
+                                Sin resultados — usa &quot;Nuevo&quot; para crear el cliente
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       <motion.button
                         type="button"

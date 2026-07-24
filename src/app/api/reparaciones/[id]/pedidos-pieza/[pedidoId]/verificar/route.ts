@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkYTransicionarEsperandoPiezas } from "@/lib/db/reparaciones";
 
 /**
  * POST /api/reparaciones/[id]/pedidos-pieza/[pedidoId]/verificar
@@ -115,6 +116,11 @@ export async function POST(
       // El stock ya se decrementó al crear la orden (si era de inventario). Para piezas pedidas
       // externamente, el stock no se afecta — la pieza va directo a la reparación.
 
+      // Auto-transición: si ya no quedan piezas pendientes, reanudar la reparación
+      checkYTransicionarEsperandoPiezas(ordenId).catch((e) =>
+        console.error("[pedidos-pieza/verificar] auto-transición falló:", e)
+      );
+
       return NextResponse.json({ success: true, message: "Pieza verificada e instalada correctamente" });
     } else {
       // ── Pieza defectuosa: congelar monto en bolsa ──────────────────────────
@@ -139,6 +145,12 @@ export async function POST(
         .update({ en_disputa: true })
         .eq("pedido_pieza_id", pedidoId)
         .eq("tipo", "gasto_pieza");
+
+      // Auto-transición: "defectuosa" también es un estado final para esta pieza
+      // (el reemplazo, si se pide, genera un pedido_pieza NUEVO)
+      checkYTransicionarEsperandoPiezas(ordenId).catch((e) =>
+        console.error("[pedidos-pieza/verificar] auto-transición falló:", e)
+      );
 
       return NextResponse.json({
         success: true,

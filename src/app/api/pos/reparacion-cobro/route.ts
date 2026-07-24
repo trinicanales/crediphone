@@ -355,7 +355,12 @@ export async function POST(request: Request) {
         .from("ordenes_reparacion")
         .update({
           estado: "entregado",
-          fecha_entrega: new Date().toISOString(), // C5 fix: campo canónico fecha_entrega
+          // BUG-ENTREGA-001 (2026-07-23): la columna real en Supabase es "fecha_entregado",
+          // NO "fecha_entrega" (esa columna no existe). El nombre incorrecto hacía que este
+          // UPDATE fallara en silencio y la orden se quedara atorada en "listo_entrega"
+          // (47 órdenes afectadas). Verificado contra Supabase en vivo — no confiar en
+          // docs/memoria locales para nombres de columnas, siempre confirmar con MCP.
+          fecha_entregado: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq("id", ordenId);

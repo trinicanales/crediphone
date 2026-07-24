@@ -166,6 +166,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const [guardandoPedido, setGuardandoPedido] = useState(false);
   const [recibiendoPedido, setRecibiendoPedido] = useState<string | null>(null);
   const [marcandoEnCamino, setMarcandoEnCamino] = useState<string | null>(null);
+  const [cancelandoPedido, setCancelandoPedido] = useState<string | null>(null);
   const [fechaLlegadaInput, setFechaLlegadaInput] = useState<Record<string, string>>({});
   const [verificandoPedido, setVerificandoPedido] = useState<string | null>(null);
   const [verifFormPedidoId, setVerifFormPedidoId] = useState<string | null>(null);
@@ -724,6 +725,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
         setEditarNombrePiezaId(null);
         setEditarNombreValor("");
         fetchPedidosPieza();
+        onRefresh();
       } else {
         alert(data.error || "Error al editar nombre");
       }
@@ -794,6 +796,26 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
     }
   }
 
+  async function handleCancelarPedido(pedidoId: string) {
+    if (!orden) return;
+    if (!confirm("¿Cancelar esta pieza? Se revertirá el gasto en la bolsa virtual.")) return;
+    setCancelandoPedido(pedidoId);
+    try {
+      const res = await fetch(`/api/reparaciones/${orden.id}/pedidos-pieza/${pedidoId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchPedidosPieza();
+        fetchOrden();
+      } else {
+        alert(data.error || "Error al cancelar pieza");
+      }
+    } finally {
+      setCancelandoPedido(null);
+    }
+  }
+
   async function handleVerificarPedido(pedidoId: string, llegoBien: boolean) {
     if (!orden) return;
     setVerificandoPedido(pedidoId);
@@ -856,6 +878,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
       });
       setIngresarInventarioPiezaId(null);
       fetchPedidosPieza();
+      onRefresh();
     } catch {
       alert("Error al conectar con el servidor");
     } finally {
@@ -876,6 +899,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
       setIngresarInventarioPiezaId(null);
       setIngresarInvBusqueda([]);
       fetchPedidosPieza();
+      onRefresh();
     } catch { /* silencioso */ } finally {
       setIngresandoInventario(false);
     }
@@ -1443,6 +1467,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                       if (data.success) {
                         setOrden((prev) => prev ? { ...prev, problemaReportado: problemaEditado } : prev);
                         setEditProblema(false);
+                        onRefresh();
                       }
                     } finally { setGuardandoProblema(false); }
                   }}
@@ -1572,6 +1597,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                         if (data.success) {
                           setOrden((prev) => prev ? { ...prev, notasInternas: notasEditadas } : prev);
                           setEditNotas(false);
+                          onRefresh();
                         }
                       } finally { setGuardandoNotas(false); }
                     }}
@@ -2646,6 +2672,7 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                         setEditandoCotizacion(false);
                         setEditPiezaCotId(null);
                         setMostrandoFormNuevaPiezaCot(false);
+                        onRefresh();
                       }
                     } finally {
                       setGuardandoCotizacion(false);
@@ -2801,6 +2828,14 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                           >
                             {recibiendoPedido === p.id ? "..." : "Recibida ✓"}
                           </button>
+                          <button
+                            onClick={() => handleCancelarPedido(p.id)}
+                            disabled={cancelandoPedido === p.id}
+                            className="text-xs px-2 py-1 rounded-lg font-medium"
+                            style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", opacity: cancelandoPedido === p.id ? 0.7 : 1 }}
+                          >
+                            {cancelandoPedido === p.id ? "..." : "Cancelar"}
+                          </button>
                         </div>
                       )}
                       {p.estado === "en_camino" && (
@@ -2828,6 +2863,14 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
                               ⏳ Reportar retraso
                             </button>
                           )}
+                          <button
+                            onClick={() => handleCancelarPedido(p.id)}
+                            disabled={cancelandoPedido === p.id}
+                            className="text-xs px-2 py-1 rounded-lg font-medium"
+                            style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", opacity: cancelandoPedido === p.id ? 0.7 : 1 }}
+                          >
+                            {cancelandoPedido === p.id ? "..." : "Cancelar"}
+                          </button>
                         </div>
                       )}
                       {p.estado === "recibida" && !isVerifOpen && (
