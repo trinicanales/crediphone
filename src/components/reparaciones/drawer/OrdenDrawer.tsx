@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { createClient } from "@/lib/supabase/client";
 import {
   X, ExternalLink, Edit, Loader2, Wrench, Clock, AlertCircle,
   MessageSquare, Package, Timer, FileText, Image as ImageIcon,
@@ -541,6 +542,31 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
       setHasFetched(false);
     }
   }, [ordenId, defaultTab, fetchOrden]);
+
+  // Realtime: refrescar la orden si cambia en Supabase desde otra pestaña/usuario
+  // (ej. técnico actualiza estado desde su sesión mientras el drawer sigue abierto aquí)
+  useEffect(() => {
+    if (!ordenId) return;
+
+    const supabase = createClient();
+    const canal = supabase
+      .channel(`orden-drawer-${ordenId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "ordenes_reparacion", filter: `id=eq.${ordenId}` },
+        () => { fetchOrden(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "historial_estado_orden", filter: `orden_id=eq.${ordenId}` },
+        () => { fetchOrden(); }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [ordenId, fetchOrden]);
 
   // Cerrar con Escape
   useEffect(() => {

@@ -1,6 +1,55 @@
 # Bugs Activos — CREDIPHONE
 > Leer al inicio de sesión si la tarea toca BD, auth, caja o reparaciones.
-> Última actualización: 2026-05-26
+> Última actualización: 2026-07-24
+
+---
+
+## ✅ BUG-ENTREGA-001 — Entrega de reparación (POS y flujo directo) fallaba en silencio
+**Severidad:** CRÍTICO | **Estado:** ✅ Resuelto y desplegado a master 2026-07-24 (commit `e15b239`)
+**Archivos:** `src/app/api/pos/reparacion-cobro/route.ts`, `src/app/api/reparaciones/[id]/entregar/route.ts`
+**Causa:** El UPDATE a `ordenes_reparacion` usaba el campo `fecha_entrega`, que no existe en la tabla (el real es `fecha_entregado`). Supabase rechazaba el UPDATE, pero el código igual respondía `success: true` al frontend — el empleado veía "entregado" en pantalla mientras la orden se quedaba atorada en `listo_entrega` sin aplicar anticipo, bolsa virtual, stock ni puntos.
+**Impacto medido antes del fix:** 47 órdenes atoradas, 109 anticipos nunca aplicados, tabla `movimientos_bolsa_virtual` completamente vacía.
+**Backfill ejecutado en Supabase:** 10 órdenes confirmadas pagadas al 100% se pasaron a `entregado` con todos sus efectos secundarios (anticipo aplicado, bolsa virtual, puntos, historial).
+**Pendiente de decisión de Trini (NO tocado, requiere su criterio):**
+- `ORD-20260530-0005` — precio_total = $0, sin anticipos
+- `ORD-20260511-0003`, `ORD-20260629-0002`, `ORD-20260707-0002` — anticipos que exceden el precio_total (posible sobrepago o error de captura)
+
+---
+
+## ✅ BUG-PIEZAS-002 — Piezas al proveedor: sin cancelación individual ni auto-transición
+**Severidad:** Media | **Estado:** ✅ Resuelto y desplegado a master 2026-07-24 (commit `e15b239`)
+**Archivos:** `src/app/api/reparaciones/[id]/pedidos-pieza/[pedidoId]/route.ts` (nuevo DELETE), `src/lib/db/reparaciones.ts` (nueva función `checkYTransicionarEsperandoPiezas()`), `src/app/api/reparaciones/[id]/pedidos-pieza/[pedidoId]/verificar/route.ts`, `src/components/reparaciones/drawer/OrdenDrawer.tsx` (botón "Cancelar")
+**Causa:** No existía forma de cancelar un pedido de pieza individual (solo se podían cancelar todos al cancelar la orden completa), y una orden en `esperando_piezas` no salía de ese estado automáticamente aunque todas sus piezas ya estuvieran resueltas — requería que un humano cambiara el estado a mano.
+**Solución:** DELETE nuevo con reversa de bolsa virtual (movimiento negativo compensatorio) + auto-transición a `en_reparacion` cuando todas las piezas de la orden quedan en estado final (instalada/defectuosa/cancelada).
+
+---
+
+## ✅ UX-CLIENTES-001 — Selector de cliente sin buscador en creación/edición de orden
+**Severidad:** Media (riesgo de clientes duplicados) | **Estado:** ✅ Resuelto y desplegado a master 2026-07-24 (commit `e15b239`)
+**Archivos:** `src/components/reparaciones/ModalOrden.tsx` (crear orden), `src/components/reparaciones/ModalEditarOrden.tsx` (editar orden / cambiar cliente asignado)
+**Causa:** Ambos formularios usaban un `<select>` plano listando los 139 clientes sin orden alfabético ni buscador — difícil encontrar un cliente que ya había venido antes, con riesgo de crear un cliente duplicado.
+**Solución:** Combobox con input de búsqueda (filtra por nombre o teléfono), resultados ordenados alfabéticamente, capado a 50 resultados visibles.
+
+---
+
+## ✅ UX-VISUAL-001 — Texto invisible en hover del checklist de condiciones del equipo
+**Severidad:** Baja | **Estado:** ✅ Resuelto y desplegado a master 2026-07-24 (commit `e15b239`)
+**Archivo:** `src/components/reparaciones/condiciones/IconosFuncionamiento.tsx`
+**Causa:** El color del texto no consideraba el estado `hovered`, quedando del mismo color que el fondo al pasar el mouse (texto invisible).
+
+---
+
+## ✅ SYNC-DRAWER-001 — OrdenDrawer no avisaba al dashboard tras editar datos
+**Severidad:** Media | **Estado:** ✅ Resuelto y desplegado a master 2026-07-24 (commit `e15b239`)
+**Archivo:** `src/components/reparaciones/drawer/OrdenDrawer.tsx`
+**Causa:** 6 acciones dentro del Drawer (editar nombre de pieza, crear/vincular producto a inventario, editar "Problema Reportado", editar "Notas Internas", guardar cotización de piezas editada) actualizaban solo su estado local y nunca llamaban `onRefresh()` — la card/lista del dashboard no se enteraba del cambio hasta un refresh manual.
+**Solución:** Las 6 acciones ahora llaman `onRefresh()` tras guardar exitosamente.
+
+---
+
+## 🟡 PENDIENTE — Recomendación sin implementar: integración diagnóstico ↔ piezas al proveedor
+**Estado:** 🟡 Investigado, NO implementado — pendiente de decisión de Trini
+Hoy el diagnóstico técnico (`partes_reemplazadas` JSONB en `ordenes_reparacion`) y "piezas por pedir al proveedor" (`pedidos_pieza_reparacion`) viven desconectados — un técnico puede registrar una parte a reemplazar en el diagnóstico sin que se cree un pedido, o duplicar un pedido sin darse cuenta de que ya existe uno. También se identificó que no existe autocompletar/sugerencia de precio para una "pieza libre" (sin catálogo) basado en el historial de la misma marca/modelo de dispositivo — viable con la data actual (`piezas_cotizacion` JSONB + `marca_dispositivo`/`modelo_dispositivo`), pero requeriría una tabla desnormalizada o nuevo endpoint para no depender de queries JSONB lentas.
 
 ---
 

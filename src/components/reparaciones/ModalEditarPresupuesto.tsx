@@ -5,8 +5,9 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { OrdenReparacionDetallada, PiezaCotizacion } from "@/types";
-import { Plus, Trash2, AlertCircle, MessageCircle } from "lucide-react";
+import { AlertCircle, MessageCircle } from "lucide-react";
 import { generarMensajePresupuesto, generarLinkWhatsApp } from "@/lib/whatsapp-reparaciones";
+import { SelectorPiezasCotizacion } from "./presupuesto/SelectorPiezasCotizacion";
 
 interface ModalEditarPresupuestoProps {
   isOpen: boolean;
@@ -66,51 +67,12 @@ export function ModalEditarPresupuesto({
   }
 
   // Cálculos
-  const totalPiezas = piezas.reduce((s, p) => s + p.precioUnitario * p.cantidad, 0);
+  const totalPiezas = piezas.reduce((s, p) => s + p.precioTotal, 0);
   const totalGeneral = precioManoObra + totalPiezas;
   const saldoPendiente = totalGeneral - anticipoTotal;
 
   const fmt = (v: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(v);
-
-  function handleAgregarPieza() {
-    setPiezas([
-      ...piezas,
-      {
-        id: String(Date.now()),
-        nombre: "",
-        cantidad: 1,
-        precioUnitario: 0,
-        precioTotal: 0,
-        tieneStock: false,
-        esLibre: true,
-      },
-    ]);
-  }
-
-  function handleEliminarPieza(index: number) {
-    // No se pueden eliminar piezas instaladas
-    if (piezas[index].instalada) return;
-    setPiezas(piezas.filter((_, i) => i !== index));
-  }
-
-  function handleUpdateNombre(index: number, value: string) {
-    const next = [...piezas];
-    next[index] = { ...next[index], nombre: value };
-    setPiezas(next);
-  }
-
-  function handleUpdateCantidad(index: number, value: number) {
-    const next = [...piezas];
-    next[index] = { ...next[index], cantidad: value, precioTotal: next[index].precioUnitario * value };
-    setPiezas(next);
-  }
-
-  function handleUpdatePrecio(index: number, value: number) {
-    const next = [...piezas];
-    next[index] = { ...next[index], precioUnitario: value, precioTotal: value * next[index].cantidad };
-    setPiezas(next);
-  }
 
   function validate(): Record<string, string> {
     const errs: Record<string, string> = {};
@@ -118,11 +80,6 @@ export function ModalEditarPresupuesto({
     if (totalGeneral < anticipoTotal) {
       errs.total = `Total (${fmt(totalGeneral)}) no puede ser menor que anticipos pagados (${fmt(anticipoTotal)})`;
     }
-    piezas.forEach((p, i) => {
-      if (!p.nombre.trim()) errs[`nombre_${i}`] = "Requerido";
-      if (p.precioUnitario < 0) errs[`precio_${i}`] = "No puede ser negativo";
-      if (p.cantidad <= 0) errs[`cantidad_${i}`] = "Debe ser > 0";
-    });
     return errs;
   }
 
@@ -144,17 +101,8 @@ export function ModalEditarPresupuesto({
         precioManoObra,
       };
 
-      // Solo enviar piezasCotizacion si el modal las muestra (si no hay piezas cotizacion, solo actualizar mano obra)
-      if (orden.piezasCotizacion && orden.piezasCotizacion.length > 0) {
-        payload.piezasCotizacion = piezas.map((p) => ({
-          ...p,
-          precioTotal: p.precioUnitario * p.cantidad,
-        }));
-      } else if (piezas.length > 0) {
-        payload.piezasCotizacion = piezas.map((p) => ({
-          ...p,
-          precioTotal: p.precioUnitario * p.cantidad,
-        }));
+      if (piezas.length > 0) {
+        payload.piezasCotizacion = piezas;
       }
 
       const res = await fetch(`/api/reparaciones/${orden.id}/presupuesto`, {
@@ -263,40 +211,14 @@ export function ModalEditarPresupuesto({
           />
         </div>
 
-        {/* Lista de piezas */}
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <label className="block text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
-              Piezas Cotizadas
-            </label>
-            <Button type="button" variant="secondary" size="sm" onClick={handleAgregarPieza}>
-              <Plus className="w-4 h-4 mr-1" />
-              Agregar pieza
-            </Button>
-          </div>
-
-          <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-            {piezas.length === 0 ? (
-              <div className="text-center py-8 rounded-lg" style={{ background: "var(--color-bg-elevated)" }}>
-                <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-                  Sin piezas cotizadas. Usa "Agregar pieza" para incluirlas.
-                </p>
-              </div>
-            ) : (
-              piezas.map((pieza, index) => (
-                <PiezaRow
-                  key={pieza.id}
-                  pieza={pieza}
-                  index={index}
-                  errors={errors}
-                  onUpdateNombre={handleUpdateNombre}
-                  onUpdateCantidad={handleUpdateCantidad}
-                  onUpdatePrecio={handleUpdatePrecio}
-                  onEliminar={handleEliminarPieza}
-                />
-              ))
-            )}
-          </div>
+        {/* Piezas cotizadas — mismo buscador de inventario que en la creación de la orden */}
+        <div className="rounded-xl p-4" style={{ border: "1px solid var(--color-border)", background: "var(--color-bg-surface)" }}>
+          <SelectorPiezasCotizacion
+            piezas={piezas}
+            onChange={setPiezas}
+            marcaDispositivo={orden.marcaDispositivo}
+            modeloDispositivo={orden.modeloDispositivo}
+          />
         </div>
 
         {/* Resumen */}
@@ -363,93 +285,5 @@ export function ModalEditarPresupuesto({
         </div>
       </form>
     </Modal>
-  );
-}
-
-// Sub-componente con hover state propio (regla CLAUDE.md)
-function PiezaRow({
-  pieza,
-  index,
-  errors,
-  onUpdateNombre,
-  onUpdateCantidad,
-  onUpdatePrecio,
-  onEliminar,
-}: {
-  pieza: PiezaCotizacion;
-  index: number;
-  errors: Record<string, string>;
-  onUpdateNombre: (i: number, v: string) => void;
-  onUpdateCantidad: (i: number, v: number) => void;
-  onUpdatePrecio: (i: number, v: number) => void;
-  onEliminar: (i: number) => void;
-}) {
-  const [hoverDelete, setHoverDelete] = useState(false);
-  const instalada = pieza.instalada;
-
-  return (
-    <div
-      className="grid grid-cols-12 gap-2 items-start p-3 rounded-lg"
-      style={{ background: "var(--color-bg-elevated)", opacity: instalada ? 0.8 : 1 }}
-    >
-      {/* Nombre */}
-      <div className="col-span-5">
-        <Input
-          type="text"
-          value={pieza.nombre}
-          onChange={(e) => onUpdateNombre(index, e.target.value)}
-          placeholder="Nombre de la pieza"
-          disabled={instalada}
-          error={errors[`nombre_${index}`]}
-        />
-      </div>
-
-      {/* Cantidad */}
-      <div className="col-span-2">
-        <Input
-          type="number"
-          value={pieza.cantidad}
-          onChange={(e) => onUpdateCantidad(index, Number(e.target.value))}
-          placeholder="Cant."
-          min="1"
-          disabled={instalada}
-          error={errors[`cantidad_${index}`]}
-        />
-      </div>
-
-      {/* Precio unitario (all-in al cliente) */}
-      <div className="col-span-3">
-        <Input
-          type="number"
-          value={pieza.precioUnitario}
-          onChange={(e) => onUpdatePrecio(index, Number(e.target.value))}
-          placeholder="Precio"
-          min="0"
-          step="0.01"
-          disabled={instalada}
-          error={errors[`precio_${index}`]}
-        />
-      </div>
-
-      {/* Botón eliminar */}
-      <div className="col-span-2 flex items-center justify-center gap-1">
-        {instalada ? (
-          <span className="text-xs px-1 py-0.5 rounded font-mono" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
-            ✓ instalada
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onEliminar(index)}
-            onMouseEnter={() => setHoverDelete(true)}
-            onMouseLeave={() => setHoverDelete(false)}
-            style={{ color: "var(--color-danger)", opacity: hoverDelete ? 0.7 : 1 }}
-            className="p-1"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-    </div>
   );
 }

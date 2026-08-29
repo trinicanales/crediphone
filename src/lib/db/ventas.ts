@@ -232,12 +232,28 @@ export async function createVenta(
     (sum, item) => sum + item.cantidad * item.precioUnitario,
     0
   );
-  const total = subtotal - formData.descuento;
 
-  // Calcular cambio si es efectivo
+  // Validación server-side: nunca confiar en el descuento enviado por el cliente
+  // (los guardias de UI se pueden saltar con una llamada directa a la API)
+  const descuento = formData.descuento || 0;
+  if (descuento < 0 || descuento > subtotal) {
+    throw new Error(
+      `Descuento inválido: $${descuento.toFixed(2)} (subtotal: $${subtotal.toFixed(2)})`
+    );
+  }
+
+  const total = subtotal - descuento;
+
+  // Calcular cambio si es efectivo — validar que el monto recibido alcance el total
   let cambio = 0;
-  if (formData.metodoPago === "efectivo" && formData.montoRecibido) {
-    cambio = formData.montoRecibido - total;
+  if (formData.metodoPago === "efectivo") {
+    const montoRecibido = formData.montoRecibido || 0;
+    if (montoRecibido < total) {
+      throw new Error(
+        `Monto recibido insuficiente: $${montoRecibido.toFixed(2)} (total: $${total.toFixed(2)})`
+      );
+    }
+    cambio = montoRecibido - total;
   }
 
   // Validar pago mixto
@@ -264,7 +280,7 @@ export async function createVenta(
       vendedor_id: vendedorId,
       sesion_caja_id: sesionCajaId || null,
       subtotal,
-      descuento: formData.descuento,
+      descuento,
       total,
       metodo_pago: formData.metodoPago,
       desglose_mixto: formData.desgloseMixto || null,

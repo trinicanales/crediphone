@@ -293,6 +293,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     if (condicionesFuncionamiento.llegaApagado) partes.push("Llega apagado");
     if (condicionesFuncionamiento.estaMojado) partes.push("Daño por líquido");
     if (condicionesFuncionamiento.bateriaHinchada) partes.push("Batería hinchada");
+    if (condicionesFuncionamiento.frpBloqueado) partes.push("FRP / cuenta bloqueada");
+    if (condicionesFuncionamiento.requiereLiberacion) partes.push("Requiere liberación");
 
     const descripcionAuto = partes.join(". ");
     setFormData((prev) => ({ ...prev, problemaReportado: descripcionAuto }));
@@ -1163,6 +1165,8 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                       condicionesFuncionamiento.llegaApagado && "Llega apagado",
                       condicionesFuncionamiento.estaMojado && "Daño por líquido",
                       condicionesFuncionamiento.bateriaHinchada && "Batería hinchada",
+                      condicionesFuncionamiento.frpBloqueado && "FRP / cuenta bloqueada",
+                      condicionesFuncionamiento.requiereLiberacion && "Requiere liberación",
                     ].filter(Boolean) as string[];
                     const todos = [...fallas, ...alertas];
                     if (todos.length === 0) return (

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { EnvioPresupuesto } from "./EnvioPresupuesto";
 import { ChecklistAperturaPanel } from "./ChecklistAperturaPanel";
 import { Zap, CheckCircle, Plus, Search, Loader2 } from "lucide-react";
-import type { ParteReemplazada, OrdenReparacionDetallada, Producto, CatalogoServicioReparacion } from "@/types";
+import type { ParteReemplazada, OrdenReparacionDetallada, Producto } from "@/types";
 import { CondicionEquipoPanel } from "./CondicionEquipoPanel";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -73,6 +73,14 @@ export function ModalDiagnostico({
   }
   const [sugerencias, setSugerencias] = useState<SugerenciaParte[]>([]);
   const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
+
+  // Piezas ya pedidas al proveedor para esta orden (evita duplicar pedidos)
+  interface PedidoPiezaExistente {
+    id: string;
+    nombrePieza: string;
+    estado: "pendiente" | "en_camino" | "recibida" | "verificada_ok" | "defectuosa" | "instalada" | "cancelada";
+  }
+  const [pedidosExistentes, setPedidosExistentes] = useState<PedidoPiezaExistente[]>([]);
 
   // Búsqueda libre en inventario (P8a — mismo patrón que OrdenDrawer)
   const [busqTexto, setBusqTexto] = useState("");
@@ -144,7 +152,6 @@ export function ModalDiagnostico({
       })));
       setCotizacionPiezasPreCargadas(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, orden]);
 
   // Cargar sugerencias de piezas/servicios cuando se abre el modal
@@ -162,15 +169,12 @@ export function ModalDiagnostico({
 
     setCargandoSugerencias(true);
 
-    Promise.all([
-      fetch(`/api/productos?marca=${marcaQ}${modeloQ}&tipo=pieza_reparacion`).then((r) =>
-        r.ok ? r.json() : { success: false }
-      ),
-      fetch(`/api/catalogo-servicios?marca=${marcaQ}${modeloQ}`).then((r) =>
-        r.ok ? r.json() : { success: false }
-      ),
-    ])
-      .then(([prodData, svcData]) => {
+    // NOTA: los servicios del catálogo (/api/catalogo-servicios) NO se sugieren aquí a propósito.
+    // Ese catálogo ya alimenta "Costo de Mano de Obra" (precargado desde presupuestoManoDeObra);
+    // sugerirlo también como "pieza/parte" duplicaba el monto si el técnico lo agregaba en ambos lados.
+    fetch(`/api/productos?marca=${marcaQ}${modeloQ}&tipo=pieza_reparacion`)
+      .then((r) => (r.ok ? r.json() : { success: false }))
+      .then((prodData) => {
         const lista: SugerenciaParte[] = [];
 
         if (prodData.success && Array.isArray(prodData.data)) {
@@ -185,22 +189,29 @@ export function ModalDiagnostico({
           }
         }
 
-        if (svcData.success && Array.isArray(svcData.data)) {
-          for (const s of svcData.data as CatalogoServicioReparacion[]) {
-            lista.push({
-              id: `sug-svc-${s.id}`,
-              nombre: s.nombre,
-              precio: s.precioEfectivo ?? s.precioBase,
-            });
-          }
-        }
-
         setSugerencias(lista);
       })
       .catch(() => setSugerencias([]))
       .finally(() => setCargandoSugerencias(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, orden?.marcaDispositivo, orden?.modeloDispositivo]);
+
+  // Cargar piezas ya pedidas al proveedor para esta orden (evita duplicar pedidos)
+  useEffect(() => {
+    if (!isOpen || !ordenId) {
+      setPedidosExistentes([]);
+      return;
+    }
+    fetch(`/api/reparaciones/${ordenId}/pedidos-pieza`)
+      .then((r) => (r.ok ? r.json() : { success: false }))
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setPedidosExistentes(
+            data.data.map((p: any) => ({ id: p.id, nombrePieza: p.nombrePieza, estado: p.estado }))
+          );
+        }
+      })
+      .catch(() => setPedidosExistentes([]));
+  }, [isOpen, ordenId]);
 
   const agregarParteDesdeSugerencia = (sug: SugerenciaParte) => {
     const yaExiste = partes.some((p) => p.parte === sug.nombre && p.costo === sug.precio);
@@ -699,6 +710,42 @@ export function ModalDiagnostico({
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Piezas ya pedidas al proveedor — evita duplicar pedidos */}
+        {pedidosExistentes.filter((p) => p.estado !== "cancelada").length > 0 && (
+          <div
+            className="rounded-lg p-3 space-y-2"
+            style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}
+          >
+            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-warning-text)" }}>
+              ⚠️ Piezas ya pedidas al proveedor para esta orden
+            </span>
+            <div className="space-y-1.5">
+              {pedidosExistentes.filter((p) => p.estado !== "cancelada").map((p) => {
+                const estadoBadge: Record<string, { label: string; color: string; bg: string }> = {
+                  pendiente:     { label: "Pendiente",  color: "var(--color-warning-text)", bg: "var(--color-warning-bg)" },
+                  en_camino:     { label: "En camino",  color: "var(--color-info)",          bg: "var(--color-info-bg)" },
+                  recibida:      { label: "Recibida",   color: "var(--color-success-text)",  bg: "var(--color-success-bg)" },
+                  verificada_ok: { label: "Verificada", color: "var(--color-success-text)",  bg: "var(--color-success-bg)" },
+                  defectuosa:    { label: "Defectuosa", color: "var(--color-danger)",         bg: "var(--color-danger-bg)" },
+                  instalada:     { label: "Instalada",  color: "var(--color-success-text)",  bg: "var(--color-success-bg)" },
+                };
+                const badge = estadoBadge[p.estado] ?? { label: p.estado, color: "var(--color-text-muted)", bg: "var(--color-bg-elevated)" };
+                return (
+                  <div key={p.id} className="flex items-center justify-between text-xs">
+                    <span style={{ color: "var(--color-text-primary)" }}>{p.nombrePieza}</span>
+                    <span className="px-1.5 py-0.5 rounded-full font-medium" style={{ background: badge.bg, color: badge.color }}>
+                      {badge.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs" style={{ color: "var(--color-warning-text)" }}>
+              Revisa esta lista antes de agregar una parte nueva para no duplicar el pedido.
+            </p>
           </div>
         )}
 

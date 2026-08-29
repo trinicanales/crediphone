@@ -16,7 +16,7 @@ import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aplicarAnticiposOrden } from "@/lib/db/reparaciones";
 import { getSesionActiva } from "@/lib/db/caja";
-import { guardarVersionPDF } from "@/lib/pdf/versiones-pdf";
+import { ejecutarEfectosEntrega } from "@/lib/reparaciones/entrega";
 import type { TipoPago } from "@/types";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -56,7 +56,7 @@ export async function POST(
     // 1. Obtener la orden
     const { data: orden, error: ordenError } = await supabase
       .from("ordenes_reparacion")
-      .select("id, folio, estado, precio_total, presupuesto_total, distribuidor_id, cliente_id")
+      .select("id, folio, estado, precio_total, costo_total, distribuidor_id, cliente_id")
       .eq("id", id)
       .single();
 
@@ -83,27 +83,8 @@ export async function POST(
       (sum: number, a: any) => sum + parseFloat(a.monto),
       0
     );
-    const precioTotal = parseFloat(orden.precio_total || orden.presupuesto_total || 0);
+    const precioTotal = parseFloat(orden.precio_total || orden.costo_total || 0);
     const saldoFinal = Math.max(0, precioTotal - totalAnticipos);
-
-    // 3. Calcular costos de piezas (para ingreso neto)
-    const { data: pedidosPieza } = await supabase
-      .from("pedidos_pieza_reparacion")
-      .select("costo_estimado, costo_envio, monto_de_caja, estado")
-      .eq("orden_id", id)
-      .neq("estado", "cancelada");
-
-    const costosPiezas = (pedidosPieza || []).reduce(
-      (sum: number, p: any) => sum + Number(p.costo_estimado || 0) + Number(p.costo_envio || 0),
-      0
-    );
-
-    const montoCajaAdvanced = (pedidosPieza || []).reduce(
-      (sum: number, p: any) => sum + Number(p.monto_de_caja || 0),
-      0
-    );
-
-    const ingresoNeto = Math.max(0, precioTotal - costosPiezas);
 
     // 4. Sesión de caja activa
     let sesionCajaId: string | undefined;
@@ -122,38 +103,7 @@ export async function POST(
       userId
     );
 
-    // 6. Registrar movimientos en bolsa virtual
-    const movimientosBolsa = [];
-
-    // Si la caja financió parte de la pieza → registrar reembolso
-    if (montoCajaAdvanced > 0) {
-      movimientosBolsa.push({
-        orden_id: id,
-        distribuidor_id: orden.distribuidor_id,
-        tipo: "reembolso_caja",
-        monto: montoCajaAdvanced,
-        concepto: `Reembolso a caja: adelanto por piezas $${montoCajaAdvanced.toFixed(2)}`,
-        sesion_caja_id: sesionCajaId || null,
-        registrado_por: userId,
-      });
-    }
-
-    // Ingreso neto del servicio → entra a caja
-    movimientosBolsa.push({
-      orden_id: id,
-      distribuidor_id: orden.distribuidor_id,
-      tipo: "ingreso_caja",
-      monto: ingresoNeto,
-      concepto: `Ingreso neto: precio $${precioTotal.toFixed(2)} - costos piezas $${costosPiezas.toFixed(2)}`,
-      sesion_caja_id: sesionCajaId || null,
-      registrado_por: userId,
-    });
-
-    if (movimientosBolsa.length > 0) {
-      await supabase.from("movimientos_bolsa_virtual").insert(movimientosBolsa);
-    }
-
-    // 7. Cambiar estado a "entregado"
+    // 6. Cambiar estado a "entregado"
     // BUG-ENTREGA-001 (2026-07-23): la columna real en Supabase es "fecha_entregado",
     // NO "fecha_entrega" (esa columna no existe). El nombre incorrecto hacía que este
     // UPDATE fallara en silencio y la orden se quedara atorada en "listo_entrega"
@@ -164,79 +114,16 @@ export async function POST(
       .update({ estado: "entregado", fecha_entregado: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", id);
 
-    // PDF final — acuse de entrega (fire-and-forget)
-    guardarVersionPDF(
-      id,
-      orden.folio,
-      "entrega",
-      `Acuse de entrega. Ingreso neto: $${ingresoNeto.toFixed(2)}`,
-      userId
-    ).catch(() => {});
-
-    // 8. C1: Descontar stock de piezas del catálogo usadas en esta reparación
-    // Solo piezas con producto_id (del catálogo) y estado instalada/verificada_ok
-    ;(async () => {
-      try {
-        const { data: piezasCatalogo } = await supabase
-          .from("pedidos_pieza_reparacion")
-          .select("id, producto_id, nombre_pieza")
-          .eq("orden_id", id)
-          .not("producto_id", "is", null)
-          .in("estado", ["instalada", "verificada_ok"]);
-
-        if (!piezasCatalogo || piezasCatalogo.length === 0) return;
-
-        for (const pieza of piezasCatalogo) {
-          // Leer stock actual
-          const { data: prod } = await supabase
-            .from("productos")
-            .select("stock")
-            .eq("id", pieza.producto_id)
-            .single();
-
-          if (!prod) continue;
-          const stockAntes = Number(prod.stock ?? 0);
-          const stockDespues = Math.max(0, stockAntes - 1);
-
-          // Actualizar stock
-          await supabase
-            .from("productos")
-            .update({ stock: stockDespues })
-            .eq("id", pieza.producto_id);
-
-          // Registrar movimiento
-          await supabase.from("movimientos_stock").insert({
-            producto_id: pieza.producto_id,
-            distribuidor_id: orden.distribuidor_id,
-            tipo: "uso_reparacion",
-            cantidad: -1,
-            stock_antes: stockAntes,
-            stock_despues: stockDespues,
-            referencia_id: id,
-            referencia_tipo: "orden_reparacion",
-            referencia_folio: orden.folio,
-            registrado_por: userId,
-            notas: `Pieza "${pieza.nombre_pieza}" instalada en ${orden.folio}`,
-          });
-        }
-      } catch (e) {
-        console.error("[entregar] Error al descontar stock de piezas (no bloquea):", e);
-      }
-    })();
-
-    // 8b. Acumular puntos de loyalty (fire-and-forget)
-    if (orden.cliente_id && precioTotal > 0) {
-      import("@/lib/db/puntos").then(({ acumularPuntos }) =>
-        acumularPuntos({
-          clienteId:      orden.cliente_id,
-          distribuidorId: orden.distribuidor_id ?? undefined,
-          monto:          precioTotal,
-          referenciaId:   id,
-          referenciaTipo: "reparacion",
-          descripcion:    `Reparación ${orden.folio} — $${precioTotal.toFixed(2)}`,
-        })
-      ).catch(() => {});
-    }
+    // 7-8. Efectos compartidos: bolsa virtual, stock (ambas tablas), puntos, PDF de acuse
+    const { costosPiezas, montoCajaAdvanced, ingresoNeto } = await ejecutarEfectosEntrega({
+      ordenId: id,
+      folio: orden.folio,
+      distribuidorId: orden.distribuidor_id ?? null,
+      clienteId: orden.cliente_id ?? null,
+      precioTotal,
+      sesionCajaId: sesionCajaId ?? null,
+      userId,
+    });
 
     // 9. Registrar historial
     await supabase.from("historial_estado_orden").insert({

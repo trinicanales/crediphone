@@ -47,7 +47,6 @@ export default function POSPage() {
   // Estado del carrito
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [descuento, setDescuento] = useState(0);
-  const [propina, setPropina] = useState(0);
 
   // Feature 5: Resumen de créditos del cliente seleccionado
   const [resumenCliente, setResumenCliente] = useState<{
@@ -509,7 +508,7 @@ export default function POSPage() {
       return;
     }
 
-    // Confirmar venta (total ya calculado arriba con propina incluida)
+    // Confirmar venta
     if (
       !confirm(
         `¿Completar venta por $${total.toFixed(2)} con ${paymentData.metodoPago}?`
@@ -556,7 +555,6 @@ export default function POSPage() {
         clienteId: clienteSeleccionado?.id,
         items: itemsExpandidos,
         descuento: descuento + descuentoPuntos, // incluye descuento manual + puntos canjeados
-        propina: propina > 0 ? propina : undefined,
         metodoPago: paymentData.metodoPago,
         desgloseMixto: paymentData.desgloseMixto,
         referenciaPago: paymentData.referenciaPago,
@@ -569,7 +567,6 @@ export default function POSPage() {
         await encolarOperacion({ tipo: "venta", payload: ventaFormData });
         setCartItems([]);
         setDescuento(0);
-        setPropina(0);
         setResumenCliente(null);
         alert(`✓ Venta guardada localmente ($${total.toFixed(2)})\nSe enviará al servidor cuando vuelva el internet.`);
         setProcessingVenta(false);
@@ -605,7 +602,6 @@ export default function POSPage() {
         // Limpiar carrito y datos
         setCartItems([]);
         setDescuento(0);
-        setPropina(0);
         setResumenCliente(null);
         setSaldoPuntos(null);
         setPuntosACanjear(0);
@@ -660,7 +656,6 @@ export default function POSPage() {
           notas: item.notas,
         })),
         descuento,
-        propina: propina > 0 ? propina : undefined,
         metodoPago: "efectivo",
         montoRecibido: total,
         notas: notasVenta || undefined,
@@ -671,7 +666,6 @@ export default function POSPage() {
         await encolarOperacion({ tipo: "venta", payload: ventaFormData });
         setCartItems([]);
         setDescuento(0);
-        setPropina(0);
         alert(`✓ Venta guardada localmente ($${total.toFixed(2)})\nSe enviará al servidor cuando vuelva el internet.`);
         setProcessingVenta(false);
         return;
@@ -690,7 +684,6 @@ export default function POSPage() {
         setShowReciboModal(true);
         setCartItems([]);
         setDescuento(0);
-        setPropina(0);
         fetchEstadisticas();
       } else {
         alert(data.error || "Error al crear venta");
@@ -726,7 +719,6 @@ export default function POSPage() {
           notas: item.notas,
         })),
         descuento,
-        propina: propina > 0 ? propina : undefined,
         metodoPago: "efectivo",
         montoRecibido: montoIngresado,
         notas: notasVenta || undefined,
@@ -737,7 +729,6 @@ export default function POSPage() {
         await encolarOperacion({ tipo: "venta", payload: ventaFormData });
         setCartItems([]);
         setDescuento(0);
-        setPropina(0);
         alert(`✓ Venta guardada localmente ($${total.toFixed(2)})\nSe enviará al servidor cuando vuelva el internet.`);
         setProcessingVenta(false);
         return;
@@ -846,7 +837,6 @@ export default function POSPage() {
     setVentaCompletada(null);
     setCartItems([]);
     setDescuento(0);
-    setPropina(0);
     setClienteSeleccionado(null);
     setBusquedaCliente("");
     setNotasVenta("");
@@ -987,7 +977,7 @@ export default function POSPage() {
   const descuentoPuntos = clienteSeleccionado && saldoPuntos
     ? Math.min(puntosACanjear, saldoPuntos.saldoDisponible)
     : 0;
-  const total = Math.max(0, subtotal - descuento - descuentoPuntos + propina);
+  const total = Math.max(0, subtotal - descuento - descuentoPuntos);
 
   // Verificando sesión
   if (loadingSesion) {
@@ -1694,8 +1684,6 @@ export default function POSPage() {
             onRemoveItem={handleRemoveItem}
             onClear={handleClearCart}
             onUpdatePrice={handleUpdatePrice}
-            propina={propina}
-            onPropinaChange={setPropina}
           />
 
           {/* ── Fila de extras: Descuento | Cliente | Notas ── */}

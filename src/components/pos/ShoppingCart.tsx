@@ -41,8 +41,6 @@ interface ShoppingCartProps {
   onRemoveItem: (itemKey: string) => void;
   onClear?: () => void;
   onUpdatePrice?: (itemKey: string, precio: number) => void;  // Feature 3: precio editable
-  propina?: number;                                            // Feature 6: propina
-  onPropinaChange?: (v: number) => void;                      // Feature 6: propina
 }
 
 export function ShoppingCart({
@@ -52,11 +50,9 @@ export function ShoppingCart({
   onRemoveItem,
   onClear,
   onUpdatePrice,
-  propina = 0,
-  onPropinaChange,
 }: ShoppingCartProps) {
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
-  const total = subtotal - descuento + propina;
+  const total = subtotal - descuento;
 
   if (items.length === 0) {
     return (
@@ -313,40 +309,6 @@ export function ShoppingCart({
             <span className="font-medium" style={{ color: "var(--color-danger)", fontFamily: "var(--font-data)" }}>
               -${descuento.toFixed(2)}
             </span>
-          </div>
-        )}
-
-        {/* Feature 6: Propina */}
-        {onPropinaChange !== undefined && (
-          <div className="flex justify-between items-center text-sm">
-            <span style={{ color: "var(--color-text-secondary)" }}>Propina:</span>
-            <div className="flex items-center gap-1">
-              <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>$</span>
-              <input
-                type="number"
-                min={0}
-                step={5}
-                value={propina}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  onPropinaChange(!isNaN(v) && v >= 0 ? v : 0);
-                }}
-                onFocus={(e) => e.target.select()}
-                placeholder="0"
-                style={{
-                  width: "68px",
-                  background: "var(--color-bg-sunken)",
-                  border: "1px solid var(--color-border)",
-                  color: propina > 0 ? "var(--color-success)" : "var(--color-text-muted)",
-                  fontFamily: "var(--font-data)",
-                  fontSize: "0.875rem",
-                  padding: "2px 4px",
-                  textAlign: "right",
-                  borderRadius: "4px",
-                  outline: "none",
-                }}
-              />
-            </div>
           </div>
         )}
 

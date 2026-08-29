@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Search, Package, Plus, Trash2, AlertTriangle, CheckCircle, PenLine, Zap } from "lucide-react";
-import type { PiezaCotizacion, Producto, CatalogoServicioReparacion } from "@/types";
+import type { PiezaCotizacion, Producto } from "@/types";
 
 interface SelectorPiezasCotizacionProps {
   piezas: PiezaCotizacion[];
@@ -81,11 +81,11 @@ export function SelectorPiezasCotizacion({
       fetch(`/api/productos?marca=${marcaQ}${modeloQ}&tipo=pieza_reparacion&limit=6`).then((r) =>
         r.ok ? r.json() : { success: false }
       ),
-      fetch(`/api/catalogo-servicios?marca=${marcaQ}${modeloQ}`).then((r) =>
-        r.ok ? r.json() : { success: false }
-      ),
+      // NOTA: los servicios del catálogo (/api/catalogo-servicios) NO se sugieren aquí a propósito.
+      // Ese catálogo ya se usa para fijar "Mano de Obra" en el dropdown de servicio (ModalOrden);
+      // sugerirlo también como "pieza" duplicaba el monto si el usuario lo agregaba en ambos lados.
     ])
-      .then(([compatData, prodData, svcData]) => {
+      .then(([compatData, prodData]) => {
         const lista: PiezaCotizacion[] = [];
         const idsAgregados = new Set<string>();
 
@@ -131,21 +131,6 @@ export function SelectorPiezasCotizacion({
               costoEnvio: 0,
               proveedorId: p.proveedorId,
               calidad: p.calidad ?? undefined,
-            });
-          }
-        }
-
-        if (svcData.success && Array.isArray(svcData.data)) {
-          for (const s of svcData.data as CatalogoServicioReparacion[]) {
-            const precio = s.precioEfectivo ?? s.precioBase;
-            lista.push({
-              id: `sug-svc-${s.id}`,
-              nombre: s.nombre,
-              cantidad: 1,
-              precioUnitario: precio,
-              precioTotal: precio,
-              tieneStock: false,
-              esLibre: true,
             });
           }
         }
@@ -265,7 +250,7 @@ export function SelectorPiezasCotizacion({
     if (cant <= 0) return;
     onChange(
       piezas.map((p) =>
-        p.id === id
+        p.id === id && !p.instalada
           ? { ...p, cantidad: cant, precioTotal: p.precioUnitario * cant }
           : p
       )
@@ -273,6 +258,8 @@ export function SelectorPiezasCotizacion({
   };
 
   const eliminar = (id: string) => {
+    // Piezas ya instaladas no se pueden quitar de la cotización
+    if (piezas.find((p) => p.id === id)?.instalada) return;
     onChange(piezas.filter((p) => p.id !== id));
   };
 
@@ -508,7 +495,7 @@ export function SelectorPiezasCotizacion({
                 className="px-4 py-6 text-center text-xs"
                 style={{ color: "var(--color-text-muted)" }}
               >
-                Sin resultados — usa "Agregar libre" para cotizar
+                Sin resultados — usa &quot;Agregar libre&quot; para cotizar
               </div>
             )}
           </div>
@@ -760,7 +747,9 @@ export function SelectorPiezasCotizacion({
                   {pieza.nombre}
                 </p>
                 <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {pieza.esLibre
+                  {pieza.instalada
+                    ? "✓ Instalada"
+                    : pieza.esLibre
                     ? "Cotización"
                     : pieza.tieneStock
                     ? `Stock disponible: ${pieza.stockActual}`
@@ -769,38 +758,47 @@ export function SelectorPiezasCotizacion({
               </div>
 
               {/* Control de cantidad */}
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => actualizarCantidad(pieza.id, pieza.cantidad - 1)}
-                  className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold"
-                  style={{
-                    background: "var(--color-bg-surface)",
-                    border: "1px solid var(--color-border)",
-                    color: "var(--color-text-secondary)",
-                  }}
-                >
-                  −
-                </button>
+              {pieza.instalada ? (
                 <span
-                  className="text-xs font-bold w-6 text-center"
-                  style={{ color: "var(--color-text-primary)" }}
+                  className="text-xs font-bold w-10 text-center shrink-0"
+                  style={{ color: "var(--color-text-muted)" }}
                 >
-                  {pieza.cantidad}
+                  x{pieza.cantidad}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => actualizarCantidad(pieza.id, pieza.cantidad + 1)}
-                  className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold"
-                  style={{
-                    background: "var(--color-bg-surface)",
-                    border: "1px solid var(--color-border)",
-                    color: "var(--color-text-secondary)",
-                  }}
-                >
-                  +
-                </button>
-              </div>
+              ) : (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => actualizarCantidad(pieza.id, pieza.cantidad - 1)}
+                    className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold"
+                    style={{
+                      background: "var(--color-bg-surface)",
+                      border: "1px solid var(--color-border)",
+                      color: "var(--color-text-secondary)",
+                    }}
+                  >
+                    −
+                  </button>
+                  <span
+                    className="text-xs font-bold w-6 text-center"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
+                    {pieza.cantidad}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => actualizarCantidad(pieza.id, pieza.cantidad + 1)}
+                    className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold"
+                    style={{
+                      background: "var(--color-bg-surface)",
+                      border: "1px solid var(--color-border)",
+                      color: "var(--color-text-secondary)",
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              )}
 
               {/* Precio total de la pieza */}
               <span
@@ -814,17 +812,19 @@ export function SelectorPiezasCotizacion({
               </span>
 
               {/* Eliminar */}
-              <button
-                type="button"
-                onClick={() => eliminar(pieza.id)}
-                className="shrink-0 w-7 h-7 rounded flex items-center justify-center transition-all"
-                style={{
-                  background: "var(--color-danger-bg)",
-                  color: "var(--color-danger)",
-                }}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {!pieza.instalada && (
+                <button
+                  type="button"
+                  onClick={() => eliminar(pieza.id)}
+                  className="shrink-0 w-7 h-7 rounded flex items-center justify-center transition-all"
+                  style={{
+                    background: "var(--color-danger-bg)",
+                    color: "var(--color-danger)",
+                  }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
 

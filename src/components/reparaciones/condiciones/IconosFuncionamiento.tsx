@@ -34,9 +34,11 @@ const COMPONENTES_FUNCIONAMIENTO: {
 
 /** Iconos para las condiciones especiales (checkboxes) */
 const ICONOS_ESPECIALES = {
-  apagado:  "/iconos/equipo-apagado.png",
-  mojado:   "/iconos/mojado.png",
-  bateria:  "/iconos/bateria-hinchada.png",
+  apagado:     "/iconos/equipo-apagado.png",
+  mojado:      "/iconos/mojado.png",
+  bateria:     "/iconos/bateria-hinchada.png",
+  frp:         "/iconos/cuentas-usuario.png",
+  liberacion:  "/iconos/sim.png",
 };
 
 function IconoEspecial({ src, alt }: { src: string; alt: string }) {
@@ -123,7 +125,7 @@ export function IconosFuncionamiento({
   };
 
   const isCheckboxKey = (key: string): boolean =>
-    ["llegaApagado", "estaMojado", "bateriaHinchada"].includes(key);
+    ["llegaApagado", "estaMojado", "bateriaHinchada", "frpBloqueado", "requiereLiberacion"].includes(key);
 
   return (
     <div className="space-y-3">
@@ -193,6 +195,28 @@ export function IconosFuncionamiento({
             <span className="font-medium">Batería hinchada</span>
           </label>
 
+          <label className="flex items-center gap-2 cursor-pointer" style={{ color: "var(--color-text-secondary)" }}>
+            <input
+              type="checkbox"
+              checked={condiciones.frpBloqueado || false}
+              onChange={() => toggleCheckbox("frpBloqueado")}
+              className="w-4 h-4 rounded"
+            />
+            <IconoEspecial src={ICONOS_ESPECIALES.frp} alt="FRP bloqueado" />
+            <span className="font-medium">FRP / cuenta bloqueada</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer" style={{ color: "var(--color-text-secondary)" }}>
+            <input
+              type="checkbox"
+              checked={condiciones.requiereLiberacion || false}
+              onChange={() => toggleCheckbox("requiereLiberacion")}
+              className="w-4 h-4 rounded"
+            />
+            <IconoEspecial src={ICONOS_ESPECIALES.liberacion} alt="Requiere liberación" />
+            <span className="font-medium">Requiere liberación</span>
+          </label>
+
         </div>
       </div>
 
@@ -206,6 +230,8 @@ export function IconosFuncionamiento({
           condiciones.llegaApagado && "Apagado",
           condiciones.estaMojado && "Mojado",
           condiciones.bateriaHinchada && "Batería hinchada",
+          condiciones.frpBloqueado && "FRP / cuenta bloqueada",
+          condiciones.requiereLiberacion && "Requiere liberación",
         ].filter(Boolean);
 
         if (fallas.length === 0 && condicionesEspeciales.length === 0) {

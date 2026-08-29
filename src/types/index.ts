@@ -786,6 +786,8 @@ export interface CondicionesFuncionamiento {
   llegaApagado?: boolean;
   estaMojado?: boolean;
   bateriaHinchada?: boolean;
+  frpBloqueado?: boolean;
+  requiereLiberacion?: boolean;
 }
 
 // Estado físico del dispositivo (estético/visual)
@@ -1315,7 +1317,6 @@ export interface NuevaVentaFormData {
   referenciaPago?: string;
   montoRecibido?: number;  // Para efectivo
   notas?: string;          // FASE 30: Nota global de la venta
-  propina?: number;        // Propina/tip opcional
 }
 
 // Estadísticas del POS

@@ -131,9 +131,11 @@ function parseCondiciones(cond: unknown): {
     if (obj[k] === "ok")    oks.push(v);
     if (obj[k] === "falla") fallas.push(v);
   });
-  if (obj.llegaApagado)    alertas.push({ text: "⚠ Llega apagado",     color: C.amber });
-  if (obj.estaMojado)      alertas.push({ text: "⚠ Daño por líquido",  color: C.blue  });
-  if (obj.bateriaHinchada) alertas.push({ text: "⚠ Batería hinchada",  color: C.red   });
+  if (obj.llegaApagado)        alertas.push({ text: "⚠ Llega apagado",          color: C.amber });
+  if (obj.estaMojado)          alertas.push({ text: "⚠ Daño por líquido",       color: C.blue  });
+  if (obj.bateriaHinchada)     alertas.push({ text: "⚠ Batería hinchada",       color: C.red   });
+  if (obj.frpBloqueado)        alertas.push({ text: "⚠ FRP / cuenta bloqueada", color: C.amber });
+  if (obj.requiereLiberacion)  alertas.push({ text: "⚠ Requiere liberación",    color: C.amber });
   return { oks, fallas, alertas, extras };
 }
 
@@ -158,9 +160,11 @@ function buildTerms(cond: unknown, imei?: string, empresa = "CREDIPHONE"): strin
   ];
 
   const extras: string[] = [];
-  if (obj?.estaMojado)      extras.push("humedad preexistente");
-  if (obj?.bateriaHinchada) extras.push("batería deformada");
-  if (obj?.llegaApagado)    extras.push("ingresa sin encender");
+  if (obj?.estaMojado)          extras.push("humedad preexistente");
+  if (obj?.bateriaHinchada)     extras.push("batería deformada");
+  if (obj?.llegaApagado)        extras.push("ingresa sin encender");
+  if (obj?.frpBloqueado)        extras.push("FRP/cuenta bloqueada preexistente");
+  if (obj?.requiereLiberacion)  extras.push("requiere liberación de operador");
 
   const fallas: string[] = [];
   if (obj) {

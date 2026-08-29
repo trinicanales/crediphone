@@ -251,8 +251,30 @@ export async function PUT(
         const precioDespues = (Number(nuevoCostoRep ?? 0)) + (Number(nuevoCostoPar ?? 0));
         if (precioAntes !== precioDespues) {
           ;(async () => {
+            const supabase = createAdminClient();
+            // C11: registro en tabla de historial de precios — SIEMPRE, sin depender
+            // de que exista tracking token. Antes vivía dentro del bloque de notificación
+            // WhatsApp y por eso nunca se escribía si la orden aún no tenía token generado.
             try {
-              const supabase = createAdminClient();
+              await supabase.from("historial_precios_orden").insert({
+                orden_id: id,
+                distribuidor_id: ordenPrevia.distribuidorId ?? null,
+                precio_anterior: precioAntes,
+                precio_nuevo: precioDespues,
+                costo_reparacion_anterior: ordenPrevia.costoReparacion ?? 0,
+                costo_partes_anterior: ordenPrevia.costoPartes ?? 0,
+                costo_reparacion_nuevo: Number(nuevoCostoRep ?? ordenPrevia.costoReparacion ?? 0),
+                costo_partes_nuevo: Number(nuevoCostoPar ?? ordenPrevia.costoPartes ?? 0),
+                cambiado_por: userId,
+                motivo: "Cambio directo por admin",
+                via: "admin_directo",
+              });
+            } catch (e) {
+              console.error("[C11] Error al registrar historial_precios_orden (no bloquea):", e);
+            }
+
+            // Notificación al cliente por WhatsApp — solo si ya existe tracking token
+            try {
               const { data: token } = await supabase
                 .from("tracking_tokens")
                 .select("token")
@@ -292,27 +314,13 @@ export async function PUT(
                 // fallback: no bloquea si WA no configurado
               });
 
-              // Registrar en historial
+              // Registrar en historial de estado
               await supabase.from("historial_estado_orden").insert({
                 orden_id: id,
                 estado_anterior: ordenDetallada.estado,
                 estado_nuevo: ordenDetallada.estado,
                 comentario: `Precio actualizado por admin: $${precioAntes.toFixed(2)} → $${precioDespues.toFixed(2)}. Notificación enviada al cliente.`,
                 usuario_id: userId,
-              });
-              // C11: registro en tabla de historial de precios
-              await supabase.from("historial_precios_orden").insert({
-                orden_id: id,
-                distribuidor_id: ordenDetallada.distribuidorId ?? null,
-                precio_anterior: precioAntes,
-                precio_nuevo: precioDespues,
-                costo_reparacion_anterior: ordenPrevia.costoReparacion ?? 0,
-                costo_partes_anterior: ordenPrevia.costoPartes ?? 0,
-                costo_reparacion_nuevo: Number(nuevoCostoRep ?? ordenPrevia.costoReparacion ?? 0),
-                costo_partes_nuevo: Number(nuevoCostoPar ?? ordenPrevia.costoPartes ?? 0),
-                cambiado_por: userId,
-                motivo: "Cambio directo por admin",
-                via: "admin_directo",
               });
             } catch (e) {
               console.error("[C7] Error al notificar cambio de precio al cliente (no bloquea):", e);
@@ -568,13 +576,14 @@ export async function PUT(
         (s: number, p: any) => s + Number(p.precioTotal ?? p.precio_total ?? 0),
         0
       );
-      // Obtener precio_mano_obra actual para no pisarlo
+      // Obtener precio_mano_obra y precio_total actual para no pisarlo y auditar el cambio
       const { data: ordenActual } = await supabase
         .from("ordenes_reparacion")
-        .select("precio_mano_obra")
+        .select("precio_mano_obra, precio_total, distribuidor_id")
         .eq("id", id)
         .single();
       const manoObra = Number(ordenActual?.precio_mano_obra ?? 0);
+      const precioTotalAnterior = Number(ordenActual?.precio_total ?? 0);
       const nuevoTotal = manoObra + nuevoPrecioPiezas;
       const { data, error } = await supabase
         .from("ordenes_reparacion")
@@ -588,6 +597,26 @@ export async function PUT(
         .single();
       if (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      }
+      // C11: auditoría de cambio de precio por edición de piezas cotizadas
+      if (precioTotalAnterior !== nuevoTotal) {
+        try {
+          await supabase.from("historial_precios_orden").insert({
+            orden_id: id,
+            distribuidor_id: ordenActual?.distribuidor_id ?? null,
+            precio_anterior: precioTotalAnterior,
+            precio_nuevo: nuevoTotal,
+            costo_reparacion_anterior: manoObra,
+            costo_partes_anterior: precioTotalAnterior - manoObra,
+            costo_reparacion_nuevo: manoObra,
+            costo_partes_nuevo: nuevoPrecioPiezas,
+            cambiado_por: userId,
+            motivo: "Edición de piezas cotizadas",
+            via: "piezas_cotizacion",
+          });
+        } catch (e) {
+          console.error("[C11] Error al registrar historial_precios_orden:", e);
+        }
       }
       return NextResponse.json({ success: true, data, message: "Cotización actualizada" });
     }

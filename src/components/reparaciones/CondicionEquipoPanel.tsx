@@ -54,7 +54,8 @@ export function CondicionEquipoPanel({
     ? CAMPOS_FUNCIONALES.filter(([k]) => condiciones[k] === "falla").length
     : 0;
   const tieneAlertas =
-    condiciones?.llegaApagado || condiciones?.estaMojado || condiciones?.bateriaHinchada || numFallas > 0;
+    condiciones?.llegaApagado || condiciones?.estaMojado || condiciones?.bateriaHinchada ||
+    condiciones?.frpBloqueado || condiciones?.requiereLiberacion || numFallas > 0;
 
   return (
     <div
@@ -106,7 +107,8 @@ export function CondicionEquipoPanel({
       {expanded && (
         <div className="px-4 py-3 space-y-3">
           {/* Alertas especiales */}
-          {(condiciones?.llegaApagado || condiciones?.estaMojado || condiciones?.bateriaHinchada) && (
+          {(condiciones?.llegaApagado || condiciones?.estaMojado || condiciones?.bateriaHinchada ||
+            condiciones?.frpBloqueado || condiciones?.requiereLiberacion) && (
             <div className="flex flex-wrap gap-1.5">
               {condiciones?.llegaApagado && (
                 <span
@@ -142,6 +144,30 @@ export function CondicionEquipoPanel({
                   }}
                 >
                   Batería hinchada
+                </span>
+              )}
+              {condiciones?.frpBloqueado && (
+                <span
+                  className="text-xs px-2 py-1 rounded-full font-medium"
+                  style={{
+                    background: "var(--color-danger-bg)",
+                    color: "var(--color-danger-text)",
+                    border: "1px solid var(--color-danger)",
+                  }}
+                >
+                  FRP / cuenta bloqueada
+                </span>
+              )}
+              {condiciones?.requiereLiberacion && (
+                <span
+                  className="text-xs px-2 py-1 rounded-full font-medium"
+                  style={{
+                    background: "var(--color-danger-bg)",
+                    color: "var(--color-danger-text)",
+                    border: "1px solid var(--color-danger)",
+                  }}
+                >
+                  Requiere liberación
                 </span>
               )}
             </div>
