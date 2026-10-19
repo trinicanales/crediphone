@@ -19,6 +19,7 @@ import { Wrench, Trash2 } from "lucide-react";
 import { PiezasPendientesPanel } from "@/components/reparaciones/PiezasPendientesPanel";
 import { OfflineBanner } from "@/components/pos/OfflineBanner";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { createClient } from "@/lib/supabase/client";
 import { encolarOperacion } from "@/lib/offline/queue";
 
 const COLUMNAS_REPARACIONES_CSV: ColumnaExport<OrdenReparacionDetallada>[] = [
@@ -148,6 +149,29 @@ export default function ReparacionesPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, distribuidorActivo]);
+
+  // Realtime: la lista se refresca sola cuando otro usuario crea o cambia una orden
+  // (debounce para agrupar ráfagas de cambios; refresh silencioso, sin spinner)
+  const refreshRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    refreshRef.current = () => { void refreshSilencioso(); };
+  });
+  useEffect(() => {
+    if (authLoading || !user) return;
+    const supabase = createClient();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const canal = supabase
+      .channel("lista-ordenes-reparacion")
+      .on("postgres_changes", { event: "*", schema: "public", table: "ordenes_reparacion" }, () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => refreshRef.current(), 1500);
+      })
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(canal);
+    };
+  }, [authLoading, user]);
 
   // Filtrar órdenes cuando cambian filtros o búsqueda
   useEffect(() => {
@@ -606,7 +630,7 @@ export default function ReparacionesPage() {
           )}
           {!globalSearching && globalResults !== null && globalResults.length === 0 && (
             <p className="text-sm py-4" style={{ color: "var(--color-text-muted)" }}>
-              No se encontraron órdenes para "{searchQuery}" en toda la base de datos
+              No se encontraron órdenes para &quot;{searchQuery}&quot; en toda la base de datos
             </p>
           )}
           <div style={{ borderBottom: "1px solid var(--color-border-subtle)", marginTop: "1rem", marginBottom: "1rem" }} />

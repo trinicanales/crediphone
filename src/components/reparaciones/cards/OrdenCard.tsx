@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { EstadoBadge, PrioridadBadge } from "@/components/reparaciones/EstadoBadge";
 import { StepperReparacion } from "@/components/reparaciones/StepperReparacion";
+import { ModalCancelacion } from "@/components/reparaciones/ModalCancelacion";
 import { ModalWhatsAppEstado } from "@/components/reparaciones/ModalWhatsAppEstado";
 import { AccionesOrdenPanel } from "@/components/reparaciones/AccionesOrdenPanel";
 import { ModalSegundoDiagnostico } from "@/components/reparaciones/ModalSegundoDiagnostico";
@@ -211,6 +212,7 @@ export function OrdenCard({
   const [modalWAOpen, setModalWAOpen] = useState(false);
   const [nuevoEstadoWA, setNuevoEstadoWA] = useState<EstadoOrdenReparacion>("recibido");
   const [modalSegundoDiagOpen, setModalSegundoDiagOpen] = useState(false);
+  const [modalCancelarOpen, setModalCancelarOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -229,6 +231,16 @@ export function OrdenCard({
 
   // Llama al padre para cambiar estado; abre modal WA solo si el cambio fue exitoso
   async function handleEstadoChange(nuevoEstado: EstadoOrdenReparacion, extra?: { aprobacionPresencial?: boolean }) {
+    // Cancelar y entregar NUNCA van por el cambio de estado genérico: no devuelve anticipos
+    // ni libera piezas (cancelar) y no aplica caja/stock/garantía (entregar).
+    if (nuevoEstado === "cancelado") {
+      setModalCancelarOpen(true);
+      return;
+    }
+    if (nuevoEstado === "entregado") {
+      onOpenDrawer(orden);
+      return;
+    }
     const result = await onCambiarEstado(orden, nuevoEstado, extra);
     // result === undefined significa que el padre no devuelve bool (ej. modal crítico)
     if (result === undefined || result === true) {
@@ -604,6 +616,18 @@ export function OrdenCard({
           </div>
         </>
       )}
+
+      {/* ── Cancelación completa (devuelve anticipos y libera piezas) ── */}
+      <ModalCancelacion
+        isOpen={modalCancelarOpen}
+        onClose={() => setModalCancelarOpen(false)}
+        onConfirm={() => {
+          setModalCancelarOpen(false);
+          onRefresh();
+        }}
+        folio={orden.folio}
+        ordenId={orden.id}
+      />
 
       {/* ── Modal WA notificación de cambio de estado ── */}
       <ModalWhatsAppEstado

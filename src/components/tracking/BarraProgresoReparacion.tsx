@@ -7,40 +7,33 @@ import {
   CheckCircle,
   Wrench,
   ShieldCheck,
+  Hourglass,
 } from "lucide-react";
 import type { EstadoOrdenReparacion } from "@/types";
+import {
+  PASOS_PROGRESO,
+  indicePasoProgreso,
+  esEstadoEspera,
+} from "@/lib/reparaciones/estados";
 
-const PASOS: {
-  key: EstadoOrdenReparacion;
-  label: string;
-  icon: typeof Package;
-}[] = [
-  { key: "recibido",      label: "Recibido",   icon: Package },
-  { key: "diagnostico",   label: "Diagnóstico", icon: Search },
-  { key: "presupuesto",   label: "Presupuesto", icon: FileText },
-  { key: "aprobado",      label: "Aprobado",    icon: CheckCircle },
-  { key: "en_reparacion", label: "Reparando",   icon: Wrench },
-  { key: "listo_entrega", label: "Listo",       icon: Package },
-  { key: "entregado",     label: "Entregado",   icon: ShieldCheck },
-];
-
-// Orden numérico de los pasos (más alto = más avanzado)
-const ORDEN: Record<string, number> = {
-  recibido:          1,
-  diagnostico:       2,
-  esperando_piezas:  2,
-  presupuesto:       3,
-  aprobado:          4,
-  en_reparacion:     5,
-  completado:        5,
-  listo_entrega:     6,
-  entregado:         7,
+// Mismos pasos que el stepper del personal (catálogo único en lib/reparaciones/estados.ts).
+const ICONOS: Record<string, typeof Package> = {
+  recibido: Package,
+  diagnostico: Search,
+  presupuesto: FileText,
+  aprobado: CheckCircle,
+  reparacion: Wrench,
+  listo: Package,
+  entregado: ShieldCheck,
 };
+
+const PASOS = PASOS_PROGRESO.map((p) => ({ key: p.key, label: p.label, icon: ICONOS[p.key] ?? Package }));
 
 export function BarraProgresoReparacion({ estado }: { estado: EstadoOrdenReparacion }) {
   // Estados terminales que no están en el flujo lineal
   const esTerminal = ["cancelado", "no_reparable"].includes(estado);
-  const estadoActualOrden = ORDEN[estado] ?? 0;
+  const estadoActualOrden = indicePasoProgreso(estado) + 1; // 0 si es terminal
+  const enEspera = esEstadoEspera(estado);
 
   return (
     <div className="px-1 py-3">
@@ -62,7 +55,7 @@ export function BarraProgresoReparacion({ estado }: { estado: EstadoOrdenReparac
           const pasoOrden = i + 1;
           const completado = !esTerminal && estadoActualOrden > pasoOrden;
           const actual = !esTerminal && estadoActualOrden === pasoOrden;
-          const Icon = paso.icon;
+          const Icon = actual && enEspera ? Hourglass : paso.icon;
 
           let iconBg = "var(--color-bg-elevated)";
           let iconColor = "var(--color-border-strong)";
@@ -122,6 +115,12 @@ export function BarraProgresoReparacion({ estado }: { estado: EstadoOrdenReparac
           );
         })}
       </div>
+
+      {enEspera && (
+        <p className="text-center text-xs mt-2 font-semibold" style={{ color: "var(--color-warning-text)" }}>
+          Esperando piezas
+        </p>
+      )}
 
       {/* Estado especial — cancelado/no_reparable */}
       {esTerminal && (

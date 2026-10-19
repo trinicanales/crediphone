@@ -24,3 +24,14 @@
 
 ## Preguntas abiertas (necesarias para seguir la auditoría)
 Ver mensaje de la sesión 2026-10-19; se copian en SESION-ACTIVA §G.
+
+## Respuestas sobre seguimiento/estados (2026-10-19) — HECHO
+1. Cancelar desde tarjeta/stepper → abre `ModalCancelacion` (devuelve anticipos, libera piezas). Entregar desde stepper → abre el drawer (flujo de entrega).
+2. Stepper unificado en 7 pasos (catálogo `PASOS_PROGRESO` en `lib/reparaciones/estados.ts`), usado por tarjeta y seguimiento del cliente. "Esperando piezas" = insignia ⏳ sobre "Aprobado"; "completado" cuenta en "Listo".
+3. Total a pagar: NO se hace backfill automático (Trini: hubo duplicados, se corrigen a mano). Pendiente: lista de las 12+52+2 órdenes para revisión manual.
+4. Vigencia del token: se deja como está (90 días).
+5. Mensaje "orden recibida" (post-creación, ModalOrden) ahora incluye el link de seguimiento.
+6. Pasos del stepper solo clicables si la transición es válida.
+7. Lista de reparaciones con realtime (refresh silencioso, debounce 1.5 s).
+Extra: `cancelar/route.ts` ya no inserta `entrada_efectivo` (tipo inválido; el cargo ya está en caja con el anticipo).
+Pendiente detectado: `ModalCancelacion` no envía `sesionCajaId` → la devolución de efectivo no se registra en caja (solo bolsa virtual). Requiere decisión.

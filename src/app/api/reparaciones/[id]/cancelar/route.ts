@@ -184,16 +184,9 @@ export async function POST(
           });
         }
 
-        // Cargo de cancelación → ingreso en caja
-        if (sesionCajaId && cargoAplicado > 0) {
-          await supabase.from("caja_movimientos").insert({
-            sesion_id: sesionCajaId,
-            tipo: "entrada_efectivo",
-            monto: cargoAplicado,
-            concepto: `Cargo cancelación reparación ${orden.folio}`,
-            autorizado_por: userId,
-          });
-        }
+        // El cargo de cancelación NO se registra como movimiento nuevo: ese dinero ya está en caja
+        // (entró con el anticipo) y solo se devuelve la diferencia. El insert anterior usaba el tipo
+        // inválido "entrada_efectivo" (rechazado por el CHECK) y además habría duplicado el ingreso.
 
         // Registrar en bolsa virtual: devolución al cliente
         await supabase.from("movimientos_bolsa_virtual").insert({

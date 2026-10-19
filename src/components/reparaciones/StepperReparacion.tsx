@@ -8,69 +8,15 @@
 
 import { Check, AlertCircle } from "lucide-react";
 import type { EstadoOrdenReparacion } from "@/types";
+import {
+  PASOS_PROGRESO as PASOS,
+  indicePasoProgreso,
+  esEstadoEspera,
+  destinoDePaso,
+} from "@/lib/reparaciones/estados";
 
-// ─── Definición del flujo principal (lineal) ──────────────────────────────────
-// Los estados "presupuesto" y "aprobado" se muestran como subestados de "diagnóstico→reparación"
-// Los estados terminales "cancelado" y "no_reparable" tienen tratamiento especial
-
-interface PasoStepper {
-  key: string; // identificador del paso
-  label: string;
-  icon: string;
-  estados: EstadoOrdenReparacion[]; // qué estados del sistema mapean a este paso
-}
-
-const PASOS: PasoStepper[] = [
-  {
-    key: "recibido",
-    label: "Recibido",
-    icon: "📥",
-    estados: ["recibido"],
-  },
-  {
-    key: "diagnostico",
-    label: "Diagnóstico",
-    icon: "🔍",
-    estados: ["diagnostico", "presupuesto"],
-  },
-  {
-    key: "aprobado",
-    label: "Aprobado",
-    icon: "✅",
-    estados: ["aprobado", "esperando_piezas"],
-  },
-  {
-    key: "reparacion",
-    label: "Reparando",
-    icon: "🔧",
-    estados: ["en_reparacion"],
-  },
-  {
-    key: "listo",
-    label: "Listo",
-    icon: "✨",
-    estados: ["completado", "listo_entrega"],
-  },
-  {
-    key: "entregado",
-    label: "Entregado",
-    icon: "🎉",
-    estados: ["entregado"],
-  },
-];
-
-function getPasoIndex(estado: EstadoOrdenReparacion): number {
-  return PASOS.findIndex((p) => p.estados.includes(estado));
-}
-
-// Mapa de paso → estado que activa al hacer clic (primer estado del paso)
-const PASO_A_ESTADO: Record<string, EstadoOrdenReparacion> = {
-  diagnostico: "diagnostico",
-  aprobado:    "aprobado",
-  reparacion:  "en_reparacion",
-  listo:       "listo_entrega",
-  entregado:   "entregado",
-};
+// Los pasos vienen del catálogo único (lib/reparaciones/estados.ts), el mismo que usa el
+// seguimiento del cliente. Cancelado / no_reparable tienen tratamiento especial.
 
 interface StepperReparacionProps {
   estado: EstadoOrdenReparacion;
@@ -81,7 +27,8 @@ interface StepperReparacionProps {
 
 export function StepperReparacion({ estado, compact = false, onCambiarEstado }: StepperReparacionProps) {
   const isTerminal = estado === "cancelado" || estado === "no_reparable";
-  const pasoActual = getPasoIndex(estado);
+  const pasoActual = indicePasoProgreso(estado);
+  const enEspera = esEstadoEspera(estado);
 
   if (isTerminal) {
     return (
@@ -112,8 +59,8 @@ export function StepperReparacion({ estado, compact = false, onCambiarEstado }: 
         const completado = idx < pasoActual;
         const activo = idx === pasoActual;
         const futuro = idx > pasoActual;
-        // El nodo es clickeable si hay handler Y el paso tiene estado asignable Y no es el actual
-        const estadoDestino = PASO_A_ESTADO[paso.key];
+        // Solo es clickeable un paso al que el flujo permite saltar desde el estado actual
+        const estadoDestino = destinoDePaso(estado, paso);
         const clickeable = !!onCambiarEstado && !!estadoDestino && !activo;
 
         return (
@@ -122,8 +69,8 @@ export function StepperReparacion({ estado, compact = false, onCambiarEstado }: 
             <div className="flex flex-col items-center flex-shrink-0" style={{ minWidth: compact ? 24 : 32 }}>
               <div
                 className="flex items-center justify-center rounded-full transition-all"
-                title={clickeable ? `Cambiar a: ${paso.label}` : paso.label}
-                onClick={clickeable ? (e) => { e.stopPropagation(); onCambiarEstado!(estadoDestino); } : undefined}
+                title={clickeable ? `Cambiar a: ${paso.label}` : activo && enEspera ? "Esperando piezas" : paso.label}
+                onClick={clickeable ? (e) => { e.stopPropagation(); onCambiarEstado!(estadoDestino!); } : undefined}
                 style={{
                   width: compact ? 22 : 28,
                   height: compact ? 22 : 28,
@@ -141,7 +88,9 @@ export function StepperReparacion({ estado, compact = false, onCambiarEstado }: 
                   cursor: clickeable ? "pointer" : "default",
                 }}
               >
-                {completado ? (
+                {activo && enEspera ? (
+                  <span style={{ fontSize: compact ? 9 : 11, lineHeight: 1 }}>⏳</span>
+                ) : completado ? (
                   <Check
                     style={{
                       width: compact ? 10 : 13,

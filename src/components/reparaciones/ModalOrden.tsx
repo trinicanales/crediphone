@@ -762,7 +762,7 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
             {ordenCreada.telefono && (() => {
               const cleanPhone = ordenCreada.telefono!.replace(/\D/g, "");
               const msg = encodeURIComponent(
-                `Hola, recibimos tu ${ordenCreada.marca} ${ordenCreada.modelo}.\nFolio de servicio: ${ordenCreada.folio}.\nTe avisamos cuando tengamos el diagnóstico. ¡Gracias por tu confianza! 🔧`
+                `Hola, recibimos tu ${ordenCreada.marca} ${ordenCreada.modelo}.\nFolio de servicio: ${ordenCreada.folio}.\nPuedes consultar el estado de tu equipo aquí (te pedirá los últimos 4 dígitos de tu teléfono):\n${typeof window !== "undefined" ? window.location.origin : "https://crediphone.com.mx"}/reparacion/${ordenCreada.folio}\nTe avisamos cuando tengamos el diagnóstico. ¡Gracias por tu confianza! 🔧`
               );
               return (
                 <a
