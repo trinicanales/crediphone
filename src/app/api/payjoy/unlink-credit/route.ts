@@ -7,8 +7,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { unlinkCreditFromPayjoy } from "@/lib/db/payjoy";
+import { FEATURES } from "@/lib/features";
+import { payjoyDeshabilitado } from "@/lib/features-server";
 
 export async function POST(request: NextRequest) {
+    if (!FEATURES.payjoy) return payjoyDeshabilitado();
     try {
         const body = await request.json();
 

@@ -12,10 +12,13 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { FEATURES } from "@/lib/features";
+import { payjoyDeshabilitado } from "@/lib/features-server";
 
 type MetodoPagoTienda = "efectivo" | "tarjeta" | "transferencia";
 
 export async function POST(request: Request) {
+    if (!FEATURES.payjoy) return payjoyDeshabilitado();
   try {
     const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {

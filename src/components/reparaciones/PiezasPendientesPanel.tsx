@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PackagePlus, RefreshCw, AlertCircle, ExternalLink, Clock, MessageCircle, BookPlus, X, Check, Search, Lock } from "lucide-react";
+import { PackagePlus, RefreshCw, AlertCircle, ExternalLink, Clock, MessageCircle, BookPlus, X, Check, Search, Lock, Truck, Ban } from "lucide-react";
 import { generarMensajePiezaEnEspera } from "@/lib/whatsapp-reparaciones";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -224,6 +224,56 @@ function PedidoRow({
 
   const financiado = FINANCIADO_BADGE[pedido.financiadoPor] ?? FINANCIADO_BADGE.bolsa;
 
+  // Antigüedad del pedido: los que llevan mucho tiempo "por pedir" suelen estar desactualizados
+  // (ya se pidieron al proveedor pero nadie los marcó, o la orden ya no los necesita).
+  const diasPendiente = Math.max(0, Math.floor((Date.now() - new Date(pedido.createdAt).getTime()) / 86400000));
+  const colorAntiguedad =
+    diasPendiente >= 15 ? "var(--color-danger)" : diasPendiente >= 7 ? "var(--color-warning-text)" : "var(--color-text-muted)";
+
+  // Acciones: "Ya la pedí" (pasa a en camino) y "Cancelar pieza"
+  const [mostrarFormPedida, setMostrarFormPedida] = useState(false);
+  const [fechaLlegada, setFechaLlegada] = useState("");
+  const [accionando, setAccionando] = useState(false);
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
+
+  async function handleMarcarPedida() {
+    if (!pedido.orden.id) return;
+    setAccionando(true);
+    setErrorAccion(null);
+    try {
+      const res = await fetch(`/api/reparaciones/${pedido.orden.id}/pedidos-pieza`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pedidoId: pedido.id,
+          ...(fechaLlegada ? { fechaEstimadaLlegada: new Date(`${fechaLlegada}T12:00:00`).toISOString() } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) { setErrorAccion(data.error || "No se pudo marcar como pedida"); return; }
+      setMostrarFormPedida(false);
+      onProductoVinculado?.();
+    } catch { setErrorAccion("Error de conexión"); } finally { setAccionando(false); }
+  }
+
+  async function handleCancelarPieza() {
+    if (!pedido.orden.id) return;
+    const ok = window.confirm(
+      `¿Cancelar la pieza "${pedido.nombrePieza}" de la orden ${pedido.orden.folio}?\n\n` +
+      `Dejará de aparecer como pendiente de pedir.` +
+      (pedido.costoEstimado + pedido.costoEnvio > 0 ? ` Se revertirá su gasto registrado en la bolsa virtual.` : "")
+    );
+    if (!ok) return;
+    setAccionando(true);
+    setErrorAccion(null);
+    try {
+      const res = await fetch(`/api/reparaciones/${pedido.orden.id}/pedidos-pieza/${pedido.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!data.success) { setErrorAccion(data.error || "No se pudo cancelar la pieza"); return; }
+      onProductoVinculado?.();
+    } catch { setErrorAccion("Error de conexión"); } finally { setAccionando(false); }
+  }
+
   // Búsqueda con debounce al escribir nombre
   function handleNombreChange(val: string) {
     setCatalogoNombre(val);
@@ -381,6 +431,9 @@ function PedidoRow({
             <Clock className="w-3 h-3" />
             {fmtFecha(pedido.createdAt)}
             {pedido.creadoPorNombre && ` · ${pedido.creadoPorNombre}`}
+            <span className="font-semibold" style={{ color: colorAntiguedad }} title="Tiempo que lleva en 'por pedir'">
+              · hace {diasPendiente} {diasPendiente === 1 ? "día" : "días"}
+            </span>
           </div>
         </div>
 
@@ -463,6 +516,32 @@ function PedidoRow({
               <PackagePlus className="w-4 h-4" />
             </button>
           )}
+          {pedido.orden.id && (
+            <button
+              className="p-1.5 rounded-lg"
+              style={{ color: "var(--color-warning-text)", background: mostrarFormPedida ? "var(--color-warning-bg)" : "transparent" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-warning-bg)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = mostrarFormPedida ? "var(--color-warning-bg)" : "transparent")}
+              onClick={() => { setErrorAccion(null); setMostrarFormPedida((v) => !v); }}
+              disabled={accionando}
+              title="Ya la pedí al proveedor (pasa a «en camino»)"
+            >
+              <Truck className="w-4 h-4" />
+            </button>
+          )}
+          {pedido.orden.id && (
+            <button
+              className="p-1.5 rounded-lg"
+              style={{ color: "var(--color-danger)", background: "transparent" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-danger-bg)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              onClick={handleCancelarPieza}
+              disabled={accionando}
+              title="Cancelar pieza"
+            >
+              <Ban className="w-4 h-4" />
+            </button>
+          )}
           {onAbrirOrden && pedido.orden.id && (
             <button
               className="p-1.5 rounded-lg"
@@ -477,6 +556,53 @@ function PedidoRow({
           )}
         </div>
       </div>
+
+      {/* Error de acciones (ya la pedí / cancelar) */}
+      {errorAccion && (
+        <p className="text-xs" style={{ color: "var(--color-danger)" }}>{errorAccion}</p>
+      )}
+
+      {/* Mini-form "Ya la pedí" */}
+      {mostrarFormPedida && (
+        <div
+          className="rounded-xl p-3 space-y-2"
+          style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning)" }}
+        >
+          <p className="text-xs font-semibold" style={{ color: "var(--color-warning-text)" }}>
+            Marcar como pedida al proveedor
+          </p>
+          <div>
+            <p className="text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>Fecha estimada de llegada (opcional)</p>
+            <input
+              type="date"
+              value={fechaLlegada}
+              onChange={(e) => setFechaLlegada(e.target.value)}
+              className="w-full text-sm font-mono px-2 py-1.5 rounded-lg"
+              style={{ background: "var(--color-bg-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-primary)" }}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleMarcarPedida}
+              disabled={accionando}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+              style={{ background: "var(--color-warning)", color: "#fff", cursor: accionando ? "not-allowed" : "pointer", opacity: accionando ? 0.6 : 1 }}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              {accionando ? "Guardando..." : "Ya la pedí"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMostrarFormPedida(false); setErrorAccion(null); }}
+              className="px-3 py-1.5 text-xs rounded-lg"
+              style={{ background: "none", border: "1px solid var(--color-border)", color: "var(--color-text-muted)", cursor: "pointer" }}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Mini-form "+ Catálogo" */}
       {mostrarFormCatalogo && (

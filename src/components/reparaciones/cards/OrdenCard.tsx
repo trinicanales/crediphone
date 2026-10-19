@@ -14,26 +14,15 @@ import { ModalSegundoDiagnostico } from "@/components/reparaciones/ModalSegundoD
 import type { OrdenReparacionDetallada, EstadoOrdenReparacion } from "@/types";
 import { generarMensajeSeguimiento, generarLinkWhatsApp } from "@/lib/whatsapp-reparaciones";
 import { useAuth } from "@/components/AuthProvider";
+import { transicionesManuales } from "@/lib/reparaciones/estados";
 
 // ─── Utilidades de módulo ─────────────────────────────────────────────────────
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 }
 
-// ─── Mapa de transiciones válidas (espejo de ModalCambiarEstado) ──────────────
-const transicionesValidas: Record<EstadoOrdenReparacion, EstadoOrdenReparacion[]> = {
-  recibido:          ["diagnostico", "no_reparable", "cancelado"],
-  diagnostico:       ["esperando_piezas", "presupuesto", "aprobado", "no_reparable", "cancelado"],
-  esperando_piezas:  ["en_reparacion", "aprobado", "cancelado"],
-  presupuesto:       ["aprobado", "cancelado"],
-  aprobado:          ["en_reparacion", "cancelado"],
-  en_reparacion:     ["completado", "esperando_piezas", "no_reparable", "cancelado"],
-  completado:        ["listo_entrega", "cancelado"],
-  listo_entrega:     ["entregado", "cancelado"],
-  entregado:         [],
-  no_reparable:      [],
-  cancelado:         [],
-};
+// Las transiciones válidas viven en src/lib/reparaciones/estados.ts (fuente única
+// compartida con el servidor y ModalCambiarEstado).
 
 const estadoLabels: Record<EstadoOrdenReparacion, string> = {
   recibido:         "Recibido",
@@ -123,7 +112,7 @@ function EstadoSelector({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const transiciones = transicionesValidas[orden.estado] || [];
+  const transiciones = transicionesManuales(orden.estado);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

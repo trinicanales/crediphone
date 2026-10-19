@@ -10,6 +10,7 @@ import { notificarResponsablesKassa } from "@/lib/db/notificaciones";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsApp, generarLinkWa } from "@/lib/whatsapp-api";
+import { ESTADOS_SOLO_POR_FLUJO_ENTREGA } from "@/lib/reparaciones/estados";
 import type { EstadoOrdenReparacion, DiagnosticoFormData } from "@/types";
 
 /**
@@ -361,6 +362,18 @@ export async function PUT(
             message: `El estado debe ser uno de: ${estadosValidos.join(", ")}`,
           },
           { status: 400 }
+        );
+      }
+
+      // "entregado" solo por el flujo de entrega: aquí no se aplicarían caja, stock, puntos ni garantía
+      if (ESTADOS_SOLO_POR_FLUJO_ENTREGA.includes(body.estado)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Para entregar el equipo usa «Registrar entrega» o cobra el saldo en POS",
+            message: "El estado «entregado» no se puede asignar con el cambio de estado genérico.",
+          },
+          { status: 409 }
         );
       }
 

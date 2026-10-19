@@ -511,7 +511,7 @@ export async function getProductosFaltantes(
     // C4-fix: también incluir productos con ubicacion_fisica que coincidan con el nombre
     // de la ubicación estructurada (para no perder productos migrados parcialmente)
     const { data: ub } = await supabase
-      .from("ubicaciones")
+      .from("ubicaciones_inventario")
       .select("nombre")
       .eq("id", verificacion.ubicacion_id)
       .single();

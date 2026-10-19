@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { FEATURES } from "@/lib/features";
 import { useAuth } from "@/components/AuthProvider";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -387,12 +388,14 @@ export default function ClientesPage() {
               nombreArchivo="clientes"
               label="Exportar CSV"
             />
-            <Button
+            {FEATURES.payjoy && (
+              <Button
               variant="secondary"
               onClick={() => setImportPayjoyModal(true)}
             >
               <Zap size={14} className="mr-1.5 inline-block" />Importar Payjoy
             </Button>
+            )}
             <Button onClick={handleCreate}>
               + Nuevo Cliente
             </Button>
@@ -520,11 +523,13 @@ export default function ClientesPage() {
       </Modal>
 
       {/* FASE 20: Modal Importar Payjoy */}
+      {FEATURES.payjoy && (
       <ImportPayjoyModal
         isOpen={importPayjoyModal}
         onClose={() => setImportPayjoyModal(false)}
         onImport={handleImportPayjoy}
       />
+      )}
     </div>
   );
 }

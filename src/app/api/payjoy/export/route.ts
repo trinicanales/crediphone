@@ -9,8 +9,11 @@
 import { NextResponse } from "next/server";
 import { getAllWebhooks, getAllApiLogs, getPayjoyStats } from "@/lib/db/payjoy";
 import { getAuthContext } from "@/lib/auth/server";
+import { FEATURES } from "@/lib/features";
+import { payjoyDeshabilitado } from "@/lib/features-server";
 
 export async function GET() {
+    if (!FEATURES.payjoy) return payjoyDeshabilitado();
     try {
         const { userId, isSuperAdmin } = await getAuthContext();
         if (!userId) return NextResponse.json({ error: "No autenticado" }, { status: 401 });

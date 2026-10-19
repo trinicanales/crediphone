@@ -7,8 +7,11 @@
 
 import { NextResponse } from "next/server";
 import { createPayjoyClient } from "@/lib/payjoy/client";
+import { FEATURES } from "@/lib/features";
+import { payjoyDeshabilitado } from "@/lib/features-server";
 
 export async function POST() {
+    if (!FEATURES.payjoy) return payjoyDeshabilitado();
     try {
         const client = createPayjoyClient();
         const result = await client.testConnection();

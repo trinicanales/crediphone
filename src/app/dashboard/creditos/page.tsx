@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { CreditoFormMejorado } from "@/components/creditos/CreditoFormMejorado";
 import { PayjoyPanel } from "@/components/creditos/PayjoyPanel";
+import { FEATURES } from "@/lib/features";
 import { useRouter } from "next/navigation";
 import { Download, Zap, AlertTriangle, RefreshCw, Loader2, Eye } from "lucide-react";
 import type { Credito, Cliente } from "@/types";
@@ -337,7 +338,7 @@ export default function CreditosPage() {
                       onDelete={() => handleDeleteClick(credito)}
                       onPayjoyToggle={() => setPayjoyExpandedId(payjoyExpandedId === credito.id ? null : credito.id)}
                     />
-                    {payjoyExpandedId === credito.id && (
+                    {FEATURES.payjoy && payjoyExpandedId === credito.id && (
                       <tr>
                         <td colSpan={7} className="px-6 py-3" style={{ background: "var(--color-bg-elevated)" }}>
                           <PayjoyPanel credito={credito} onRefresh={fetchData} />
@@ -482,15 +483,17 @@ function TableRow({
         >
           Eliminar
         </button>
-        <button
-          onClick={onPayjoyToggle}
-          title="Payjoy"
-          onMouseEnter={() => setBtnHover("payjoy")}
-          onMouseLeave={() => setBtnHover(null)}
-          style={{ color: (btnHover === "payjoy" || credito.payjoyFinanceOrderId) ? "var(--color-warning)" : "var(--color-text-muted)" }}
-        >
-          <Zap className="w-4 h-4 inline" />
-        </button>
+        {FEATURES.payjoy && (
+          <button
+            onClick={onPayjoyToggle}
+            title="Payjoy"
+            onMouseEnter={() => setBtnHover("payjoy")}
+            onMouseLeave={() => setBtnHover(null)}
+            style={{ color: (btnHover === "payjoy" || credito.payjoyFinanceOrderId) ? "var(--color-warning)" : "var(--color-text-muted)" }}
+          >
+            <Zap className="w-4 h-4 inline" />
+          </button>
+        )}
       </td>
     </tr>
   );

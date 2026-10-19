@@ -8,8 +8,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { linkCreditToPayjoy } from "@/lib/db/payjoy";
 import type { LinkCreditRequest } from "@/types/payjoy";
+import { FEATURES } from "@/lib/features";
+import { payjoyDeshabilitado } from "@/lib/features-server";
 
 export async function POST(request: NextRequest) {
+    if (!FEATURES.payjoy) return payjoyDeshabilitado();
     try {
         const body: LinkCreditRequest = await request.json();
 

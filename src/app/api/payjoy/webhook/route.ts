@@ -16,8 +16,11 @@ import {
     processWebhook,
 } from "@/lib/payjoy/webhook-handler";
 import type { PayjoyWebhookPayload } from "@/types/payjoy";
+import { FEATURES } from "@/lib/features";
+import { payjoyDeshabilitado } from "@/lib/features-server";
 
 export async function POST(request: NextRequest) {
+    if (!FEATURES.payjoy) return payjoyDeshabilitado({ webhook: true });
     try {
         // 1. Obtener el body raw para verificación de firma
         const rawBody = await request.text();

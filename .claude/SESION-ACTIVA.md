@@ -1,5 +1,56 @@
 # Sesión Activa — CREDIPHONE
 
+
+## ✅ SESIÓN 2026-10-14 → 2026-10-19 (worktree elated-kapitsa) — Auditoría general + correcciones críticas
+
+**Estado de despliegue:** el lote del 14-oct (commits `532c675`, `f5959a8`, `b8b3033`) YA ESTÁ EN LÍNEA (deploy exitoso 2026-10-19, tras reactivar R2 en Cloudflare). El **lote del 19-oct** (sección B) se sube en el commit que cierra esta sesión — ver `git log` y la última corrida de GitHub Actions.
+
+### A. Ya en línea (lote 14-oct)
+- Entrega unificada (`src/lib/reparaciones/entrega.ts` → `ejecutarEfectosEntrega()`), fix columna inexistente `presupuesto_total`.
+- Auditoría de cambios de precio (`historial_precios_orden`), propina quitada del POS, validación server-side de descuento/cambio en `createVenta`.
+- Realtime en `OrdenDrawer` (+ tablas `ordenes_reparacion`, `historial_estado_orden`, `notificaciones` agregadas a la publicación `supabase_realtime` — la publicación estaba vacía).
+- FRP / "Requiere liberación" en condiciones del equipo (tipos, captura, diagnóstico, QA, PDF).
+- Bug de costo duplicado: los servicios del catálogo ya no se sugieren como "pieza" (mano de obra + pieza contaban el mismo monto dos veces).
+- `ModalEditarPresupuesto` usa el mismo `SelectorPiezasCotizacion` (buscador de inventario + "Agregar libre"); piezas `instalada` quedan bloqueadas.
+- Garantía automática de 90 días al entregar (`createGarantia` desde `ejecutarEfectosEntrega`, idempotente).
+- Supabase (directo, sin deploy): borrados 3 productos "PRUEBA AUDITORIA".
+- Documento de auditoría: `.claude/AUDITORIA-2026-10-14.md`.
+
+### B. Lote 2026-10-19 — correcciones críticas de la auditoría + piezas por pedir
+1. **C1 PayJoy y Facturación FUERA del proyecto (decisión de Trini).** Bandera única `src/lib/features.ts` (`FEATURES.payjoy=false`, `FEATURES.facturacion=false`). Las 10 rutas `/api/payjoy/*` responden 410 (webhook responde 200 "ignored") vía `src/lib/features-server.ts`; ocultos del sidebar, del dashboard, de Configuración (tab), de Clientes (importar), de Créditos (botón/panel); `/dashboard/payjoy` y `/dashboard/facturacion` redirigen a `/dashboard` (layout.tsx). **No se borró código.** Para reactivar: poner la bandera en `true` y ANTES agregar `getAuthContext()` + rol admin a las rutas de PayJoy (estaban abiertas sin login).
+2. **C2 "Entregado" solo por el flujo de entrega.** Nuevo `src/lib/reparaciones/estados.ts` (fuente única de `TRANSICIONES_VALIDAS` + `transicionesManuales()`); lo usan el servidor (`cambiarEstadoOrden` rechaza `entregado`), `PUT /api/reparaciones/[id]` (409 con mensaje claro), `ModalCambiarEstado` y `OrdenCard`. Efecto secundario bueno: se eliminó la divergencia (la card ofrecía `recibido → no_reparable`, el servidor lo rechazaba).
+3. **C3 tablas inexistentes corregidas:**
+   - `anticipos/[anticipoId]` DELETE: ahora escribe en `caja_movimientos` con tipo `devolucion_anticipo` (CHECK válido) y, si falla, NO borra el anticipo (antes: tabla `movimientos_caja` inexistente + error ignorado).
+   - `reportes/pnl`: usa `ordenes_reparacion` (ingreso = `precio_total || costo_total`; se quitó la columna inexistente `anticipo`).
+   - `lib/db/verificaciones.ts`: `ubicaciones` → `ubicaciones_inventario`.
+4. **Panel "Piezas por pedir al proveedor"** (`PiezasPendientesPanel.tsx`): botón **Ya la pedí** (pasa a `en_camino`, con fecha estimada opcional → usa `PATCH /pedidos-pieza`), botón **Cancelar pieza** (usa `DELETE /pedidos-pieza/[id]`, revierte bolsa virtual), y antigüedad "hace N días" (amarillo ≥7, rojo ≥15) para detectar pedidos desactualizados.
+5. Lint: 6 errores de comillas sin escapar preexistentes corregidos en `ModalCambiarEstado.tsx` y `configuracion/page.tsx`.
+- Verificado: `tsc --noEmit` limpio y eslint limpio en todos los archivos tocados.
+
+### C. PENDIENTES (priorizados)
+**Seguridad / datos (de la auditoría, aún sin corregir):**
+- A1: 21 rutas con `[id]` sin filtro por franquicia (`creditos/[id]/pagos|pdf`, `ordenes-compra/[id]`, `reparaciones/[id]/pdf|historial|aprobar-presupuesto`, `lotes-piezas/[id]/*`, `lotes-series/[id]`, `inventario/verificaciones/[id]`, `inventario/ubicaciones/[id]`, `scoring/[id]/*`, `recordatorios/[id]/enviar`, `traspasos-anticipo/[id]/confirmar`, `confirmaciones-deposito/[id]/*`, `autorizaciones/[id]`, `reparaciones/[id]/diagnosticos/[diagId]`).
+- A2: `PATCH /api/ordenes-compra/[id]` acepta cualquier estado (sin validar transición) y devuelve `String(err)`.
+- A3: stock con lectura→escritura (condición de carrera); existen `incrementar_stock`/`decrementar_stock` atómicas sin usar.
+- A4: 7 funciones SECURITY DEFINER ejecutables por `anon` (`calcular_comision_vendedor`, `calcular_desempeno_cobrador`, `can_access_distribuidor`, `get_my_distribuidor_id`, `get_user_distribuidor_id`, `is_super_admin`, `verify_contrato`); vista `empleados_activos` SECURITY DEFINER; protección de contraseñas filtradas desactivada; 117 funciones sin `search_path`.
+- A5: `POST /api/reparaciones/[id]/aprobar-presupuesto` funciona sin sesión solo con el UUID.
+- NUEVO: `reparaciones/[id]/cancelar/route.ts` inserta tipo `entrada_efectivo` en `caja_movimientos`, que NO está en el CHECK (valores válidos: deposito, retiro, cobro_reparacion, entrada_anticipo, devolucion_anticipo, pay_in, pay_out) → el cargo de cancelación nunca llega a caja (error ignorado). Requiere decidir qué tipo usar (¿`cobro_reparacion`?).
+- NUEVO: `getAuthContext()` no revisa `users.activo` → un empleado desactivado sigue usando la API.
+- NUEVO: `PATCH /api/reparaciones/[id]/pedidos-pieza` (marcar en camino) no valida rol.
+**Usuarios con problemas de acceso (pendiente de diagnóstico final):**
+- Técnico `tec***@crediphone.com` sin `distribuidor_id` → casi toda ruta le responde "No autorizado" (asignarle franquicia: decisión de Trini).
+- 6 cuentas de Auth sin perfil en `public.users` (4 de enero, 1 de prueba, 1 creada el 2026-09-29 sin confirmar correo ni perfil — no salió del flujo de "Agregar empleado", que sí crea perfil).
+- Nadie inicia sesión con contraseña desde 2026-08-19; admins entraron por última vez 26-may/28-may/9-jul (sesiones probablemente expiradas). Falta que Trini diga qué mensaje ven y quiénes.
+**Medios:** M2 lista de reparaciones sin realtime · M3 `historial_estado_orden` guarda `usuario_id` NULL (trigger) · M4 recepción de OC no actualiza `productos.costo` (decidir último costo vs promedio) · M5 `revertir-estado` no deshace efectos · estados con mapas propios en `StepperReparacion`, `BarraProgresoReparacion`, `TimelineOrden` (falta unificarlos con `estados.ts`).
+**Datos del negocio:** 50 órdenes en `listo_entrega` (promedio 107 días, pasaron el límite de 90) · 68 en `recibido` (promedio 56 días) · 63 anticipos `pendiente` en órdenes entregadas · 49 entregadas sin movimiento de bolsa virtual · 26 entregadas sin `fecha_entregado` · 4 órdenes del backfill de julio sin decidir (`ORD-20260530-0005`, `ORD-20260511-0003`, `ORD-20260629-0002`, `ORD-20260707-0002`) · **33 pedidos de pieza en `pendiente`**: 29 en órdenes activas (visibles en el panel; ahora se pueden marcar "Ya la pedí" o cancelar uno por uno) y 4 en órdenes ya entregadas (ocultos del panel, ~133 días; decidir si se cancelan).
+**R2 / imágenes:** R2 reactivado; 229 imágenes antiguas (197 fotos de reparación, 32 de producto) viven en R2 — confirmar con Trini que ya se ven en producción.
+**Dependabot:** 81 vulnerabilidades (35 altas) en `https://github.com/trinicanales/crediphone/security/dependabot`.
+**Backlog original (22 puntos):** hechos 1–5 y 7. Pendientes: #6 extender fecha de entrega (propuesta de política enviada: tabla por motivo + tope 90 días desde recepción — esperando OK de Trini) · #8 usar `snapshot_cotizacion_inicial` en tracking · #9 WhatsApp automático al pasar a `esperando_piezas` · #10 centralizar total de presupuesto · #11 centralizar `formatCurrency` (37 archivos) · #12 combobox de cliente server-search · #13 `abrirWhatsApp()` centralizado · #14 RPC comisión/desempeño (= A4) · #15/#16 `movimientos_stock` fire-and-forget → bloqueante · #17 contador/reintento en `OfflineBanner` · #18 consignaciones (tabla sin uso) · #19 centralizar folios · #20 limpiar `solicitudes_piezas` y `garantias_piezas` · #21 tab Garantía dentro del drawer · #22 violaciones de design system en POS.
+**Por probar en producción:** WhatsApp/notificaciones avanzando una orden nueva de estado (desde el 21-sep nadie ha avanzado órdenes; 0 notificaciones fallidas registradas).
+**Ideas ya investigadas (sin implementar):** conectar diagnóstico (`partes_reemplazadas`) con piezas por pedir; autocompletar precio de "pieza libre" por historial marca/modelo.
+
+---
+
 ## ✅ IMPLEMENTACIÓN — 2026-07-24 (worktree elated-kapitsa) — Ejecutando el plan de la auditoría #2 de abajo
 
 Trini confirmó proceder con todos los puntos de la auditoría del 2026-07-23 (ver sección de abajo). Todo lo siguiente **ya está implementado y verificado con `tsc --noEmit` limpio**, pero **AÚN NO SE HA HECHO COMMIT/PUSH A MASTER** (sigue en el worktree local).

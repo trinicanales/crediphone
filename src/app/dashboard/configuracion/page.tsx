@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import PayjoyConfigSection from "@/components/payjoy/PayjoyConfigSection";
+import { FEATURES } from "@/lib/features";
 import { SonidosNotificacionConfig } from "@/components/configuracion/SonidosNotificacionConfig";
 import { PlantillasWhatsAppTab } from "@/components/configuracion/PlantillasWhatsAppTab";
 import { WhatsAppAPITab } from "@/components/configuracion/WhatsAppAPITab";
@@ -1255,7 +1256,7 @@ export default function ConfiguracionPage() {
                 </p>
               </div>
               <div>
-                <label style={labelSt}>Días Máximos en "Listo para Entrega" (PROFECO)</label>
+                <label style={labelSt}>Días Máximos en &quot;Listo para Entrega&quot; (PROFECO)</label>
                 <Input
                   type="number" min="1" max="365"
                   value={formData.diasListoEntregaMaximo ?? 30}
@@ -1264,7 +1265,7 @@ export default function ConfiguracionPage() {
                   }
                 />
                 <p style={hintSt}>
-                  Órdenes con más días en "listo_entrega" se marcan como vencidas en el dashboard. Por ley (PROFECO), el límite recomendado es 30 días.
+                  Órdenes con más días en &quot;listo_entrega&quot; se marcan como vencidas en el dashboard. Por ley (PROFECO), el límite recomendado es 30 días.
                 </p>
               </div>
             </div>
@@ -1277,18 +1278,23 @@ export default function ConfiguracionPage() {
     // ══════════════════════════════════════════════════════
     // TAB 8: PAYJOY
     // ══════════════════════════════════════════════════════
-    {
-      id: "payjoy",
-      label: "Payjoy",
-      content: (
-        <PayjoyConfigSection
-          formData={formData}
-          onFieldChange={handleChange}
-          onSave={handleSave}
-          saving={saving}
-        />
-      ),
-    },
+    // PayJoy fuera del proyecto por ahora (ver src/lib/features.ts)
+    ...(FEATURES.payjoy
+      ? [
+          {
+            id: "payjoy",
+            label: "Payjoy",
+            content: (
+              <PayjoyConfigSection
+                formData={formData}
+                onFieldChange={handleChange}
+                onSave={handleSave}
+                saving={saving}
+              />
+            ),
+          },
+        ]
+      : []),
 
     // ══════════════════════════════════════════════════════
     // TAB 9: SERVICIOS (FASE 36)

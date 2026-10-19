@@ -5,6 +5,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSesionActiva } from "@/lib/db/caja";
+import { TRANSICIONES_VALIDAS, ESTADOS_SOLO_POR_FLUJO_ENTREGA } from "@/lib/reparaciones/estados";
 import type {
   OrdenReparacion,
   OrdenReparacionDetallada,
@@ -751,27 +752,13 @@ export async function recalcularTotalesOrden(ordenId: string): Promise<void> {
 // CAMBIAR ESTADO DE ORDEN
 // =====================================================
 
-/**
- * Mapa de transiciones de estado válidas del servidor.
- * Espejo del frontend — validación en servidor para prevenir manipulación de API.
- * Regla: si el estado destino no está en el array del estado origen → rechazar.
- */
-const TRANSICIONES_VALIDAS: Record<EstadoOrdenReparacion, EstadoOrdenReparacion[]> = {
-  recibido:          ["diagnostico", "cancelado"],
-  diagnostico:       ["esperando_piezas", "presupuesto", "aprobado", "no_reparable", "cancelado"],
-  esperando_piezas:  ["en_reparacion", "aprobado", "cancelado"],
-  presupuesto:       ["aprobado", "cancelado"],
-  aprobado:          ["en_reparacion", "cancelado"],
-  en_reparacion:     ["completado", "esperando_piezas", "no_reparable", "cancelado"],
-  completado:        ["listo_entrega", "cancelado"],
-  listo_entrega:     ["entregado", "cancelado"],
-  entregado:         [],
-  no_reparable:      [],
-  cancelado:         [],
-};
+// El mapa de transiciones vive en un solo archivo compartido con el frontend:
+// src/lib/reparaciones/estados.ts (TRANSICIONES_VALIDAS).
 
 /**
  * Cambia el estado de una orden con validación de transición en el servidor.
+ * "entregado" NO se puede alcanzar por aquí: solo por el flujo de entrega
+ * (/entregar o cobro en POS), que es el que aplica caja, stock, puntos y garantía.
  */
 export async function cambiarEstadoOrden(
   ordenId: string,
@@ -779,6 +766,13 @@ export async function cambiarEstadoOrden(
   notas?: string,
   aprobacionPresencial?: boolean
 ): Promise<OrdenReparacion> {
+  if (ESTADOS_SOLO_POR_FLUJO_ENTREGA.includes(nuevoEstado)) {
+    throw new Error(
+      `El estado "${nuevoEstado}" solo se alcanza con el flujo de entrega (Registrar entrega o cobro en POS), ` +
+      `no con el cambio de estado genérico.`
+    );
+  }
+
   const supabase = createAdminClient();
 
   // Leer el estado actual antes de actualizar

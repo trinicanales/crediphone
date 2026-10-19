@@ -1,6 +1,7 @@
 "use client";
 
 import { useState as useStateLocal, Suspense } from "react";
+import { FEATURES } from "@/lib/features";
 import { WidgetChecador } from "@/components/asistencia/WidgetChecador";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -115,7 +116,7 @@ const navGroups: NavGroup[] = [
       { href: "/dashboard/pos",          label: "Punto de Venta", icon: Store,   roles: ["admin", "vendedor", "super_admin"],                         moduleKey: "pos" },
       { href: "/dashboard/pos/caja",     label: "Caja / Turno",   icon: Vault,   roles: ["admin", "vendedor", "super_admin"],                         moduleKey: "pos" },
       { href: "/dashboard/pos/historial",label: "Historial",      icon: History, roles: ["admin", "vendedor", "cobrador", "super_admin"],              moduleKey: "pos" },
-      { href: "/dashboard/payjoy",       label: "Payjoy",         icon: Zap,     moduleKey: "payjoy" },
+      ...(FEATURES.payjoy ? ([{ href: "/dashboard/payjoy",       label: "Payjoy",         icon: Zap,     moduleKey: "payjoy" }] as NavGroupItem[]) : []),
     ],
   },
 
@@ -198,7 +199,7 @@ const navGroups: NavGroup[] = [
       { href: "/dashboard/reportes/comisiones",   label: "Comisiones",    icon: BadgeDollarSign, roles: ["admin", "super_admin"],  moduleKey: "reportes" },
       { href: "/dashboard/reportes/equipos",      label: "Equipos",       icon: Smartphone,      roles: ["admin", "super_admin"],  moduleKey: "reportes" },
       { href: "/dashboard/reportes/rentabilidad", label: "Rentabilidad",  icon: TrendingUp,      roles: ["admin", "super_admin"],  moduleKey: "reportes" },
-      { href: "/dashboard/facturacion",         label: "Facturación",   icon: Receipt,         roles: ["admin", "super_admin"],  moduleKey: "reportes" },
+      ...(FEATURES.facturacion ? ([{ href: "/dashboard/facturacion",         label: "Facturación",   icon: Receipt,         roles: ["admin", "super_admin"],  moduleKey: "reportes" }] as NavGroupItem[]) : []),
       { href: "/dashboard/promociones",         label: "Promociones",   icon: Tag,             roles: ["admin", "super_admin"],  moduleKey: "reportes" },
     ],
   },

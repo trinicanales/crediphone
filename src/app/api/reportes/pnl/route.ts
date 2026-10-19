@@ -98,8 +98,8 @@ export async function GET(req: NextRequest) {
       // 4. Reparaciones entregadas en el mes
       (() => {
         let q = supabase
-          .from("reparaciones")
-          .select("id, costo_reparacion, costo_partes, costo_total, anticipo")
+          .from("ordenes_reparacion")
+          .select("id, costo_reparacion, costo_partes, costo_total, precio_total")
           .gte("fecha_entregado", inicio)
           .lt("fecha_entregado", fin)
           .eq("estado", "entregado");
@@ -137,8 +137,10 @@ export async function GET(req: NextRequest) {
     const ingresosVentasPOS = (ventasRes.data ?? []).reduce(
       (s, v) => s + Number(v.total ?? 0), 0
     );
+    // Ingreso = precio all-in cobrado al cliente (precio_total); si no está, costo_total.
+    // (Antes consultaba la tabla inexistente "reparaciones" y el ingreso de reparaciones salía siempre en 0.)
     const ingresosReparaciones = (reparacionesRes.data ?? []).reduce(
-      (s, r) => s + Number(r.costo_total ?? 0), 0
+      (s, r) => s + Number(r.precio_total || r.costo_total || 0), 0
     );
     const totalIngresos = ingresosPagosCredito + ingresosVentasPOS + ingresosReparaciones;
 

@@ -77,16 +77,28 @@ export async function DELETE(
     const monto = Number(anticipo.monto);
 
     // 3. Si tenía sesión de caja vinculada → revertir el movimiento
-    if (anticipo.sesion_caja_id) {
-      await supabase.from("movimientos_caja").insert({
+    // La tabla real es caja_movimientos y su CHECK de `tipo` solo admite valores fijos:
+    // la salida de un anticipo anulado se registra como "devolucion_anticipo".
+    // Antes se escribía en "movimientos_caja" (no existe) y el error se ignoraba, así que la
+    // caja nunca se revertía aunque la respuesta dijera lo contrario. Ahora, si falla, NO se elimina el anticipo.
+    if (anticipo.sesion_caja_id && monto > 0) {
+      const { error: cajaError } = await supabase.from("caja_movimientos").insert({
         sesion_id: anticipo.sesion_caja_id,
-        tipo: "egreso",
-        concepto: `Anulación anticipo orden ${orden.folio} (eliminado por super_admin)`,
+        tipo: "devolucion_anticipo",
         monto,
-        referencia_tipo: "anticipo_anulado",
+        concepto: `Anulación anticipo orden ${orden.folio} (eliminado por super_admin)`,
         referencia_id: anticipoId,
+        autorizado_por: userId,
         registrado_por: userId,
+        distribuidor_id: orden.distribuidor_id ?? null,
       });
+      if (cajaError) {
+        console.error("[anticipos DELETE] No se pudo revertir la caja:", cajaError);
+        return NextResponse.json(
+          { success: false, error: `No se pudo revertir el movimiento de caja: ${cajaError.message}. El anticipo NO se eliminó.` },
+          { status: 500 }
+        );
+      }
     }
 
     // 4. Eliminar el anticipo

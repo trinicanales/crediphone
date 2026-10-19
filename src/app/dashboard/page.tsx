@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, ReactNode } from "react";
+import { FEATURES } from "@/lib/features";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -680,7 +681,7 @@ export default function DashboardPage() {
             )}
 
             {/* Payjoy — todos los roles */}
-            {isModuleEnabled("payjoy") && (
+            {FEATURES.payjoy && isModuleEnabled("payjoy") && (
               <ActionLink
                 href="/dashboard/payjoy"
                 icon="zap"

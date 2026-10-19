@@ -1,6 +1,31 @@
 # Bugs Activos — CREDIPHONE
 > Leer al inicio de sesión si la tarea toca BD, auth, caja o reparaciones.
-> Última actualización: 2026-07-24
+> Última actualización: 2026-10-19
+
+
+## ✅ BUG-ENTREGA-002 — "Entregado" asignable con el cambio de estado genérico (sin efectos de entrega)
+**Severidad:** CRÍTICO | **Estado:** ✅ Resuelto 2026-10-19
+**Archivos:** `src/lib/reparaciones/estados.ts` (nuevo), `src/lib/db/reparaciones.ts`, `src/app/api/reparaciones/[id]/route.ts`, `ModalCambiarEstado.tsx`, `OrdenCard.tsx`
+**Causa:** `listo_entrega → entregado` estaba en el mapa de transiciones y el servidor lo aceptaba, pero ese camino no ejecuta `ejecutarEfectosEntrega()` (anticipos, caja virtual, stock, puntos, garantía, PDF).
+**Solución:** `entregado` solo por `/entregar` o cobro POS; mapa de transiciones unificado en un archivo.
+
+## ✅ BUG-TABLAS-003 — Código usando tablas inexistentes
+**Severidad:** Alta | **Estado:** ✅ Resuelto 2026-10-19
+`movimientos_caja`→`caja_movimientos` (anulación de anticipos; ya no borra el anticipo si falla la caja), `reparaciones`→`ordenes_reparacion` (reporte P&L), `ubicaciones`→`ubicaciones_inventario` (verificaciones).
+
+## ✅ SEG-PAYJOY-004 — Rutas `/api/payjoy/*` sin autenticación
+**Severidad:** CRÍTICO | **Estado:** ✅ Neutralizado 2026-10-19 (módulo apagado por decisión de Trini, no borrado)
+Bandera `FEATURES.payjoy=false` en `src/lib/features.ts`. **Antes de reactivar PayJoy hay que autenticar las rutas (admin).** Mismo criterio para Facturación (`FEATURES.facturacion`).
+
+## ✅ PIEZAS-005 — Panel "Piezas por pedir" sin acciones
+**Estado:** ✅ Resuelto 2026-10-19 — botones "Ya la pedí" y "Cancelar pieza" + antigüedad por pedido.
+
+## 🟡 PENDIENTES NUEVOS (no corregidos)
+- Cancelación de orden: `caja_movimientos.tipo = 'entrada_efectivo'` viola el CHECK → cargo de cancelación no llega a caja.
+- `getAuthContext()` no revisa `users.activo`.
+- 21 rutas `[id]` sin filtro por franquicia; OC acepta cualquier estado; RPC de comisión abiertas a `anon`. Detalle completo en `.claude/SESION-ACTIVA.md` (sección 2026-10-14→19) y `.claude/AUDITORIA-2026-10-14.md`.
+
+---
 
 ---
 

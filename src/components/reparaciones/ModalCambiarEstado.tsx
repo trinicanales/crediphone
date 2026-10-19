@@ -9,6 +9,7 @@ import type { EstadoOrdenReparacion } from "@/types";
 import { ArrowRight, AlertCircle, Package, PackageSearch } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { encolarOperacion } from "@/lib/offline/queue";
+import { transicionesManuales } from "@/lib/reparaciones/estados";
 
 interface ModalCambiarEstadoProps {
   isOpen: boolean;
@@ -23,21 +24,8 @@ interface ModalCambiarEstadoProps {
   estadoInicial?: EstadoOrdenReparacion;
 }
 
-// Transiciones válidas según el estado actual
-// cancelado siempre disponible desde estados activos (con confirmación)
-const transicionesValidas: Record<EstadoOrdenReparacion, EstadoOrdenReparacion[]> = {
-  recibido:          ["diagnostico", "cancelado"],
-  diagnostico:       ["esperando_piezas", "presupuesto", "aprobado", "no_reparable", "cancelado"],
-  esperando_piezas:  ["en_reparacion", "aprobado", "cancelado"],
-  presupuesto:       ["aprobado", "cancelado"],
-  aprobado:          ["en_reparacion", "cancelado"],
-  en_reparacion:     ["completado", "esperando_piezas", "no_reparable", "cancelado"],
-  completado:        ["listo_entrega", "cancelado"],
-  listo_entrega:     ["entregado", "cancelado"],
-  entregado:         [],
-  no_reparable:      [],
-  cancelado:         [],
-};
+// Las transiciones válidas viven en un solo archivo compartido con el servidor:
+// src/lib/reparaciones/estados.ts. "entregado" no se ofrece aquí (solo por el flujo de entrega).
 
 const estadosLabels: Record<EstadoOrdenReparacion, string> = {
   recibido:         "Recibido",
@@ -78,7 +66,7 @@ export function ModalCambiarEstado({
   const [piezasSinCatalogo, setPiezasSinCatalogo] = useState<{ id: string; nombre: string; costoEstimado: number }[]>([]);
   const [mostrarResolucion, setMostrarResolucion] = useState(false);
 
-  const estadosDisponibles = transicionesValidas[estadoActual] || [];
+  const estadosDisponibles = transicionesManuales(estadoActual);
 
   // Sincroniza la pre-selección cada vez que el modal se abre con un estadoInicial
   useEffect(() => {
@@ -304,6 +292,12 @@ export function ModalCambiarEstado({
                 </option>
               ))}
             </select>
+            {estadoActual === "listo_entrega" && (
+              <p className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
+                Para marcar el equipo como entregado usa <strong>Registrar entrega</strong> en el panel de
+                acciones de la orden o cobra el saldo en POS: ahí se aplican anticipos, caja, stock, puntos y garantía.
+              </p>
+            )}
           </div>
         )}
 
@@ -329,7 +323,7 @@ export function ModalCambiarEstado({
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--color-danger)" }} />
               <div>
                 <p className="text-sm font-medium mb-1" style={{ color: "var(--color-danger-text)" }}>
-                  ¿Está seguro de cambiar al estado "{estadosLabels[nuevoEstado as EstadoOrdenReparacion]}"?
+                  ¿Está seguro de cambiar al estado &quot;{estadosLabels[nuevoEstado as EstadoOrdenReparacion]}&quot;?
                 </p>
                 <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>
                   Esta acción es irreversible y marcará la orden como finalizada sin completar

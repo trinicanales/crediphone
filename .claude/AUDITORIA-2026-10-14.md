@@ -123,3 +123,16 @@ Los registros que crea el trigger `registrar_cambio_estado_orden` guardan `usuar
 - No audité a fondo el POS venta-a-venta, PDFs, scoring ni los avisos de rendimiento de Supabase.
 - No revisé las 81 vulnerabilidades de dependencias (Dependabot).
 - No hay acceso a las analíticas de Cloudflare (peticiones/CPU reales).
+
+---
+
+## Estado de correcciones (actualizado 2026-10-19)
+
+| Hallazgo | Estado |
+|---|---|
+| C1 Rutas PayJoy sin login | ✅ Neutralizado: PayJoy y Facturación apagados con `FEATURES` (decisión de Trini). Autenticar antes de reactivar |
+| C2 "Entregado" sin efectos de entrega | ✅ Corregido (solo por `/entregar` o cobro POS) |
+| C3 Tablas inexistentes (anticipos/caja, P&L, verificaciones) | ✅ Corregido |
+| M1 Mapas de estado duplicados | 🟡 Parcial: servidor, ModalCambiarEstado y OrdenCard ya usan `estados.ts`; faltan Stepper, BarraProgreso y Timeline |
+| Piezas por pedir: desactualizadas y sin cancelar | ✅ Botones "Ya la pedí" y "Cancelar pieza" + antigüedad |
+| A1–A5, M2–M5, hallazgos nuevos y datos del negocio | ⏳ Pendientes — ver `.claude/SESION-ACTIVA.md` (sección 2026-10-14 → 2026-10-19) |

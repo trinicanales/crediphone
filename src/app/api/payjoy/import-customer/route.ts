@@ -9,8 +9,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPayjoyClient } from "@/lib/payjoy/client";
 import type { ImportCustomerRequest } from "@/types/payjoy";
+import { FEATURES } from "@/lib/features";
+import { payjoyDeshabilitado } from "@/lib/features-server";
 
 export async function POST(request: NextRequest) {
+    if (!FEATURES.payjoy) return payjoyDeshabilitado();
     try {
         const body: ImportCustomerRequest = await request.json();
 
