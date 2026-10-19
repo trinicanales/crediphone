@@ -43,7 +43,7 @@ interface OrdenPublica {
   clienteNombre?: string;
   tecnicoNombre?: string;
   historial: { estado_nuevo: string; estado_anterior: string | null; comentario?: string; created_at: string }[];
-  trackingToken?: string | null;
+  requiereVerificacion?: boolean;
   whatsappSoporte?: string;
   nombreEmpresa?: string;
 }
@@ -131,9 +131,35 @@ export default function ReparacionFolioPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEmpleado, setIsEmpleado] = useState(false);
+  const [ultimos4, setUltimos4] = useState("");
+  const [verificando, setVerificando] = useState(false);
+  const [errorVerif, setErrorVerif] = useState<string | null>(null);
 
-  // Estados finales donde NO redirigimos al tracking (ya no hay acción pendiente del cliente)
+  // Estados finales donde NO se ofrece el seguimiento completo (ya no hay acción pendiente del cliente)
   const estadosFinales = ["listo_entrega", "entregado", "no_reparable", "cancelado"];
+
+  async function verificar() {
+    if (ultimos4.length !== 4) return;
+    setVerificando(true);
+    setErrorVerif(null);
+    try {
+      const res = await fetch(`/api/reparacion/${folio}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ultimos4 }),
+      });
+      const data = await res.json();
+      if (data.success && data.data?.trackingToken) {
+        router.replace(`/tracking/${data.data.trackingToken}`);
+      } else {
+        setErrorVerif(data.message || "No se pudo verificar");
+      }
+    } catch {
+      setErrorVerif("Error de conexión");
+    } finally {
+      setVerificando(false);
+    }
+  }
 
   useEffect(() => {
     // Verificar si hay sesión activa (empleado en dashboard)
@@ -158,12 +184,9 @@ export default function ReparacionFolioPage() {
         const res = await fetch(`/api/reparacion/${folio}`);
         const data = await res.json();
         if (data.success) {
+          // El token ya no viaja en esta respuesta: el seguimiento completo se
+          // desbloquea con los últimos 4 dígitos del teléfono (ver verificar()).
           setOrden(data.data);
-          // Redirigir al tracking solo si hay token Y no es un estado final
-          // (en estados finales la página de QR de entrega es más útil)
-          if (data.data.trackingToken && !estadosFinales.includes(data.data.estado)) {
-            router.replace(`/tracking/${data.data.trackingToken}`);
-          }
         } else {
           setError(data.message || "No se encontró la orden");
         }
@@ -402,8 +425,52 @@ export default function ReparacionFolioPage() {
           </div>
         )}
 
-        {/* Aviso si requiere aprobación y tiene token */}
-        {orden.estado === "presupuesto" && !orden.aprobadoPorCliente && orden.trackingToken && (
+        {/* Seguimiento completo: se desbloquea con los últimos 4 dígitos del teléfono */}
+        {orden.requiereVerificacion && !estadosFinales.includes(orden.estado) && (
+          <div className="rounded-xl p-4 space-y-3"
+            style={{ background: "var(--color-bg-surface)", border: "1px solid var(--color-border-subtle)", boxShadow: "var(--shadow-sm)" }}
+          >
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 shrink-0" style={{ color: "var(--color-accent)" }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                Ver seguimiento completo
+              </p>
+            </div>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Ingresa los últimos 4 dígitos del teléfono registrado en tu orden.
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={ultimos4}
+                onChange={(e) => setUltimos4(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                onKeyDown={(e) => { if (e.key === "Enter") verificar(); }}
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="0000"
+                className="w-24 rounded-lg px-3 py-2 text-center text-sm font-mono tracking-widest"
+                style={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border)", color: "var(--color-text-primary)" }}
+              />
+              <button
+                onClick={verificar}
+                disabled={ultimos4.length !== 4 || verificando}
+                className="flex-1 rounded-lg px-4 py-2 text-sm font-semibold"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "var(--color-accent-text, #fff)",
+                  opacity: ultimos4.length !== 4 || verificando ? 0.5 : 1,
+                }}
+              >
+                {verificando ? "Verificando..." : "Ver seguimiento"}
+              </button>
+            </div>
+            {errorVerif && (
+              <p className="text-xs" style={{ color: "var(--color-danger)" }}>{errorVerif}</p>
+            )}
+          </div>
+        )}
+
+        {/* Aviso si requiere aprobación y tiene seguimiento completo */}
+        {orden.estado === "presupuesto" && !orden.aprobadoPorCliente && orden.requiereVerificacion && (
           <div className="rounded-xl p-4"
             style={{ background: "var(--color-warning-bg)", border: "2px solid var(--color-warning)" }}
           >

@@ -198,6 +198,28 @@ export async function GET(
       }
     }
 
+    // SEG-2: el cliente nunca debe recibir costos de compra, envío ni proveedor.
+    const partesPublicas = (orden.partesReemplazadas ?? []).map((p) => ({
+      parte: p.parte,
+      costo: p.costo,
+      cantidad: p.cantidad,
+    }));
+    const piezasPublicas = (list?: typeof orden.piezasCotizacion | null) =>
+      (list ?? []).map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        cantidad: p.cantidad,
+        precioUnitario: p.precioUnitario,
+        precioTotal: p.precioTotal,
+        tieneStock: p.tieneStock,
+        esLibre: p.esLibre,
+        calidad: p.calidad,
+        instalada: p.instalada,
+      }));
+
+    // Total que paga el cliente: mismo criterio que POS/entrega (precio_total || costo_total)
+    const totalCliente = orden.presupuestoTotal || orden.costoTotal;
+
     // Retornar solo información pública (sin datos sensibles)
     return NextResponse.json({
       success: true,
@@ -212,10 +234,12 @@ export async function GET(
           diagnosticoTecnico: orden.diagnosticoTecnico,
           costoReparacion: orden.costoReparacion,
           costoPartes: orden.costoPartes,
-          costoTotal: orden.costoTotal,
-          partesReemplazadas: orden.partesReemplazadas,
-          piezasCotizacion: orden.piezasCotizacion || [],
-          snapshotCotizacionInicial: orden.snapshotCotizacionInicial ?? null,
+          costoTotal: totalCliente,
+          partesReemplazadas: partesPublicas,
+          piezasCotizacion: piezasPublicas(orden.piezasCotizacion),
+          snapshotCotizacionInicial: orden.snapshotCotizacionInicial
+            ? piezasPublicas(orden.snapshotCotizacionInicial)
+            : null,
           condicionesFuncionamiento: orden.condicionesFuncionamiento ?? null,
           fechaRecepcion: orden.fechaRecepcion,
           fechaEstimadaEntrega: orden.fechaEstimadaEntrega,
@@ -225,7 +249,7 @@ export async function GET(
           aprobadoPorCliente: orden.aprobadoPorCliente,
           esGarantia: orden.esGarantia,
           totalAnticipos,
-          saldoPendiente: orden.costoTotal - totalAnticipos,
+          saldoPendiente: totalCliente - totalAnticipos,
           checklistApertura,
         },
         cliente: {
