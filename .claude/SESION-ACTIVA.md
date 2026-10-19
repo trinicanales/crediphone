@@ -35,6 +35,12 @@ Veredicto: el sistema está **parchado, no unificado** (solo 2 triggers de inven
 ### E. Plan de AUTOMATIZACIONES (2026-10-19) — ver `.claude/PLAN-AUTOMATIZACIONES-2026-10-19.md`
 Investigación de la industria + propuesta por fases (libro único de stock con trigger, RPC atómicas para entregar/cancelar/devolver, tareas `pg_cron`, outbox de WhatsApp). Hallazgo: el único job de `pg_cron` (`notificaciones-hora`) llama a una función que NO existe (6,574 corridas fallidas); `pg_net`/`pgmq` disponibles sin instalar. Nada implementado: pendiente OK de Trini por fase.
 
+
+### F. Informes del 2026-10-19 (casos especiales y seguimiento)
+- `.claude/REPORTE-CASOS-ESPECIALES-2026-10-19.md` — casos especiales (equipo apagado/mojado/sin IMEI, etiquetas internas, entrega, bloqueados, privacidad, abandonados) + **§6 ajuste a la política ya publicada** (`/terminos` y PDF): la política promete borrar claves al entregar y cobrar diagnóstico y el sistema NO lo hace; garantía por tipo de pantalla (Incell) no está modelada.
+- `.claude/AUDITORIA-SEGUIMIENTO-ESTADOS-2026-10-19.md` — seguimiento/stepper/tarjeta: dos steppers distintos, 22 mapas de estado, token expuesto por la API pública por folio, costos internos visibles al cliente, saldo mal calculado (52 órdenes), WhatsApp en modo enlace (API apagada en las 4 franquicias).
+- Plan actualizado (`PLAN-AUTOMATIZACIONES-2026-10-19.md` §7-9): Fases E (casos especiales) y U (unificación) + protocolo de autorización. **Nada implementado: esperando OK de Trini por fase.**
+
 ### C. PENDIENTES (priorizados)
 **Seguridad / datos (de la auditoría, aún sin corregir):**
 - A1: 21 rutas con `[id]` sin filtro por franquicia (`creditos/[id]/pagos|pdf`, `ordenes-compra/[id]`, `reparaciones/[id]/pdf|historial|aprobar-presupuesto`, `lotes-piezas/[id]/*`, `lotes-series/[id]`, `inventario/verificaciones/[id]`, `inventario/ubicaciones/[id]`, `scoring/[id]/*`, `recordatorios/[id]/enviar`, `traspasos-anticipo/[id]/confirmar`, `confirmaciones-deposito/[id]/*`, `autorizaciones/[id]`, `reparaciones/[id]/diagnosticos/[diagId]`).

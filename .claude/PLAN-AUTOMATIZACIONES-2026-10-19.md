@@ -119,3 +119,40 @@ Funciones SQL que hacen TODO o NADA (una sola transacción), llamadas desde la a
 - Plantillas de WhatsApp: aprobación de Meta (días) y costo por conversación.
 - Mantener el **modo "link"** de WhatsApp como respaldo cuando la API falle.
 - Todo lo de PayJoy/facturas sigue **fuera** hasta que Trini decida.
+
+---
+
+## 7. Casos especiales (Fase E) — ver `.claude/REPORTE-CASOS-ESPECIALES-2026-10-19.md`
+Se integran a la hoja de ruta (todo aditivo; ajustado a la política ya publicada en `/terminos` y el PDF):
+| Fase | Qué | Tipo |
+|---|---|---|
+| E0 | **Cumplir lo que ya promete la política:** borrar claves/patrones/cuentas del equipo **al entregar o cancelar** (+ limpiar las ya guardadas de órdenes cerradas, con OK) y **dejar de imprimir la clave en el ticket** | Privacidad / legal — urgente |
+| E1 | IMEI robusto: 15 dígitos + dígito verificador, "IMEI no disponible – motivo", identificadores alternos, completar después con alerta antes de entregar, alerta de duplicado, casilla de consulta IFT | Orden de servicio / POS / inventario |
+| E2 | Equipo apagado: tercer estado "No verificable" en componentes, prueba de carga/encendido con foto, repetir al entregar | Orden de servicio |
+| E3 | Identificación interna: **etiqueta interna con QR** (distinto al QR público), color por prioridad/riesgo, **ubicación del equipo en el taller** (reusa ubicaciones) y **triple verificación al entregar** (etiqueta + ticket + identidad) | Órdenes / entrega / inventario |
+| E4 | Entrega: quién recoge (titular o tercero), identificación, firma, código por WhatsApp si perdió el ticket | Entrega |
+| E5 | **Garantía según la política**: tipo de pantalla (Incell sin garantía / mano de obra 30 días; OEM/Original 90), exclusiones por líquido/preexistentes escritas en `notas`; guardar **versión de términos aceptada** | Garantías |
+| E6 | **Cobro de diagnóstico** (ya prometido por la política): campo, cobro y aviso al ingreso; también cuando rechaza o no es reparable | Orden / POS / caja |
+| E7 | Bloqueados (iCloud/FRP/operador): tipo + comprobante de propiedad; batería hinchada: etiqueta roja y ubicación de seguridad; accesorios en checklist estructurado; "pieza del cliente" | Orden / inventario |
+| E8 | Abandonados: avisos escalonados con evidencia y acta de disposición (revisión legal previa) | Almacenaje |
+
+## 8. Unificación de estados y seguimiento (Fase U) — ver `.claude/AUDITORIA-SEGUIMIENTO-ESTADOS-2026-10-19.md`
+| Fase | Qué |
+|---|---|
+| U0 | **Seguridad del seguimiento:** quitar `trackingToken` de la API pública por folio; no exponer costos internos en `/api/tracking`; extender vigencia del token hasta entrega + garantía |
+| U1 | `totalAPagar(orden)` único (servidor + cliente) y corregir saldo del seguimiento, ticket interno y AnticipoCajaPanel (+ backfill de `costo_total`, con OK) |
+| U2 | Catálogo único de estados (etiqueta, color, icono, paso staff, paso cliente) y migrar las 22 pantallas |
+| U3 | Un componente de progreso con vistas staff/cliente e indicador de "Esperando piezas" |
+| U4 | Cancelar / Entregar desde tarjeta y stepper siempre por su flujo completo |
+| U5 | WhatsApp: decidir API vs enlace; aviso al crear la orden; evitar doble envío |
+
+## 9. Protocolo de autorización (para trabajar cuando Trini no está)
+**Principios acordados:** (1) solo se **agrega** lo que falta; no se elimina ni se rompe nada que ya funcione; (2) cada cambio nuevo convive con el anterior hasta verificarlo y se puede **revertir** (cada migración se guarda con su script inverso); (3) cada fase se verifica con `tsc`, lint, consultas a la BD y prueba de humo en producción.
+**Lo que se necesita autorizar por escrito en el chat (una vez por fase):**
+| Tipo | Alcance que cubriría la autorización |
+|---|---|
+| Base de datos (Supabase) | Migraciones **aditivas** (tablas, columnas, triggers, funciones, tareas `pg_cron`, activar extensiones `pg_net`/`pgmq`) |
+| Código | Editar archivos de la app, compilar, `commit` y `push` a `master` (ya autorizado en CLAUDE.md tras `tsc` + lint) y verificar el deploy |
+| Datos existentes | **NO incluido por defecto**: respaldos/backfills (aplicar anticipos, limpiar claves viejas, corregir `costo_total`, cerrar sesiones de caja, cancelar pedidos viejos) requieren OK **por cada uno** |
+| Fuera de alcance siempre | Manejar contraseñas o tokens, borrar funciones que ya trabajan, enviar mensajes reales a clientes sin supervisión, gastos (Meta/WhatsApp, ramas de Supabase, planes) |
+**Importante:** los avisos de permiso de la **aplicación** (por ejemplo "¿permitir esta consulta?") los controla el modo de permisos del app, no el chat; una autorización por escrito no los salta. Para poder trabajar sin que estés presente hay que configurar el modo de permisos del app (lo hace Trini) o dejar la fase para cuando esté disponible.
