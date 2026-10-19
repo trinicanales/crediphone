@@ -68,7 +68,7 @@ export async function POST(
     const body = await request.json();
     const motivo: string = body.motivo?.trim() || "Sin motivo especificado";
     const devolverAnticipos: boolean = body.devolverAnticipos ?? true;
-    const sesionCajaId: string | undefined = body.sesionCajaId || undefined;
+    let sesionCajaId: string | undefined = body.sesionCajaId || undefined;
 
     // Obtener la orden PRIMERO para leer su cargoCancelacion
     const orden = await getOrdenReparacionById(id);
@@ -100,6 +100,33 @@ export async function POST(
     }
 
     const supabase = createAdminClient();
+
+    // Caja abierta donde registrar la devolución: la del propio usuario; si no tiene,
+    // la última abierta de la sucursal de la orden. (El modal no enviaba la sesión y la
+    // devolución de efectivo no quedaba en caja.)
+    if (!sesionCajaId && devolverAnticipos) {
+      const { data: propia } = await supabase
+        .from("caja_sesiones")
+        .select("id")
+        .eq("usuario_id", userId)
+        .eq("estado", "abierta")
+        .order("fecha_apertura", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (propia) {
+        sesionCajaId = propia.id;
+      } else if (orden.distribuidorId) {
+        const { data: sucursal } = await supabase
+          .from("caja_sesiones")
+          .select("id")
+          .eq("distribuidor_id", orden.distribuidorId)
+          .eq("estado", "abierta")
+          .order("fecha_apertura", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (sucursal) sesionCajaId = sucursal.id;
+      }
+    }
 
     // ── 1. Analizar piezas pedidas para la bolsa virtual ────────────────
     // - Piezas que YA LLEGARON (estado='recibida'): entran al inventario, NO se devuelve su costo
@@ -140,6 +167,7 @@ export async function POST(
     // ── 4. Calcular devolución considerando cargo y piezas llegadas ──────
     let totalDevuelto = 0;
     let cargoAplicado = 0;
+    let sinRegistroCaja = false;
 
     if (devolverAnticipos) {
       const ahora = new Date().toISOString();
@@ -175,13 +203,19 @@ export async function POST(
 
         // Registrar devolución en caja
         if (sesionCajaId && totalDevuelto > 0) {
-          await supabase.from("caja_movimientos").insert({
+          const { error: cajaError } = await supabase.from("caja_movimientos").insert({
             sesion_id: sesionCajaId,
             tipo: "devolucion_anticipo",
             monto: totalDevuelto,
             concepto: `Devolución anticipo ${orden.folio}. Cargo: $${cargoAplicado.toFixed(2)}${costoPiezasLlegadas > 0 ? `, Piezas llegadas: $${costoPiezasLlegadas.toFixed(2)}` : ""}. Motivo: ${motivo}`,
             autorizado_por: userId,
+            registrado_por: userId,
+            distribuidor_id: orden.distribuidorId ?? null,
           });
+          if (cajaError) {
+            console.error("Error al registrar devolución en caja:", cajaError);
+            sinRegistroCaja = true;
+          }
         }
 
         // El cargo de cancelación NO se registra como movimiento nuevo: ese dinero ya está en caja
@@ -213,6 +247,8 @@ export async function POST(
       anticiposDevueltos: devolverAnticipos,
       totalAnticipoDevuelto: totalDevuelto,
       cargoAplicado,
+      // true si hubo efectivo por devolver pero no quedó registrado en caja (sin caja abierta o error)
+      sinRegistroCaja: sinRegistroCaja || (devolverAnticipos && totalDevuelto > 0 && !sesionCajaId),
       // Piezas recibidas sin producto_id: la tienda las tiene físicamente
       // El admin debe agregarlas al catálogo manualmente
       piezasSinCatalogo: piezasSinCatalogo.map((p: any) => ({
