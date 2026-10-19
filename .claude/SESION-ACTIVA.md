@@ -31,6 +31,10 @@
 ### D. Auditoría de INTEGRACIÓN (2026-10-19) — ver `.claude/AUDITORIA-INTEGRACION-2026-10-19.md`
 Veredicto: el sistema está **parchado, no unificado** (solo 2 triggers de inventario; 13 escritores manuales de stock; cancelar/eliminar/mover no propagan igual). Hecho: migración `fase90` (CHECK de `pedidos_pieza_reparacion.estado` ampliado a 7 estados; antes "en camino/instalada/defectuosa" fallaban siempre). Pendiente clave: 17 columnas/tablas inexistentes usadas por el código (B1–B17: reclamo de garantía, checklist, almacenaje/cron, devoluciones, aging, portal cliente, P&L piezas, resumen POS, notificaciones de anticipos), doble reintegro de stock en devolución total, cancelar orden con 2 caminos distintos, eliminar orden/cliente/producto sin reversas ni filtro de franquicia, ubicación con 2 caminos y 2 campos, verificación de inventario que ajusta sin historial. Herramienta: `scripts/audit-columnas.js`. Propuesta de skill de proyecto `crediphone-auditoria` (pendiente de OK de Trini).
 
+
+### E. Plan de AUTOMATIZACIONES (2026-10-19) — ver `.claude/PLAN-AUTOMATIZACIONES-2026-10-19.md`
+Investigación de la industria + propuesta por fases (libro único de stock con trigger, RPC atómicas para entregar/cancelar/devolver, tareas `pg_cron`, outbox de WhatsApp). Hallazgo: el único job de `pg_cron` (`notificaciones-hora`) llama a una función que NO existe (6,574 corridas fallidas); `pg_net`/`pgmq` disponibles sin instalar. Nada implementado: pendiente OK de Trini por fase.
+
 ### C. PENDIENTES (priorizados)
 **Seguridad / datos (de la auditoría, aún sin corregir):**
 - A1: 21 rutas con `[id]` sin filtro por franquicia (`creditos/[id]/pagos|pdf`, `ordenes-compra/[id]`, `reparaciones/[id]/pdf|historial|aprobar-presupuesto`, `lotes-piezas/[id]/*`, `lotes-series/[id]`, `inventario/verificaciones/[id]`, `inventario/ubicaciones/[id]`, `scoring/[id]/*`, `recordatorios/[id]/enviar`, `traspasos-anticipo/[id]/confirmar`, `confirmaciones-deposito/[id]/*`, `autorizaciones/[id]`, `reparaciones/[id]/diagnosticos/[diagId]`).
