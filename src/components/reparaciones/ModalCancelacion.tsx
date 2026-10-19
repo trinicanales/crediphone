@@ -103,6 +103,9 @@ export function ModalCancelacion({
         return;
       }
 
+      if (data.sinRegistroCaja) {
+        alert("Orden cancelada. OJO: no hay caja abierta, así que la devolución en efectivo NO quedó registrada en caja. Regístrala manualmente.");
+      }
       onConfirm();
     } catch {
       setError("Error de red. Intenta de nuevo.");
