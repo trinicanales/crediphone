@@ -37,6 +37,8 @@ import { useAuth } from "@/components/AuthProvider";
 import { OrdenDrawer } from "@/components/reparaciones/drawer/OrdenDrawer";
 import { ModalOrden } from "@/components/reparaciones/ModalOrden";
 import type { OrdenReparacionDetallada } from "@/types";
+import { formatMXN } from "@/lib/format";
+import { KpiCard } from "@/components/dashboard/KpiCard";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -82,14 +84,6 @@ interface StreamEvent {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-const formatMXN = (n: number) =>
-  new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n);
-
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -123,81 +117,6 @@ function KpiSkeleton() {
       </div>
     </div>
   );
-}
-
-// ── KPI Card ──────────────────────────────────────────────────
-
-interface KpiCardProps {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ElementType;
-  iconColor: string;
-  iconBg: string;
-  href?: string;
-  alert?: boolean;
-}
-
-function KpiCard({ label, value, sub, icon: Icon, iconColor, iconBg, href, alert }: KpiCardProps) {
-  const [hov, setHov] = useState(false);
-
-  const inner = (
-    <div
-      className="rounded-xl p-5 flex items-start justify-between"
-      style={{
-        background: "var(--color-bg-surface)",
-        border: `1px solid ${alert ? "var(--color-danger)" : "var(--color-border-subtle)"}`,
-        boxShadow: hov ? "var(--shadow-md)" : "var(--shadow-sm)",
-        transform: hov ? "translateY(-2px)" : "translateY(0)",
-        transition: "all 200ms var(--ease-spring)",
-        cursor: href ? "pointer" : "default",
-      }}
-    >
-      <div className="flex-1 min-w-0">
-        <p
-          className="text-sm font-medium mb-1"
-          style={{ color: alert ? "var(--color-danger)" : "var(--color-text-secondary)" }}
-        >
-          {label}
-          {alert && <span className="ml-1.5 text-xs">⚠</span>}
-        </p>
-        <p
-          className="text-3xl font-bold mb-1.5 tabular-nums"
-          style={{
-            color: alert ? "var(--color-danger)" : "var(--color-text-primary)",
-            fontFamily: "var(--font-data)",
-          }}
-        >
-          {value}
-        </p>
-        {sub && (
-          <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-            {sub}
-          </p>
-        )}
-      </div>
-      <div
-        className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 ml-3"
-        style={{ background: iconBg, color: iconColor }}
-      >
-        <Icon className="w-5 h-5" />
-      </div>
-    </div>
-  );
-
-  if (href) {
-    return (
-      <Link
-        href={href}
-        className="block"
-        onMouseEnter={() => setHov(true)}
-        onMouseLeave={() => setHov(false)}
-      >
-        {inner}
-      </Link>
-    );
-  }
-  return <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>{inner}</div>;
 }
 
 // ── Estado de orden badge ─────────────────────────────────────

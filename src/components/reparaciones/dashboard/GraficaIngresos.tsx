@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/Card";
 import type { IngresoMes } from "@/lib/db/reparaciones-dashboard";
+import { formatMXN as formatCurrency } from "@/lib/format";
 
 interface GraficaIngresosProps {
   data: IngresoMes[];
@@ -30,15 +31,6 @@ export function GraficaIngresos({ data }: GraficaIngresosProps) {
       </Card>
     );
   }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
   return (
     <Card title="💰 Tendencia de Ingresos">

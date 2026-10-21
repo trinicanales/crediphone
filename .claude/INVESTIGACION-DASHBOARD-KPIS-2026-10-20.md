@@ -179,3 +179,11 @@ Archivos nuevos: `src/lib/fechas.ts` (hora de México), `src/lib/inventario/stoc
 6. P&L: costo de piezas desde `pedidos_pieza_reparacion` (recibida/verificada_ok/instalada) de las órdenes entregadas en el mes; ventas solo `completada`; CMV ahora filtra por sucursal y por ventas completadas (antes tomaba items de todas las sucursales).
 7. Panel KPIs: garantías por vencer con `estado='activa'` (la columna `activa` no existe).
 8. `dashboard/page.tsx`: ya no ejecuta las 4–5 llamadas descartadas (el código muerto se retira en K1).
+
+---
+# ANEXO D — K1 ejecutado (2026-10-20, aprobado por Trini)
+1. `src/app/dashboard/page.tsx`: de 1,426 a ~50 líneas (solo enruta por rol). Copia del cuerpo antiguo en `.claude/ARCHIVO/dashboard-page-legacy-2026-10-20.tsx.txt`. Rol sin panel → mensaje (antes caía en el cuerpo antiguo).
+2. `/api/stats`: conteos y sumas en la base con columnas mínimas (antes `select *` de 4 tablas completas). `totalPagos` ahora = pagos de HOY (antes histórico; Cobrador mostraba "N pagos registrados" en la tarjeta "Cobrado hoy"). La fórmula de "tasa de recuperación" se mantiene (mide % de créditos ya no activos; se revisará si el crédito se activa).
+3. Formato de dinero: `src/lib/format.ts` (`formatMXN` sin centavos, `formatMXNDec` con centavos) reemplaza 9 copias locales (dashboards, Panel KPIs, 4 reportes). Quedan ~25 copias en otras pantallas (POS, inventario…): se migran al tocar cada área.
+4. Tarjeta de KPI: `components/dashboard/KpiCard.tsx` única para Ejecutivo y Cobrador (Vendedor no usa tarjetas propias). `StatCard` (Productos y Panel KPIs de reparaciones) sigue aparte: su fusión cambia el aspecto de esas pantallas → fase visual K6.
+**Hallazgo al retirar el código muerto — funciones que se perdieron del dashboard (FASE 53, 2026-03-19):** `PanelConfirmacionesDeposito` y `PanelAutorizacionesPendientes` ya no se muestran en NINGUNA pantalla (solo vivían en el dashboard antiguo); `PanelTraspasosPendientes` solo sigue en `AnticipoCajaPanel`. Es decir, el admin no ve en su inicio las confirmaciones de depósito ni las autorizaciones de descuento pendientes. Los componentes siguen en el código; falta volver a mostrarlos (propuesto en K3).

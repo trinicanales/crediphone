@@ -10,6 +10,8 @@ import Link from "next/link";
 import { AlertTriangle, DollarSign, CreditCard, Bell, TrendingDown, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/components/AuthProvider";
+import { formatMXNDec as fmt } from "@/lib/format";
+import { KpiCard } from "@/components/dashboard/KpiCard";
 
 interface CobranzaStats {
   creditosConMora: number;
@@ -23,71 +25,6 @@ interface CobranzaStats {
     montoMora: number;
     monto: number;
   }>;
-}
-
-function fmt(n: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
-}
-
-function KPICard({
-  label,
-  value,
-  sub,
-  color,
-  icon,
-  href,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  color: string;
-  icon: React.ReactNode;
-  href?: string;
-}) {
-  const inner = (
-    <div
-      className="rounded-2xl p-5 flex items-start justify-between"
-      style={{
-        background: "var(--color-bg-surface)",
-        border: "1px solid var(--color-border-subtle)",
-        boxShadow: "var(--shadow-sm)",
-        transition: "box-shadow 200ms, transform 200ms",
-        cursor: href ? "pointer" : "default",
-      }}
-      onMouseEnter={(e) => {
-        if (href) {
-          (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-md)";
-          (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-sm)";
-        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-      }}
-    >
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: "var(--color-text-muted)" }}>
-          {label}
-        </p>
-        <p className="text-2xl font-bold" style={{ color: "var(--color-text-primary)", fontFamily: "var(--font-data)" }}>
-          {value}
-        </p>
-        {sub && (
-          <p className="text-xs mt-1" style={{ color: "var(--color-text-secondary)" }}>
-            {sub}
-          </p>
-        )}
-      </div>
-      <div
-        className="w-11 h-11 rounded-xl flex items-center justify-center ml-4 flex-shrink-0"
-        style={{ background: `${color}18`, color }}
-      >
-        {icon}
-      </div>
-    </div>
-  );
-
-  return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
 function Skeleton() {
@@ -158,35 +95,39 @@ export function CobradorDashboard() {
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} />)
         ) : (
           <>
-            <KPICard
+            <KpiCard
               label="Créditos con mora"
               value={stats?.creditosConMora ?? 0}
               sub="Requieren cobro"
-              color="var(--color-danger)"
+              iconColor="var(--color-danger)"
+              iconBg={`color-mix(in srgb, var(--color-danger) 12%, transparent)`}
               icon={<AlertTriangle className="w-5 h-5" />}
               href="/dashboard/creditos/cartera-vencida"
             />
-            <KPICard
+            <KpiCard
               label="Total en mora"
               value={fmt(stats?.montoTotalMora ?? 0)}
               sub="Saldo vencido acumulado"
-              color="var(--color-warning-text)"
+              iconColor="var(--color-warning-text)"
+              iconBg={`color-mix(in srgb, var(--color-warning-text) 12%, transparent)`}
               icon={<TrendingDown className="w-5 h-5" />}
               href="/dashboard/creditos/cartera-vencida"
             />
-            <KPICard
+            <KpiCard
               label="Cobrado hoy"
               value={fmt(stats?.totalCobradoHoy ?? 0)}
               sub={`${stats?.totalPagosHoy ?? 0} pagos registrados`}
-              color="var(--color-success)"
+              iconColor="var(--color-success)"
+              iconBg={`color-mix(in srgb, var(--color-success) 12%, transparent)`}
               icon={<CheckCircle2 className="w-5 h-5" />}
               href="/dashboard/pagos"
             />
-            <KPICard
+            <KpiCard
               label="Créditos totales"
               value={stats?.creditosVencidos ?? 0}
               sub="Con días de mora"
-              color="var(--color-accent)"
+              iconColor="var(--color-accent)"
+              iconBg={`color-mix(in srgb, var(--color-accent) 12%, transparent)`}
               icon={<CreditCard className="w-5 h-5" />}
               href="/dashboard/creditos"
             />

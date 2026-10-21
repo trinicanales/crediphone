@@ -20,6 +20,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/components/AuthProvider";
 import { BannerInventarioSemanal } from "@/components/inventario/BannerInventarioSemanal";
+import { formatMXNDec as fmt } from "@/lib/format";
 
 interface VentaStats {
   totalCobradoHoy: number;
@@ -34,10 +35,6 @@ interface CajaStatus {
   sesionActiva: boolean;
   folio?: string;
   esMia?: boolean;
-}
-
-function fmt(n: number) {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 }
 
 function Skeleton() {

@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { getClientes } from "@/lib/db/clientes";
-import { getCreditos, getCreditosActivos } from "@/lib/db/creditos";
-import { getPagos, getTotalPagosDelDia } from "@/lib/db/pagos";
-import { getProductos } from "@/lib/db/productos";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inicioDiaMX } from "@/lib/fechas";
 
+/**
+ * GET /api/stats — resumen para los dashboards de vendedor y cobrador.
+ *
+ * K1 (2026-10-20): antes descargaba clientes, créditos, pagos y productos COMPLETOS (select *)
+ * solo para contarlos. Ahora cuenta en la base y trae únicamente las columnas necesarias.
+ * "totalPagos" ahora es el número de pagos de HOY (antes era el histórico, aunque la tarjeta decía "hoy").
+ */
 export async function GET(request: Request) {
   try {
     // SEGURIDAD: usar getAuthContext() para obtener role + distribuidorId
@@ -18,87 +22,107 @@ export async function GET(request: Request) {
     const headerDistId = request.headers.get("X-Distribuidor-Id");
     const distId = isSuperAdmin ? (headerDistId ?? undefined) : (distribuidorId ?? undefined);
 
-    // Ejecutar todas las consultas en paralelo para mejor rendimiento
-    const [clientes, creditos, creditosActivos, pagosHoy, totalPagosHoy, productos] = await Promise.all([
-      getClientes(distId),
-      getCreditos(distId),
-      getCreditosActivos(distId),
-      getPagos(distId),
-      getTotalPagosDelDia(distId),
-      getProductos(distId),
+    const supabase = createAdminClient();
+    const hoyISO = inicioDiaMX().toISOString();
+
+    const [clientesRes, creditosRes, pagosHoyRes, productosRes, scoringRes] = await Promise.all([
+      (() => {
+        let q = supabase.from("clientes").select("id", { count: "exact", head: true });
+        if (distId) q = q.eq("distribuidor_id", distId);
+        return q;
+      })(),
+      (() => {
+        let q = supabase.from("creditos").select("monto, estado, dias_mora, monto_mora");
+        if (distId) q = q.eq("distribuidor_id", distId);
+        return q;
+      })(),
+      (() => {
+        let q = supabase.from("pagos").select("monto").gte("fecha_pago", hoyISO);
+        if (distId) q = q.eq("distribuidor_id", distId);
+        return q;
+      })(),
+      (() => {
+        let q = supabase.from("productos").select("precio, stock");
+        if (distId) q = q.eq("distribuidor_id", distId);
+        return q;
+      })(),
+      // SEGURIDAD: el scoring se filtra por distribuidor para que admin solo vea el suyo
+      (() => {
+        let q = supabase.from("scoring_clientes").select("nivel_riesgo");
+        if (!isSuperAdmin && distribuidorId) q = q.eq("distribuidor_id", distribuidorId);
+        return q;
+      })(),
     ]);
 
-    // Calcular montos totales de créditos
-    const montoTotalCreditos = creditos.reduce((sum, c) => sum + Number(c.monto), 0);
-    const montoTotalActivos = creditosActivos.reduce((sum, c) => sum + Number(c.monto), 0);
+    const creditos = creditosRes.data ?? [];
+    const activos = creditos.filter((c) => c.estado === "activo");
+    const montoTotalCreditos = creditos.reduce((s, c) => s + Number(c.monto ?? 0), 0);
+    const montoTotalActivos = activos.reduce((s, c) => s + Number(c.monto ?? 0), 0);
 
-    // Calcular valor del inventario
-    const valorInventario = productos.reduce((sum, p) => sum + (Number(p.precio) * p.stock), 0);
+    const conMora = activos.filter((c) => Number(c.dias_mora ?? 0) > 0);
+    const montoTotalMora = conMora.reduce((s, c) => s + Number(c.monto_mora ?? 0), 0);
 
-    // Calcular créditos con mora
-    const creditosConMora = creditosActivos.filter((c) => (c.diasMora ?? 0) > 0);
-    const montoTotalMora = creditosConMora.reduce((sum, c) => sum + Number(c.montoMora || 0), 0);
+    // Tasa de recuperación (se mantiene la fórmula histórica: % de créditos que ya no están activos)
+    const tasaRecuperacion =
+      montoTotalCreditos > 0
+        ? parseFloat((((montoTotalCreditos - montoTotalActivos) / montoTotalCreditos) * 100).toFixed(1))
+        : 0;
 
-    // Calcular tasa de recuperación (pagos vs monto esperado)
-    const tasaRecuperacion = montoTotalCreditos > 0
-      ? ((montoTotalCreditos - montoTotalActivos) / montoTotalCreditos * 100).toFixed(1)
-      : "0";
+    const productos = productosRes.data ?? [];
+    const valorInventario = productos.reduce((s, p) => s + Number(p.precio ?? 0) * Number(p.stock ?? 0), 0);
 
-    // Obtener distribución de riesgo desde scoring_clientes
-    // SEGURIDAD: filtrar por distribuidor para que admin solo vea su propio scoring
-    const supabase = createAdminClient();
-    let scoringQuery = supabase
-      .from("scoring_clientes")
-      .select("nivel_riesgo");
+    const pagosHoy = pagosHoyRes.data ?? [];
+    const totalCobradoHoy = pagosHoy.reduce((s, p) => s + Number(p.monto ?? 0), 0);
 
-    if (!isSuperAdmin && distribuidorId) {
-      scoringQuery = scoringQuery.eq("distribuidor_id", distribuidorId) as typeof scoringQuery;
-    }
-
-    const { data: scoringData } = await scoringQuery;
-
+    const scoring = scoringRes.data ?? [];
     const riesgoDistribucion = {
-      BAJO: scoringData?.filter((s) => s.nivel_riesgo === "BAJO").length || 0,
-      MEDIO: scoringData?.filter((s) => s.nivel_riesgo === "MEDIO").length || 0,
-      ALTO: scoringData?.filter((s) => s.nivel_riesgo === "ALTO").length || 0,
-      MUY_ALTO: scoringData?.filter((s) => s.nivel_riesgo === "MUY_ALTO").length || 0,
+      BAJO: scoring.filter((s) => s.nivel_riesgo === "BAJO").length,
+      MEDIO: scoring.filter((s) => s.nivel_riesgo === "MEDIO").length,
+      ALTO: scoring.filter((s) => s.nivel_riesgo === "ALTO").length,
+      MUY_ALTO: scoring.filter((s) => s.nivel_riesgo === "MUY_ALTO").length,
     };
 
-    // Obtener créditos que requieren atención (mora > 7 días)
-    const creditosAtencion = creditosActivos
-      .filter((c) => (c.diasMora ?? 0) > 7)
-      .sort((a, b) => (b.diasMora ?? 0) - (a.diasMora ?? 0))
-      .slice(0, 5)
-      .map((c) => ({
-        id: c.id,
-        clienteId: c.clienteId,
-        diasMora: c.diasMora ?? 0,
-        montoMora: c.montoMora ?? 0,
-        monto: c.monto,
-      }));
+    // Créditos que requieren atención (mora > 7 días): solo estos sí necesitan sus datos completos
+    let atencionQuery = supabase
+      .from("creditos")
+      .select("id, cliente_id, dias_mora, monto_mora, monto")
+      .eq("estado", "activo")
+      .gt("dias_mora", 7)
+      .order("dias_mora", { ascending: false })
+      .limit(5);
+    if (distId) atencionQuery = atencionQuery.eq("distribuidor_id", distId);
+    const { data: atencion } = await atencionQuery;
+
+    const creditosAtencion = (atencion ?? []).map((c) => ({
+      id: c.id,
+      clienteId: c.cliente_id,
+      diasMora: c.dias_mora ?? 0,
+      montoMora: c.monto_mora ?? 0,
+      monto: c.monto,
+    }));
 
     return NextResponse.json({
       success: true,
       data: {
         // Clientes
-        totalClientes: clientes.length,
+        totalClientes: clientesRes.count ?? 0,
 
         // Créditos
         totalCreditos: creditos.length,
-        creditosActivos: creditosActivos.length,
-        creditosConMora: creditosConMora.length,
+        creditosActivos: activos.length,
+        creditosConMora: conMora.length,
         montoTotalCreditos,
         montoTotalActivos,
         montoTotalMora,
-        tasaRecuperacion: parseFloat(tasaRecuperacion),
+        tasaRecuperacion,
 
-        // Pagos
+        // Pagos de hoy
         totalPagos: pagosHoy.length,
-        totalCobradoHoy: totalPagosHoy,
+        totalCobradoHoy,
 
         // Productos
         totalProductos: productos.length,
-        productosEnStock: productos.filter((p) => p.stock > 0).length,
+        productosEnStock: productos.filter((p) => Number(p.stock ?? 0) > 0).length,
         valorInventario,
 
         // Riesgo

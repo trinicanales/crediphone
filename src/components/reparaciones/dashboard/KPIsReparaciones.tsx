@@ -1,6 +1,7 @@
 "use client";
 
 import { StatCard } from "@/components/dashboard/StatCard";
+import { formatMXN as formatCurrency } from "@/lib/format";
 import {
   Package,
   Clock,
@@ -21,15 +22,6 @@ interface KPIsReparacionesProps {
 }
 
 export function KPIsReparaciones({ estadisticas }: KPIsReparacionesProps) {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
       <StatCard

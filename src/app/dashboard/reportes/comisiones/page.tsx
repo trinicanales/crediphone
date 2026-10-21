@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
 import { DollarSign, Users, ShoppingBag, CreditCard, Download, Loader2, Info } from "lucide-react";
+import { formatMXNDec as formatMXN } from "@/lib/format";
 
 interface ComisionVendedor {
     vendedorId: string;
@@ -71,9 +72,6 @@ export default function ComisionesPage() {
         fetchReporte();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    const formatMXN = (n: number) =>
-        new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
 
     const handleExportCSV = () => {
         if (!reporte) return;

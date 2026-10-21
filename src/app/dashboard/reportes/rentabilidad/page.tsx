@@ -10,6 +10,7 @@ import {
   ChevronDown, ChevronRight, AlertCircle, RefreshCw,
 } from "lucide-react";
 import { useDistribuidor } from "@/components/DistribuidorProvider";
+import { formatMXN as fmt } from "@/lib/format";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -48,9 +49,6 @@ interface RentabilidadData {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 
 const pct = (n: number) => `${n.toFixed(1)}%`;
 

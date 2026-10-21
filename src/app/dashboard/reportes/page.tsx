@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { Download, TrendingUp, TrendingDown, DollarSign, BarChart2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { formatMXN as fmt } from "@/lib/format";
 import {
   BarChart,
   Bar,
@@ -103,14 +104,6 @@ const NOMBRES_METODO: Record<string, string> = {
   deposito: "Deposito",
   mixto: "Mixto",
 };
-
-const fmt = (value: number) =>
-  new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
 
 const fmtDec = (value: number) =>
   new Intl.NumberFormat("es-MX", {

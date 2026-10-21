@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { formatMXN as fmt, formatMXNDec as fmtDec } from "@/lib/format";
 import {
   Smartphone,
   ShoppingCart,
@@ -66,13 +67,6 @@ const PERIODO_LABELS: Record<Periodo, string> = {
   "6m": "Últimos 6 meses",
   ano: "Este año",
 };
-
-function fmt(n: number) {
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
-}
-function fmtDec(n: number) {
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 // ── Página ────────────────────────────────────────────────────────────────────
 
