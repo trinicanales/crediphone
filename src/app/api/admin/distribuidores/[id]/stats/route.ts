@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { inicioDiaMX } from "@/lib/fechas";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -30,7 +31,7 @@ export async function GET(
       supabase.from("creditos").select("*", { count: "exact", head: true }).eq("distribuidor_id", distribuidorId).eq("estado", "activo"),
       supabase.from("productos").select("*", { count: "exact", head: true }).eq("distribuidor_id", distribuidorId),
       supabase.from("users").select("*", { count: "exact", head: true }).eq("distribuidor_id", distribuidorId).eq("activo", true),
-      supabase.from("ventas").select("*", { count: "exact", head: true }).eq("distribuidor_id", distribuidorId).gte("created_at", new Date().toISOString().split("T")[0]),
+      supabase.from("ventas").select("*", { count: "exact", head: true }).eq("distribuidor_id", distribuidorId).gte("created_at", inicioDiaMX().toISOString()),
       supabase.from("users").select("id, name, role, activo, created_at").eq("distribuidor_id", distribuidorId).order("created_at", { ascending: false }),
       supabase.from("creditos").select("monto, estado").eq("distribuidor_id", distribuidorId),
     ]);

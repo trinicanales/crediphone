@@ -167,3 +167,15 @@ Tu **modelo de datos y flujo (orden como centro)** ya está al nivel del mercado
 8. Panel KPIs de reparaciones: **integrarlo** (en Reportes / dashboard). Historial: la página existe desde el primer commit (2026-02-27); el dashboard principal se rehízo en FASE 53 (2026-03-19, "Command Center") sin incluir sus gráficas; no hay registro de una decisión de separarlos.
 9. Registro diario de KPIs: **sí**, y **resumen semanal** al terminar la semana con el seguimiento.
 **Regla de trabajo:** no hay permiso general. En cada fase Claude lista los cambios, Trini aprueba o ajusta, y recién entonces se ejecuta.
+
+---
+# ANEXO C — K0 ejecutado (2026-10-20, aprobado por Trini)
+Archivos nuevos: `src/lib/fechas.ts` (hora de México), `src/lib/inventario/stock.ts` (mínimo por defecto 1, negativos), `estados.ts` (+`ESTADOS_ACTIVOS`, `ingresoOrden`).
+1. Hora de México en: `api/dashboard/resumen`, `reportes/pnl` (rango del mes), `reportes/comisiones`, `lib/db/pagos` (getPagosDelDia), `lib/db/ventas` (ventas del día y estadísticas POS), `admin/distribuidores/[id]/stats`. **Pendiente** (no es de dashboard): `lib/db/creditos`, `notificaciones`, `verificaciones`, `caja.ts` (PayJoy), `empleados` (fechas tipo date).
+2. Dashboard: tarjeta "Dinero en caja hoy" = anticipos + cobros de reparación + ventas POS completadas + pagos − devoluciones, con "Entregado hoy" (precio total) en el subtítulo. Nota: `caja_movimientos` trae `distribuidor_id` en solo 31 de 177 filas y no tiene FK a la sesión → se filtra por las sesiones de caja de la sucursal (últimos 3 días) o por su propio distribuidor_id.
+3. Stock: mínimo efectivo = `stock_minimo` o 1; crítico = `stock <= mínimo`; negativos se cuentan aparte. Efecto real hoy: **5 → 26** productos en alerta (porque ahora el mínimo 1 aplica a los 55 sin mínimo). Hoy no hay stock negativo: el trigger `decrementar_stock_venta` impide vender sin existencia (no hay CHECK de stock ≥ 0, los negativos solo entrarían por ajustes manuales). Si Trini quiere poder vender en negativo, es un cambio de trigger → fase K2.
+4. "Activas" = `ESTADOS_ACTIVOS` (8 estados) en resumen y Panel KPIs (hoy 130).
+5. Ingresos de reparación con `precio_total || costo_total` en Panel KPIs (periodo, top dispositivos, por mes, ingresos del mes).
+6. P&L: costo de piezas desde `pedidos_pieza_reparacion` (recibida/verificada_ok/instalada) de las órdenes entregadas en el mes; ventas solo `completada`; CMV ahora filtra por sucursal y por ventas completadas (antes tomaba items de todas las sucursales).
+7. Panel KPIs: garantías por vencer con `estado='activa'` (la columna `activa` no existe).
+8. `dashboard/page.tsx`: ya no ejecuta las 4–5 llamadas descartadas (el código muerto se retira en K1).

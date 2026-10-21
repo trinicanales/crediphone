@@ -537,3 +537,4 @@ git push origin HEAD:master
 ## 📊 2026-10-20 — Investigación Dashboard/KPIs/Reportes/Unificación (solo lectura)
 Documento base: `.claude/INVESTIGACION-DASHBOARD-KPIS-2026-10-20.md` (hallazgos D1–D15, unificación U-A..U-I, fases K0–K7, 9 preguntas para Trini).
 Pendiente: respuestas de Trini a §8 antes de ejecutar K0. Punto más urgente: K0 (zona horaria, "Cobrado hoy" real, stock crítico, ingresos con precio_total, costo de piezas del P&L).
+- 2026-10-20: K0 del dashboard EJECUTADO (ver ANEXO C del documento de investigación). Siguiente: K1 (limpieza), previa aprobación de Trini de la lista de cambios.

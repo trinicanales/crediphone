@@ -52,6 +52,9 @@ interface ResumenDashboard {
     cobradoHoy: number;
     ventasHoy: number;
     totalIngresoHoy: number;
+    dineroHoy: number;
+    entregadoHoy: number;
+    entregadasHoy: number;
   };
   creditos: {
     conMora: number;
@@ -59,6 +62,7 @@ interface ResumenDashboard {
   };
   inventario: {
     stockCritico: number;
+    stockNegativo: number;
   };
   caja: {
     activa: boolean;
@@ -761,13 +765,13 @@ export function DashboardEjecutivo() {
 
               {/* 3. Cobrado hoy */}
               <KpiCard
-                label="Cobrado hoy"
-                value={formatMXN(r?.finanzas.cobradoHoy ?? 0)}
-                sub={`+${formatMXN(r?.finanzas.ventasHoy ?? 0)} POS`}
+                label="Dinero en caja hoy"
+                value={formatMXN(r?.finanzas.dineroHoy ?? 0)}
+                sub={`Entregado hoy: ${formatMXN(r?.finanzas.entregadoHoy ?? 0)} (${r?.finanzas.entregadasHoy ?? 0})`}
                 icon={Wallet}
                 iconColor="var(--color-success)"
                 iconBg="var(--color-success-bg)"
-                href="/dashboard/pagos"
+                href="/dashboard/pos/caja"
               />
 
               {/* 4. Ventas POS */}
@@ -797,9 +801,9 @@ export function DashboardEjecutivo() {
 
               {/* 6. Stock crítico */}
               <KpiCard
-                label="Stock crítico"
+                label="Stock bajo o agotado"
                 value={r?.inventario.stockCritico ?? 0}
-                sub="Productos agotados"
+                sub={(r?.inventario.stockNegativo ?? 0) > 0 ? `${r?.inventario.stockNegativo} en negativo` : "Igual o debajo del mínimo"}
                 icon={PackageX}
                 iconColor="var(--color-danger)"
                 iconBg="var(--color-danger-bg)"

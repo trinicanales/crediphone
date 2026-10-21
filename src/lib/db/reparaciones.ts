@@ -1276,7 +1276,7 @@ export async function getEstadisticasReparaciones(distribuidorId?: string): Prom
   // Obtener todas las órdenes (filtradas por distribuidor si aplica)
   let statsQuery = supabase
     .from("ordenes_reparacion")
-    .select("estado, costo_total, fecha_recepcion, fecha_completado");
+    .select("estado, costo_total, precio_total, fecha_recepcion, fecha_completado");
 
   if (distribuidorId) statsQuery = statsQuery.eq("distribuidor_id", distribuidorId);
 
@@ -1338,7 +1338,7 @@ export async function getEstadisticasReparaciones(distribuidorId?: string): Prom
         const fecha = new Date(o.fecha_completado);
         return fecha >= inicioMes;
       })
-      .reduce((sum: number, orden: any) => sum + parseFloat(orden.costo_total || 0), 0) || 0;
+      .reduce((sum: number, orden: any) => sum + Number(orden.precio_total || orden.costo_total || 0), 0) || 0;
 
   return {
     total,

@@ -4,6 +4,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inicioDiaMX, inicioMesMX } from "@/lib/fechas";
 import type {
   Venta,
   VentaDetallada,
@@ -207,8 +208,7 @@ export async function getVentasByFecha(
  * Obtiene ventas del día actual
  */
 export async function getVentasDelDia(distribuidorId?: string): Promise<VentaDetallada[]> {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+  const hoy = inicioDiaMX();
   const manana = new Date(hoy);
   manana.setDate(manana.getDate() + 1);
 
@@ -456,13 +456,12 @@ export async function cancelarVenta(
 export async function getEstadisticasPOS(distribuidorId?: string): Promise<EstadisticasPOS> {
   const supabase = createAdminClient();
 
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+  const hoy = inicioDiaMX();
 
   const inicioSemana = new Date(hoy);
   inicioSemana.setDate(hoy.getDate() - hoy.getDay());
 
-  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const inicioMes = inicioMesMX(hoy.getUTCFullYear(), hoy.getUTCMonth() + 1);
 
   // Helper para filtro
   const applyDistFilter = (q: any) => {

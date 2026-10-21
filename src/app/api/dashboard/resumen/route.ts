@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inicioDiaMX } from "@/lib/fechas";
+import { ESTADOS_ACTIVOS, ingresoOrden } from "@/lib/reparaciones/estados";
+import { esStockCritico, esStockNegativo } from "@/lib/inventario/stock";
 
 /**
  * GET /api/dashboard/resumen
  * FASE 53: Endpoint unificado para el Command Center del dashboard.
  * Devuelve todos los datos del "Pulso del Día" en una sola llamada.
+ *
+ * K0 (2026-10-20): "hoy" en hora de México, dinero del día desde caja real,
+ * una sola definición de orden activa y stock crítico calculado correctamente.
  */
 export async function GET() {
   try {
-    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     }
@@ -17,10 +23,24 @@ export async function GET() {
     const supabase = createAdminClient();
     const distId = isSuperAdmin ? undefined : (distribuidorId ?? undefined);
 
-    // Fecha de inicio del día actual (medianoche MX = UTC-6)
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const hoyISO = hoy.toISOString();
+    // Medianoche de HOY en México (el servidor corre en UTC)
+    const hoyISO = inicioDiaMX().toISOString();
+
+    // caja_movimientos casi nunca trae distribuidor_id (146 de 177) y no tiene FK a la sesión:
+    // se filtra por las sesiones de caja de la sucursal (o por su propio distribuidor_id).
+    let filtroCaja: string | null = null;
+    if (distId) {
+      const hace3d = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: ses } = await supabase
+        .from("caja_sesiones")
+        .select("id")
+        .eq("distribuidor_id", distId)
+        .gte("fecha_apertura", hace3d);
+      const ids = (ses ?? []).map((s: { id: string }) => s.id);
+      filtroCaja = ids.length
+        ? "distribuidor_id.eq." + distId + ",sesion_id.in.(" + ids.join(",") + ")"
+        : "distribuidor_id.eq." + distId;
+    }
 
     // ── Queries en paralelo ───────────────────────────────────────
     const [
@@ -31,15 +51,17 @@ export async function GET() {
       pagosHoy,
       ventasHoy,
       creditosConMora,
-      stockCritico,
+      productos,
       cajaActiva,
+      movCajaHoy,
+      entregadasHoy,
     ] = await Promise.all([
-      // 1. Reparaciones activas (no canceladas, no entregadas)
+      // 1. Reparaciones activas (definición única: ESTADOS_ACTIVOS)
       (() => {
         let q = supabase
           .from("ordenes_reparacion")
           .select("id, estado, fecha_recepcion, prioridad", { count: "exact" })
-          .not("estado", "in", "(cancelado,entregado)");
+          .in("estado", ESTADOS_ACTIVOS);
         if (distId) q = q.eq("distribuidor_id", distId);
         return q;
       })(),
@@ -74,7 +96,7 @@ export async function GET() {
         return q;
       })(),
 
-      // 5. Monto cobrado HOY (pagos de créditos)
+      // 5. Pagos de créditos / apartados HOY
       (() => {
         let q = supabase
           .from("pagos")
@@ -84,11 +106,12 @@ export async function GET() {
         return q;
       })(),
 
-      // 6. Ventas POS HOY
+      // 6. Ventas POS HOY (solo completadas: no canceladas ni reembolsadas)
       (() => {
         let q = supabase
           .from("ventas")
           .select("total")
+          .eq("estado", "completada")
           .gte("fecha_venta", hoyISO);
         if (distId) q = q.eq("distribuidor_id", distId);
         return q;
@@ -105,13 +128,12 @@ export async function GET() {
         return q;
       })(),
 
-      // 8. Productos con stock crítico (stock <= stock_minimo o stock == 0)
+      // 8. Productos activos (stock crítico se evalúa en código: PostgREST no compara columnas)
       (() => {
         let q = supabase
           .from("productos")
-          .select("id", { count: "exact", head: true })
-          .eq("activo", true)
-          .or("stock.eq.0,stock.lte.stock_minimo");
+          .select("id, stock, stock_minimo")
+          .eq("activo", true);
         if (distId) q = q.eq("distribuidor_id", distId);
         return q;
       })(),
@@ -123,6 +145,28 @@ export async function GET() {
           .select("id, folio, estado")
           .eq("estado", "abierta")
           .limit(1);
+        if (distId) q = q.eq("distribuidor_id", distId);
+        return q;
+      })(),
+
+      // 10. Movimientos de caja de HOY (anticipos, cobros de reparación y devoluciones)
+      (() => {
+        let q = supabase
+          .from("caja_movimientos")
+          .select("tipo, monto")
+          .in("tipo", ["entrada_anticipo", "cobro_reparacion", "devolucion_anticipo"])
+          .gte("created_at", hoyISO);
+        if (filtroCaja) q = q.or(filtroCaja);
+        return q;
+      })(),
+
+      // 11. Servicios entregados HOY (precio total de las órdenes entregadas hoy)
+      (() => {
+        let q = supabase
+          .from("ordenes_reparacion")
+          .select("precio_total, costo_total")
+          .eq("estado", "entregado")
+          .gte("fecha_entregado", hoyISO);
         if (distId) q = q.eq("distribuidor_id", distId);
         return q;
       })(),
@@ -142,7 +186,34 @@ export async function GET() {
       0
     );
 
-    // Urgentes = reparaciones activas con prioridad urgente o con días > 7 en diagnóstico
+    // Dinero del día = anticipos + cobros de reparación + ventas POS + pagos de crédito − devoluciones
+    let anticiposHoy = 0;
+    let cobrosReparacionHoy = 0;
+    let devolucionesHoy = 0;
+    for (const m of movCajaHoy.data ?? []) {
+      const monto = Number(m.monto ?? 0);
+      if (m.tipo === "entrada_anticipo") anticiposHoy += monto;
+      else if (m.tipo === "cobro_reparacion") cobrosReparacionHoy += monto;
+      else if (m.tipo === "devolucion_anticipo") devolucionesHoy += monto;
+    }
+    const dineroHoy =
+      anticiposHoy + cobrosReparacionHoy + ventasHoyTotal + cobradoHoy - devolucionesHoy;
+
+    // Servicios entregados hoy (lo que pagó el cliente por las órdenes que salieron)
+    const entregadoHoy = (entregadasHoy.data ?? []).reduce(
+      (sum: number, o: { precio_total: unknown; costo_total: unknown }) => sum + ingresoOrden(o),
+      0
+    );
+    const cantidadEntregadasHoy = (entregadasHoy.data ?? []).length;
+
+    // Stock crítico (mínimo por defecto 1) y negativos
+    const prods = productos.data ?? [];
+    const stockCritico = prods.filter((p: { stock: number; stock_minimo: number | null }) =>
+      esStockCritico(p.stock, p.stock_minimo)
+    ).length;
+    const stockNegativo = prods.filter((p: { stock: number }) => esStockNegativo(p.stock)).length;
+
+    // Urgentes = reparaciones activas con prioridad urgente
     const urgentes = (repActivas.data ?? []).filter(
       (r: { prioridad?: string }) => r.prioridad === "urgente"
     ).length;
@@ -161,13 +232,21 @@ export async function GET() {
           cobradoHoy,
           ventasHoy: ventasHoyTotal,
           totalIngresoHoy: cobradoHoy + ventasHoyTotal,
+          // K0: dinero real del día y servicios entregados (se muestran ambos)
+          dineroHoy,
+          anticiposHoy,
+          cobrosReparacionHoy,
+          devolucionesHoy,
+          entregadoHoy,
+          entregadasHoy: cantidadEntregadasHoy,
         },
         creditos: {
           conMora: creditosConMora.count ?? 0,
           montoMoraTotal,
         },
         inventario: {
-          stockCritico: stockCritico.count ?? 0,
+          stockCritico,
+          stockNegativo,
         },
         caja: {
           activa: !!(cajaActiva.data && cajaActiva.data.length > 0),

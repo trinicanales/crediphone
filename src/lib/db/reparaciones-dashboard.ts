@@ -10,6 +10,7 @@ import {
   getOrdenesReparacionDetalladas,
 } from "./reparaciones";
 import type { OrdenReparacionDetallada, EstadisticasTecnico } from "@/types";
+import { ESTADOS_ACTIVOS, ingresoOrden } from "@/lib/reparaciones/estados";
 
 // ============================================
 // TIPOS
@@ -99,7 +100,7 @@ export async function getEstadisticasReparacionesPorFecha(
   // Órdenes por estado
   let ordenesQuery = supabase
     .from("ordenes_reparacion")
-    .select("estado, costo_total, fecha_recepcion, fecha_completado")
+    .select("estado, costo_total, precio_total, fecha_recepcion, fecha_completado")
     .gte("fecha_recepcion", fechaInicio.toISOString())
     .lte("fecha_recepcion", fechaFin.toISOString());
   if (distribuidorId) ordenesQuery = ordenesQuery.eq("distribuidor_id", distribuidorId);
@@ -113,9 +114,7 @@ export async function getEstadisticasReparacionesPorFecha(
   ordenes?.forEach((orden) => {
     porEstado[orden.estado] = (porEstado[orden.estado] || 0) + 1;
 
-    if (orden.costo_total) {
-      ingresosPeriodo += parseFloat(orden.costo_total.toString());
-    }
+    ingresosPeriodo += ingresoOrden(orden);
 
     if (orden.fecha_completado && orden.fecha_recepcion) {
       const inicio = new Date(orden.fecha_recepcion);
@@ -225,7 +224,7 @@ export async function getTop10DispositivosReparados(
 
   let query = supabase
     .from("ordenes_reparacion")
-    .select("marca_dispositivo, modelo_dispositivo, costo_total")
+    .select("marca_dispositivo, modelo_dispositivo, costo_total, precio_total")
     .not("estado", "in", '("cancelado","no_reparable")');
 
   if (fechaInicio) query = query.gte("fecha_recepcion", fechaInicio.toISOString());
@@ -250,9 +249,7 @@ export async function getTop10DispositivosReparados(
       };
     }
     agrupado[key].cantidad++;
-    if (orden.costo_total) {
-      agrupado[key].ingresoTotal += parseFloat(orden.costo_total.toString());
-    }
+    agrupado[key].ingresoTotal += ingresoOrden(orden);
   });
 
   // Convertir a array y ordenar
@@ -272,7 +269,7 @@ export async function getIngresosPorMes(meses: number = 6, distribuidorId?: stri
 
   let query = supabase
     .from("ordenes_reparacion")
-    .select("fecha_completado, costo_total")
+    .select("fecha_completado, costo_total, precio_total")
     .not("fecha_completado", "is", null)
     .gte("fecha_completado", fechaInicio.toISOString())
     .order("fecha_completado", { ascending: true });
@@ -295,9 +292,7 @@ export async function getIngresosPorMes(meses: number = 6, distribuidorId?: stri
     }
 
     porMes[mes].ordenes++;
-    if (orden.costo_total) {
-      porMes[mes].ingresos += parseFloat(orden.costo_total.toString());
-    }
+    porMes[mes].ingresos += ingresoOrden(orden);
   });
 
   // Convertir a array y formatear nombres
@@ -473,7 +468,7 @@ export async function getGarantiasProximasVencer(
       )
       .gte("fecha_vencimiento", fechaInicio.toISOString())
       .lte("fecha_vencimiento", fechaFin.toISOString())
-      .eq("activa", true)
+      .eq("estado", "activa")
       .order("fecha_vencimiento", { ascending: true });
     const { data, error } = await garantiasQuery;
 
@@ -546,11 +541,7 @@ export async function getDashboardCompleto(distribuidorId?: string): Promise<Das
 
   // Calcular KPIs
   const ordenesActivas = Object.entries(estadisticas.porEstado)
-    .filter(([estado]) =>
-      ["recibido", "diagnostico", "presupuesto", "aprobado", "en_reparacion"].includes(
-        estado
-      )
-    )
+    .filter(([estado]) => (ESTADOS_ACTIVOS as string[]).includes(estado))
     .reduce((sum, [, count]) => sum + count, 0);
 
   const presupuestosPendientesCount = estadisticas.porEstado.presupuesto || 0;

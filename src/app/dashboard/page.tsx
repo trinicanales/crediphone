@@ -124,6 +124,9 @@ export default function DashboardPage() {
   // Re-fetch cuando el super_admin cambia de distribuidor en el selector del sidebar
   useEffect(() => {
     if (!user) return;
+    // K0: todos los roles se enrutan a su propio dashboard (abajo) y ese componente carga sus datos.
+    // Antes estas 4-5 llamadas se ejecutaban y se descartaban en cada visita (el cuerpo viejo es código muerto; se retira en K1).
+    if ("admin super_admin vendedor cobrador tecnico".split(" ").includes(user.role)) return;
     fetchStats();
     fetchRepStats();
     fetchOrdenesPendientes();

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inicioMesMX, ymdMX } from "@/lib/fechas";
 import { getAuthContext } from "@/lib/auth/server";
 
 /**
@@ -33,13 +34,14 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const now = new Date();
-    const mes = parseInt(searchParams.get("mes") ?? String(now.getMonth() + 1), 10); // 1-12
-    const anio = parseInt(searchParams.get("anio") ?? String(now.getFullYear()), 10);
+    // Mes/año actuales en hora de México (el servidor corre en UTC)
+    const [anioMX, mesMX] = ymdMX().split("-").map((n) => parseInt(n, 10));
+    const mes = parseInt(searchParams.get("mes") ?? String(mesMX), 10); // 1-12
+    const anio = parseInt(searchParams.get("anio") ?? String(anioMX), 10);
 
     // Rango del mes: primer día 00:00:00 → primer día siguiente mes 00:00:00
-    const inicio = new Date(anio, mes - 1, 1).toISOString();
-    const fin = new Date(anio, mes, 1).toISOString();
+    const inicio = inicioMesMX(anio, mes).toISOString();
+    const fin = (mes === 12 ? inicioMesMX(anio + 1, 1) : inicioMesMX(anio, mes + 1)).toISOString();
 
     const supabase = createAdminClient();
     const filterDist = isSuperAdmin ? null : (distribuidorId ?? null);
@@ -50,7 +52,6 @@ export async function GET(req: NextRequest) {
       ventasRes,
       ventasItemsRes,
       reparacionesRes,
-      piezasReparacionRes,
       comprasRes,
     ] = await Promise.all([
       // 1. Pagos de créditos del mes
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
           .select("id, total, subtotal, descuento")
           .gte("fecha_venta", inicio)
           .lt("fecha_venta", fin)
-          .neq("estado", "cancelada");
+          .eq("estado", "completada");
         if (filterDist) q = q.eq("distribuidor_id", filterDist);
         return q;
       })(),
@@ -88,10 +89,13 @@ export async function GET(req: NextRequest) {
             subtotal,
             venta_id,
             producto_id,
-            productos!ventas_items_producto_id_fkey(id, costo)
+            productos!ventas_items_producto_id_fkey(id, costo),
+            ventas!inner(distribuidor_id, estado, fecha_venta)
           `)
-          .gte("created_at", inicio)
-          .lt("created_at", fin);
+          .eq("ventas.estado", "completada")
+          .gte("ventas.fecha_venta", inicio)
+          .lt("ventas.fecha_venta", fin);
+        if (filterDist) q = q.eq("ventas.distribuidor_id", filterDist);
         return q;
       })(),
 
@@ -107,15 +111,7 @@ export async function GET(req: NextRequest) {
         return q;
       })(),
 
-      // 5. Piezas usadas en reparaciones del mes (costo directo)
-      (() => {
-        let q = supabase
-          .from("reparacion_piezas")
-          .select("id, costo_total")
-          .gte("created_at", inicio)
-          .lt("created_at", fin);
-        return q;
-      })(),
+      // 5. (el costo de piezas se calcula abajo desde pedidos_pieza_reparacion)
 
       // 6. Órdenes de compra recibidas en el mes
       (() => {
@@ -157,9 +153,20 @@ export async function GET(req: NextRequest) {
     }
 
     // ─── Costos de reparación (piezas) ───────────────────────────────────────
-    const costoPiezasReparacion = (piezasReparacionRes.data ?? []).reduce(
-      (s, p) => s + Number(p.costo_total ?? 0), 0
-    );
+    // Costo real de las refacciones de las órdenes entregadas en el mes: pedidos de pieza ya
+    // recibidos (costo de la pieza + envío). reparacion_piezas.costo_total no existe y la tabla está vacía.
+    const ordenIds = (reparacionesRes.data ?? []).map((o) => o.id);
+    let costoPiezasReparacion = 0;
+    if (ordenIds.length > 0) {
+      const { data: pedidos } = await supabase
+        .from("pedidos_pieza_reparacion")
+        .select("costo_estimado, costo_envio")
+        .in("orden_id", ordenIds)
+        .in("estado", ["recibida", "verificada_ok", "instalada"]);
+      costoPiezasReparacion = (pedidos ?? []).reduce(
+        (s, p) => s + Number(p.costo_estimado ?? 0) + Number(p.costo_envio ?? 0), 0
+      );
+    }
 
     // ─── Compras de inventario ────────────────────────────────────────────────
     const costoCompras = (comprasRes.data ?? []).reduce(

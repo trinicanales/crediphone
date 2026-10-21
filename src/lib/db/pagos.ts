@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ymdMX } from "@/lib/fechas";
 import type { Pago } from "@/types";
 
 /**
@@ -47,7 +48,7 @@ export async function getPagosByCredito(creditoId: string): Promise<Pago[]> {
 
 export async function getPagosDelDia(distribuidorId?: string): Promise<Pago[]> {
   const supabase = createAdminClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = ymdMX();
 
   let query = supabase
     .from("pagos")

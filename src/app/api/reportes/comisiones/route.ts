@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { ymdMX } from "@/lib/fechas";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth/guard";
 
@@ -21,14 +22,14 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient();
     const searchParams = request.nextUrl.searchParams;
-    const fecha = searchParams.get("fecha") || new Date().toISOString().split("T")[0];
+    const fecha = searchParams.get("fecha") || ymdMX();
 
     // Filtrar por distribuidor — super_admin ve todos, admin ve solo su tienda
     const distribuidorId = auth.isSuperAdmin ? null : auth.distribuidorId;
 
     try {
-        const fechaInicio = `${fecha}T00:00:00.000Z`;
-        const fechaFin = `${fecha}T23:59:59.999Z`;
+        const fechaInicio = `${fecha}T00:00:00-06:00`;
+        const fechaFin = `${fecha}T23:59:59.999-06:00`;
 
         // 1. Obtener todos los empleados activos con rol vendedor o admin (filtrado por distribuidor)
         const empleadosQuery = supabase

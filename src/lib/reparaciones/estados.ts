@@ -31,6 +31,30 @@ export const TRANSICIONES_VALIDAS: Record<EstadoOrdenReparacion, EstadoOrdenRepa
 export const ESTADOS_SOLO_POR_FLUJO_ENTREGA: EstadoOrdenReparacion[] = ["entregado"];
 
 /**
+ * ORDEN "ACTIVA" = sigue en el taller (no entregada, cancelada ni no reparable).
+ * Antes cada pantalla tenía su propia definición y los números no coincidían.
+ */
+export const ESTADOS_ACTIVOS: EstadoOrdenReparacion[] = [
+  "recibido",
+  "diagnostico",
+  "esperando_piezas",
+  "presupuesto",
+  "aprobado",
+  "en_reparacion",
+  "completado",
+  "listo_entrega",
+];
+
+export function esOrdenActiva(estado: EstadoOrdenReparacion): boolean {
+  return ESTADOS_ACTIVOS.includes(estado);
+}
+
+/** Ingreso de una orden: lo que paga el cliente (precio_total); costo_total solo si no hay precio. */
+export function ingresoOrden(o: { precio_total?: unknown; costo_total?: unknown }): number {
+  return Number(o.precio_total || o.costo_total || 0);
+}
+
+/**
  * PASOS DE PROGRESO — fuente única para el stepper del personal (tarjeta) y el del cliente
  * (seguimiento). Antes eran dos listas distintas (6 y 7 pasos) y el mismo estado caía en
  * pasos diferentes. Decisión de Trini 2026-10-19: unificar en 7 pasos.
