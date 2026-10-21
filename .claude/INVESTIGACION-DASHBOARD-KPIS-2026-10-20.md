@@ -154,3 +154,16 @@ Fuentes consultadas: comparativas 2026 de software para talleres (GitNux, WifiTa
 
 ## A.5 Conclusión de la comparación
 Tu **modelo de datos y flujo (orden como centro)** ya está al nivel del mercado y en varios puntos por encima. Lo que te separa de los líderes es la **navegación** (37 entradas contra 6–9), la **falta de reporte único/constructor**, la **ausencia de tablero de taller por antigüedad** y la **comunicación dispersa**. Todo se resuelve reorganizando y agregando vistas (K2–K5), sin tocar el flujo que ya funciona.
+
+---
+# ANEXO B — Decisiones de Trini (2026-10-20) sobre §8
+1. Ingreso del día: **mostrar ambos** (dinero en caja y servicios entregados).
+2. Crédito: se usará a futuro; por ahora solo para **apartados / pagos de algún producto** (poco uso). Se oculta lo demás de crédito (cartera, cobrador, scoring) sin borrar; se conserva lo necesario para apartados/abonos.
+3. Kits, lotes de piezas, lotes de series, órdenes de compra: **ocultar por ahora**.
+4. Umbrales propuestos (7/5/3 días) aprobados. Agregar **botón de envío al cliente en el stepper de estado y en la OrdenCard** (mensaje según el paso) y **colores en las tarjetas** para diferenciarlas (por situación/antigüedad).
+5. Comisión de técnicos: **no por ahora** (la dueña hace las reparaciones hasta contratar técnico). Dejar listo el módulo para activarlo después.
+6. Stock mínimo por defecto: **1**. Mostrar **inventario en negativo** (no bloquear ni ocultar) cuando se vende producto/servicio sin existencia, y alertarlo.
+7. **Antes de aprobar el menú/dashboard quiere ver cómo quedaría** → maqueta visual enviada 2026-10-20 (pendiente de su aprobación/ajustes).
+8. Panel KPIs de reparaciones: **integrarlo** (en Reportes / dashboard). Historial: la página existe desde el primer commit (2026-02-27); el dashboard principal se rehízo en FASE 53 (2026-03-19, "Command Center") sin incluir sus gráficas; no hay registro de una decisión de separarlos.
+9. Registro diario de KPIs: **sí**, y **resumen semanal** al terminar la semana con el seguimiento.
+**Regla de trabajo:** no hay permiso general. En cada fase Claude lista los cambios, Trini aprueba o ajusta, y recién entonces se ejecuta.
