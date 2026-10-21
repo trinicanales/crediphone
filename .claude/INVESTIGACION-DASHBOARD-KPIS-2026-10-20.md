@@ -100,3 +100,57 @@
 
 ## 9. Evidencia (consultas ejecutadas)
 `pg_stat_user_tables` (conteos), `ordenes_reparacion` por estado, ingresos por mes con `costo_total` vs `precio_total`, `caja_movimientos` por tipo (90 d), productos críticos (`stock=0 or stock<=stock_minimo` = 5; sin mínimo = 55), columnas reales de `reparacion_piezas`/`ventas`/`servicios`, `cron.job` (1 job), vistas (5), matviews (0).
+
+---
+# ANEXO A — Comparativa con el mercado (investigación en línea, 2026-10-20)
+Fuentes consultadas: comparativas 2026 de software para talleres (GitNux, WifiTalents), sitios de RepairDesk, RepairShopr, CellSmart POS, CellStore, MiTallerControl y FixFlow (LatAm), blog de RepairDesk "vs RepairShopr 2026", artículos de KPIs de órdenes de trabajo (ServicePower, FieldServiceSoftware). Nota: son páginas de los propios fabricantes y rankings de terceros; sirven para ver **cómo organizan el menú**, no como verdad absoluta.
+
+## A.1 Cómo organizan el menú los líderes (estructura de "organigrama")
+| Producto | Módulos del menú principal | Qué UNEN | Qué SEPARAN |
+|---|---|---|---|
+| **RepairDesk** (el que más evoluciona: 170+ actualizaciones/año) | Tickets · POS · Inventario · Clientes (CRM) · Empleados · Reportes · Marketing · Comunicaciones | Orden + piezas + pago + cliente en un mismo ticket; cotización, depósito/anticipo, reembolso y pagos divididos dentro del POS; empleados con asistencia + comisión + productividad en un solo lugar | Marketing y Comunicaciones aparte (campañas, reseñas, SMS 2 vías, bandeja unificada "Connect") |
+| **RepairShopr** | Clientes/Organizaciones · Tickets · Facturas y Estimaciones · Inventario · POS · Leads · Marketing · Reportes · Centro de apps | Ticket → factura con un clic; pedidos de piezas ligados al ticket; garantía/RMA ligados al inventario por serie | Leads y Marketing separados; "pantalla de taller" (monitor grande con tickets por estado) |
+| **CellSmart / CellStore / RepairQ** | Reparaciones · POS · Inventario (nuevo, usado, piezas, **IMEI**) · CRM · Reportes | Venta + reparación + inventario de equipos con IMEI en una sola consola; firma electrónica y checklist de equipo en la recepción | Marketing/pagos integrados como módulos opcionales |
+| **SpudgerHQ** (nuevo) | Recepción (croquis de daños, acuerdo y firma digital) · Piezas y servicios · Flujo del técnico · **QA** · Pagos · Historial de reparación | Todo el día a día en un solo espacio de trabajo | Control de calidad (QA) como etapa propia antes de entregar |
+| **MiTallerControl / FixFlow** (LatAm) | Órdenes · Clientes y equipos · Caja/ingresos/gastos · Inventario de repuestos y accesorios · POS · WhatsApp con plantillas automáticas | Caja, POS e inventario juntos; WhatsApp ligado a cada cambio de estado | — |
+
+**Patrón común:** el menú tiene **6–9 secciones**, nunca 30+. La unidad central es el **ticket/orden**; POS, inventario, clientes y pagos cuelgan de él. Los reportes son **un solo módulo** con subsecciones (ventas, inventario, clientes, tickets, empleados) y, en RepairDesk, **un constructor de reportes** personalizable. La comunicación (SMS/WhatsApp/correo) vive en **una bandeja unificada**.
+
+## A.2 Funciones "nuevas" que ya son estándar en 2026 (y qué tienes tú)
+| Función de mercado | Mercado | CREDIPHONE hoy | Brecha |
+|---|---|---|---|
+| Portal de seguimiento para el cliente (estado 24/7, aprobar presupuesto) | Estándar | ✅ `/tracking`, `/reparacion/[folio]` (recién protegido) | Unificar el progreso (hecho 2026-10-19) |
+| Recepción con **firma digital** + checklist + croquis/fotos | Estándar (CellStore, SpudgerHQ, RepairQ) | ◐ checklist y fotos sí; firma solo en papel | Firma en entrega (aprobada por Trini, fase E) |
+| **IMEI/serie** como identificador y lista negra | Estándar | ◐ IMEI opcional, sin validación; IFT manual | Validación (Fase E) |
+| Pedido de piezas ligado a la orden + proveedores integrados | RepairDesk (MobileSentrix…) | ✅ pedidos de pieza por orden (38 registros) | Proveedores no integrados (normal en MX) |
+| **WhatsApp automático** por cambio de estado | MiTallerControl, FixFlow, PhoneMistri | ◐ modo enlace manual (425 mensajes pendientes) | Trini decidió seguir en modo enlace → una **bandeja "por enviar"** reduce el trabajo |
+| Comisión/productividad por empleado en el mismo módulo | RepairDesk | ◐ comisiones solo vendedor/admin | Técnicos sin comisión ni productividad |
+| **Pantalla de taller** (monitor con órdenes por estado/antigüedad) | RepairShopr | ✗ | Propuesta K3 (tablero del taller) |
+| **QA / control de calidad** antes de entregar | SpudgerHQ | ✗ (hay "completado" → "listo") | Opcional: paso de verificación (ligado a "No verificable") |
+| Seguimiento posterior (14/90 días), reseñas, recompra | RepairShopr / RepairDesk | ✗ | Fácil con cron + plantilla (Fase 4 del plan de automatizaciones) |
+| Constructor de reportes / reportes por sucursal | RepairDesk | ✗ (reportes fijos) | Centro de Reportes con filtros guardados (K4) |
+| Reservas/citas, auto check-in (kiosko), trade-in, suscripciones | RepairDesk | ✗ | No prioritario para tu operación hoy |
+| IA para limpiar notas técnicas / recepcionista IA | RepairDesk (ARIA, "Polish with AI") | ✗ | Opcional, costo recurrente; evaluar después |
+| Contabilidad (QuickBooks/Xero) | Estándar | ✗ (facturación apagada por decisión) | Fuera de alcance por ahora |
+
+## A.3 Comparación de estructura: lo tuyo vs. el estándar
+| Aspecto | Estándar del mercado | CREDIPHONE hoy | Diagnóstico |
+|---|---|---|---|
+| Entradas de menú | 6–9 | **~37** | Demasiado fragmentado → propuesta ~12 (U-A…U-I) |
+| Reportes | 1 módulo con subsecciones | **5 páginas** separadas (+ dashboard de reparaciones) | Unificar |
+| Inventario | 1 módulo (productos, stock, series/IMEI, transferencias, conteos) | **14 entradas** | Unificar en Inventario + Abastecimiento |
+| Catálogo de servicios | 1 | **2** (`servicios` y `catalogo_servicios_reparacion`) | Unificar |
+| Comunicación | 1 bandeja unificada | mensajes sueltos en tarjeta/drawer/recordatorios/fallidas | Centro de mensajes |
+| Empleados | asistencia + comisión + productividad juntos | Empleados, Asistencia y Comisiones separados | Unificar en Personal |
+| Ticket como centro | Todo cuelga de la orden | ✅ ya es así (anticipos, piezas, garantía, entrega) | **Fortaleza**: conservar |
+| Dashboard | KPIs de ticket/ingreso/empleado/inventario; pantalla de taller | KPIs de crédito/POS; sin antigüedad de órdenes | Reorientar al taller |
+| Crédito/cartera | No es parte del estándar de talleres (es de tiendas de equipos a crédito) | Módulo completo, **0 datos** | Mantener, pero ocultable |
+
+## A.4 Qué TIENES que el mercado no suele traer (ventajas a proteger)
+- **Bolsa virtual / anticipos con trazabilidad** y confirmación de depósitos entre sucursales.
+- **Multi-sucursal con franquicias** (4 distribuidores) y vista comparativa para super admin.
+- **Cotización con piezas desde inventario y "agregar libre"**, política de garantías publicada con QR, tracking con aprobación presencial/parcial.
+- **Crédito + scoring + cobranza** integrados con el taller (poco común) — vale la pena conservar aunque hoy no se use.
+
+## A.5 Conclusión de la comparación
+Tu **modelo de datos y flujo (orden como centro)** ya está al nivel del mercado y en varios puntos por encima. Lo que te separa de los líderes es la **navegación** (37 entradas contra 6–9), la **falta de reporte único/constructor**, la **ausencia de tablero de taller por antigüedad** y la **comunicación dispersa**. Todo se resuelve reorganizando y agregando vistas (K2–K5), sin tocar el flujo que ya funciona.
