@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { SugerenciasInput } from "./SugerenciasInput";
 import { useAuth } from "@/components/AuthProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -211,13 +212,22 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     resetForm();
   }
 
+  // Super admin: al cambiar la tienda elegida, recargar los técnicos de ESA tienda
+  useEffect(() => {
+    if (isOpen && isSuperAdmin) {
+      setTecnicoId("");
+      fetchTecnicos(distribuidorSeleccionado || undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [distribuidorSeleccionado]);
+
   useEffect(() => {
     if (isOpen) {
       fetchClientes();
       reservarFolio();
       cargarCatalogo();
       if (isSuperAdmin) fetchDistribuidores();
-      if (isAdmin) fetchTecnicos();
+      if (isAdmin) fetchTecnicos(isSuperAdmin ? distribuidorSeleccionado || undefined : undefined);
     } else {
       // Si el modal se cierra sin haber guardado, cancelar el folio reservado
       if (folioReservado) {
@@ -312,14 +322,17 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
     }
   }
 
-  async function fetchTecnicos() {
+  // Técnicos y admins activos de la tienda (del usuario, o de la tienda elegida si es super_admin)
+  async function fetchTecnicos(tienda?: string) {
     try {
-      const res = await fetch("/api/empleados?activos=true");
+      const qs = tienda ? `?distribuidorId=${tienda}` : "";
+      const res = await fetch(`/api/reparaciones/tecnicos${qs}`);
       const data = await res.json();
       if (data.success) {
-        const lista = (data.data as { id: string; name: string; role: string }[])
-          .filter((e) => e.role === "tecnico")
-          .map((e) => ({ id: e.id, nombre: e.name }));
+        const lista = (data.data as { id: string; nombre: string; role: string }[]).map((e) => ({
+          id: e.id,
+          nombre: e.role === "admin" ? `${e.nombre} (admin)` : e.nombre,
+        }));
         setTecnicos(lista);
       }
     } catch {
@@ -1061,11 +1074,12 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                     <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                       Marca <span style={{ color: "var(--color-danger)" }}>*</span>
                     </label>
-                    <input
-                      type="text"
+                    <SugerenciasInput
                       name="marcaDispositivo"
+                      campo="marca"
+                      distribuidorId={isSuperAdmin ? distribuidorSeleccionado || undefined : undefined}
                       value={formData.marcaDispositivo}
-                      onChange={handleChange}
+                      onChange={(v) => handleChange({ target: { name: "marcaDispositivo", value: v } } as React.ChangeEvent<HTMLInputElement>)}
                       required
                       placeholder="Samsung, Apple, Xiaomi"
                       style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem" }}
@@ -1076,11 +1090,13 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                     <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                       Modelo <span style={{ color: "var(--color-danger)" }}>*</span>
                     </label>
-                    <input
-                      type="text"
+                    <SugerenciasInput
                       name="modeloDispositivo"
+                      campo="modelo"
+                      marca={formData.marcaDispositivo}
+                      distribuidorId={isSuperAdmin ? distribuidorSeleccionado || undefined : undefined}
                       value={formData.modeloDispositivo}
-                      onChange={handleChange}
+                      onChange={(v) => handleChange({ target: { name: "modeloDispositivo", value: v } } as React.ChangeEvent<HTMLInputElement>)}
                       required
                       placeholder="Galaxy A54, iPhone 12"
                       style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem" }}
@@ -1141,15 +1157,18 @@ export function ModalOrden({ isOpen, onClose, onSuccess }: ModalOrdenProps) {
                       Problema Reportado <span style={{ color: "var(--color-danger)" }}>*</span>
                     </label>
                   </div>
-                  <textarea
-                    name="problemaReportado"
-                    value={formData.problemaReportado}
-                    onChange={handleChange}
-                    required
-                    rows={3}
-                    placeholder="Marca fallas en el checklist de condiciones (abajo) o escribe aquí el problema"
-                    style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontSize: "0.875rem", resize: "vertical" }}
-                  />
+                  <SugerenciasInput
+                      name="problemaReportado"
+                      campo="problema"
+                      distribuidorId={isSuperAdmin ? distribuidorSeleccionado || undefined : undefined}
+                      value={formData.problemaReportado}
+                      onChange={(v) => handleChange({ target: { name: "problemaReportado", value: v } } as React.ChangeEvent<HTMLInputElement>)}
+                      required
+                      multiline
+                      rows={3}
+                      placeholder="Marca fallas en el checklist de condiciones (abajo) o escribe aquí el problema"
+                      style={{ width: "100%", borderRadius: "0.5rem", border: "2px solid var(--color-border)", background: "var(--color-bg-sunken)", color: "var(--color-text-primary)", padding: "0.75rem 1rem", fontSize: "0.875rem", resize: "vertical" }}
+                    />
                   {/* Resumen de fallas del checklist — siempre visible cuando hay fallas marcadas */}
                   {(() => {
                     const nombresComponentes: Record<string, string> = {

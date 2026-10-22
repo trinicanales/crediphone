@@ -88,6 +88,27 @@ export function ModalDiagnostico({
   const [busqCargando, setBusqCargando] = useState(false);
   const busqTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // K3a: quien empieza a capturar el diagnóstico queda registrado como el técnico de la orden
+  // (técnico, admin o super_admin). Si la tenía otra persona, se reasigna y queda en el historial.
+  const asignadoRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isOpen) {
+      asignadoRef.current = null;
+      return;
+    }
+    if (!user || !ordenId || asignadoRef.current === ordenId) return;
+    if (!["tecnico", "admin", "super_admin"].includes(user.role)) return;
+    asignadoRef.current = ordenId;
+    if (orden?.tecnicoId === user.id) return;
+    fetch(`/api/reparaciones/${ordenId}/tomar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ motivo: "inicio_diagnostico" }),
+    }).catch(() => {
+      // no bloquea la captura del diagnóstico
+    });
+  }, [isOpen, user, ordenId, orden?.tecnicoId]);
+
   // Pre-cargar datos existentes cuando el modal abre (F1-B: el técnico nunca empieza en blanco)
   useEffect(() => {
     if (!isOpen || preloadedRef.current) return;

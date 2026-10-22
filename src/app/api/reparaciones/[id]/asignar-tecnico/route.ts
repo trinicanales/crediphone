@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { reasignarTecnico, getOrdenReparacionById } from "@/lib/db/reparaciones";
+import { getOrdenReparacionById } from "@/lib/db/reparaciones";
+import { asignarOrden } from "@/lib/reparaciones/asignacion";
 import { requireAuth } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -97,8 +98,13 @@ export async function POST(
       );
     }
 
-    // Reasignar técnico (la función valida que el técnico sea válido y activo)
-    await reasignarTecnico(id, body.tecnicoId);
+    // Reasignar (valida usuario activo, rol técnico/admin y misma tienda; guarda historial)
+    await asignarOrden({
+      ordenId: id,
+      usuarioId: body.tecnicoId,
+      motivo: "reasignada",
+      porUsuarioId: auth.userId,
+    });
 
     // Obtener orden actualizada
     const ordenActualizada = await getOrdenReparacionById(id);

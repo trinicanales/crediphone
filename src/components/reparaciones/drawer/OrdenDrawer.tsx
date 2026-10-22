@@ -468,20 +468,47 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
   const [nuevoTecnicoId, setNuevoTecnicoId] = useState("");
   const [reasignando, setReasignando] = useState(false);
 
+  // Solo técnicos/admins activos de la tienda de la orden (no de otras tiendas ni de tiendas desactivadas)
+  const tiendaOrden = orden?.distribuidorId;
   const fetchTecnicos = useCallback(async () => {
     try {
-      const res = await fetch("/api/empleados");
+      const qs = tiendaOrden ? `?distribuidorId=${tiendaOrden}` : "";
+      const res = await fetch(`/api/reparaciones/tecnicos${qs}`);
       const data = await res.json();
       if (data.success) {
-        const todos = data.data ?? [];
         setTecnicos(
-          todos
-            .filter((e: { role?: string }) => e.role === "tecnico" || e.role === "admin")
-            .map((e: { id: string; name?: string }) => ({ id: e.id, nombre: e.name ?? e.id }))
+          (data.data as { id: string; nombre: string; role: string }[]).map((e) => ({
+            id: e.id,
+            nombre: e.role === "admin" ? `${e.nombre} (admin)` : e.nombre,
+          }))
         );
       }
     } catch { /* silencioso */ }
-  }, []);
+  }, [tiendaOrden]);
+
+  const [tomando, setTomando] = useState(false);
+  const handleTomar = async () => {
+    if (!ordenId) return;
+    setTomando(true);
+    try {
+      const res = await fetch(`/api/reparaciones/${ordenId}/tomar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: "tomada_por_admin" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchOrden();
+        onRefresh();
+      } else {
+        alert(data.error || "No se pudo tomar la orden");
+      }
+    } catch {
+      alert("Error de conexión al tomar la orden");
+    } finally {
+      setTomando(false);
+    }
+  };
 
   const handleReasignar = async () => {
     if (!nuevoTecnicoId || !ordenId) return;
@@ -498,8 +525,12 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
         setNuevoTecnicoId("");
         await fetchOrden();
         onRefresh();
+      } else {
+        alert(data.message || data.error || "No se pudo reasignar la orden");
       }
-    } catch { /* silencioso */ }
+    } catch {
+      alert("Error de conexión al reasignar");
+    }
     finally { setReasignando(false); }
   };
 
@@ -2130,6 +2161,18 @@ export function OrdenDrawer({ ordenId, onClose, onRefresh, defaultTab = "resumen
               </p>
               <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Técnico de reparación</p>
             </div>
+            {isAdmin && !["entregado", "cancelado"].includes(orden.estado) && orden.tecnicoId !== user?.id && (
+              <button
+                onClick={handleTomar}
+                disabled={tomando}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ background: "var(--color-accent)", color: "#fff", opacity: tomando ? 0.6 : 1 }}
+                title="Registrar esta orden a tu nombre"
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                {tomando ? "Tomando…" : "Tomar esta orden"}
+              </button>
+            )}
             {isAdmin && !["entregado", "cancelado"].includes(orden.estado) && (
               <button
                 onClick={() => { setReasignarOpen((v) => !v); if (!reasignarOpen) fetchTecnicos(); }}

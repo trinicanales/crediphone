@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Package, Plus, Trash2, AlertTriangle, CheckCircle, PenLine, Zap } from "lucide-react";
 import type { PiezaCotizacion, Producto } from "@/types";
+import { SugerenciasInput } from "../SugerenciasInput";
 
 interface SelectorPiezasCotizacionProps {
   piezas: PiezaCotizacion[];
@@ -518,13 +519,16 @@ export function SelectorPiezasCotizacion({
             El precio capturado incluye la pieza, instalación y envío (precio all-in para el cliente).
           </p>
           <div className="grid grid-cols-1 gap-2">
-            <input
-              type="text"
+            <SugerenciasInput
+              campo="pieza"
               value={piezaLibre.nombre}
-              onChange={(e) => setPiezaLibre({ ...piezaLibre, nombre: e.target.value })}
+              onChange={(v) => setPiezaLibre({ ...piezaLibre, nombre: v })}
               placeholder="Nombre de la pieza (ej: Pantalla iPhone 14 OLED)"
-              className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
               style={{
+                width: "100%",
+                padding: "0.5rem 0.75rem",
+                borderRadius: "0.5rem",
+                fontSize: "0.875rem",
                 border: "1px solid var(--color-border)",
                 background: "var(--color-bg-surface)",
                 color: "var(--color-text-primary)",
