@@ -201,3 +201,9 @@ Migración `supabase/migrations/fase92-kpis-sql.sql` (+ `-ROLLBACK.sql`), probad
 - Stock: 26 productos en o bajo el mínimo (2 agotados), 0 negativos.
 - Piezas: 30 pedidos cancelados (ya limpiados), 4 pendientes (en órdenes ya entregadas), 4 recibidas.
 - Paneles perdidos: 6 solicitudes de cambio de precio pendientes (3 con la orden aún en $0: ORD-20260522-0001 → $300, ORD-20260706-0001 → $750, ORD-20260907-0004 → $850; 3 ya aplicadas pero sin cerrar la solicitud) y 1 confirmación de depósito pendiente ($150, orden cancelada ORD-20260522-0003).
+
+---
+# ANEXO F — "Por aprobar" repuesto en el dashboard del admin (2026-10-21)
+- API nueva `GET /api/dashboard/por-aprobar` (solo admin/super_admin): cambios de precio pendientes (con orden, cliente, solicitante, días de espera, precio actual → propuesto, y marca `yaAplicada` si el precio de la orden ya coincide), depósitos por confirmar y descuentos por autorizar.
+- Componente `components/dashboard/PorAprobar.tsx` (se oculta solo si no hay nada): botones Aprobar/Rechazar/Cerrar sobre el endpoint existente `POST /api/reparaciones/[id]/solicitudes-precio`; reutiliza `PanelConfirmacionesDeposito` (compact) y `PanelAutorizacionesPendientes`. Insertado en `DashboardEjecutivo` entre "Pulso del día" y las órdenes.
+- **Observación sin cambiar (regla 15, preguntar antes):** al aprobar, ese endpoint actualiza `costo_reparacion` y `costo_partes` pero NO `precio_total`/`precio_mano_obra`/`precio_piezas`. Si la orden ya tenía un `precio_total` distinto de 0, el precio que paga el cliente no cambia aunque la solicitud se apruebe. Con `precio_total = 0` (los 3 casos actuales) sí funciona porque el sistema usa `precio_total || costo_total`.

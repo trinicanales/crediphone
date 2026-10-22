@@ -39,6 +39,7 @@ import { ModalOrden } from "@/components/reparaciones/ModalOrden";
 import type { OrdenReparacionDetallada } from "@/types";
 import { formatMXN } from "@/lib/format";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { PorAprobar } from "@/components/dashboard/PorAprobar";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -733,6 +734,9 @@ export function DashboardEjecutivo() {
           )}
         </div>
       </section>
+
+      {/* ── Por aprobar: cambios de precio, depósitos y descuentos (se oculta si no hay nada) ── */}
+      <PorAprobar />
 
       {/* ── Zona 2+3: Grid principal ── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
