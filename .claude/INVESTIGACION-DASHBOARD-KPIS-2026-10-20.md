@@ -187,3 +187,17 @@ Archivos nuevos: `src/lib/fechas.ts` (hora de México), `src/lib/inventario/stoc
 3. Formato de dinero: `src/lib/format.ts` (`formatMXN` sin centavos, `formatMXNDec` con centavos) reemplaza 9 copias locales (dashboards, Panel KPIs, 4 reportes). Quedan ~25 copias en otras pantallas (POS, inventario…): se migran al tocar cada área.
 4. Tarjeta de KPI: `components/dashboard/KpiCard.tsx` única para Ejecutivo y Cobrador (Vendedor no usa tarjetas propias). `StatCard` (Productos y Panel KPIs de reparaciones) sigue aparte: su fusión cambia el aspecto de esas pantallas → fase visual K6.
 **Hallazgo al retirar el código muerto — funciones que se perdieron del dashboard (FASE 53, 2026-03-19):** `PanelConfirmacionesDeposito` y `PanelAutorizacionesPendientes` ya no se muestran en NINGUNA pantalla (solo vivían en el dashboard antiguo); `PanelTraspasosPendientes` solo sigue en `AnticipoCajaPanel`. Es decir, el admin no ve en su inicio las confirmaciones de depósito ni las autorizaciones de descuento pendientes. Los componentes siguen en el código; falta volver a mostrarlos (propuesto en K3).
+
+---
+# ANEXO E — K2 ejecutado (2026-10-21, aprobado por Trini)
+Migración `supabase/migrations/fase92-kpis-sql.sql` (+ `-ROLLBACK.sql`), probada en seco antes de aplicar. Solo `service_role` puede ejecutar; RLS activo en `kpi_snapshots` sin políticas.
+- Vista `v_ordenes_antiguedad`, función `semaforo_orden` (umbrales 7/5/3 días), `kpi_taller`, `kpi_dinero`, `kpi_stock_bajo`, `kpi_resumen_semana`, tabla `kpi_snapshots`, `kpi_snapshot_dia()`.
+- Cron `kpi-snapshot-diario` 23:55 hora de México. Retirado `notificaciones-hora` (llamaba a una función inexistente: 6,641 fallos, 1 por hora).
+- Primer snapshot generado a mano (4 sucursales).
+## Números reales al momento de aplicar (21-oct-2026)
+- Taller: 130 activas. Recibido 71 (68 en rojo, la más vieja 166 días); listo_entrega 54 (50 en rojo, hasta 162 días); aprobado 1 (96 días); presupuesto 1 (37 días); completado 3.
+- **Anticipos sin aplicar en órdenes ya cerradas (entregadas/canceladas/no reparables): 65 por $30,840.**
+- Semana 15–21 oct: 10 recibidas, 0 entregadas, 1 cancelada, anticipos $13,915.
+- Stock: 26 productos en o bajo el mínimo (2 agotados), 0 negativos.
+- Piezas: 30 pedidos cancelados (ya limpiados), 4 pendientes (en órdenes ya entregadas), 4 recibidas.
+- Paneles perdidos: 6 solicitudes de cambio de precio pendientes (3 con la orden aún en $0: ORD-20260522-0001 → $300, ORD-20260706-0001 → $750, ORD-20260907-0004 → $850; 3 ya aplicadas pero sin cerrar la solicitud) y 1 confirmación de depósito pendiente ($150, orden cancelada ORD-20260522-0003).
