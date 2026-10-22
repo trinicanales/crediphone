@@ -1,5 +1,6 @@
 "use client";
 
+import { esStockCritico, minimoEfectivo } from "@/lib/inventario/stock";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -696,7 +697,7 @@ function DemandaRow({
 }) {
   const [hover, setHover] = useState(false);
   const prod = tv.producto!;
-  const stockMinimo = prod.stockMinimo ?? 3;
+  const stockMinimo = minimoEfectivo(prod.stockMinimo);
   const stockCritico = prod.stock === 0;
   const stockBajoF = prod.stock > 0 && prod.stock <= stockMinimo;
   const stockColor = stockCritico ? "var(--color-danger)" : stockBajoF ? "var(--color-warning)" : "var(--color-success)";
@@ -934,8 +935,9 @@ export default function AlertasPage() {
   };
 
   // Clasificar productos
-  const sinStock = productos.filter((p) => p.stock === 0 && p.activo !== false);
-  const stockBajo = productos.filter((p) => p.stockMinimo !== undefined && p.stock > 0 && p.stock <= p.stockMinimo && p.activo !== false);
+  // Misma regla que el dashboard (lib/inventario/stock.ts): mínimo por defecto 1; el stock negativo cuenta como sin stock
+  const sinStock = productos.filter((p) => p.stock <= 0 && p.activo !== false);
+  const stockBajo = productos.filter((p) => p.stock > 0 && esStockCritico(p.stock, p.stockMinimo) && p.activo !== false);
   const alertasPendientes = alertas.filter((a) => a.estado === "pendiente");
 
   const topVendidosConStock = (stats?.productosMasVendidos ?? [])
@@ -1010,7 +1012,7 @@ export default function AlertasPage() {
             active={tab === "stock"} onClick={() => setTab("stock")} />
           <KpiCard icon={<TrendingDown className="w-5 h-5" />} label="Stock bajo" value={stockBajo.length} variant="warning"
             active={tab === "stock"} onClick={() => setTab("stock")} />
-          <KpiCard icon={<Flame className="w-5 h-5" />} label="Alta demanda" value={topVendidosConStock.filter((tv) => tv.producto && tv.producto.stock <= (tv.producto.stockMinimo ?? 3)).length} variant="accent"
+          <KpiCard icon={<Flame className="w-5 h-5" />} label="Alta demanda" value={topVendidosConStock.filter((tv) => tv.producto && tv.producto.stock <= minimoEfectivo(tv.producto.stockMinimo)).length} variant="accent"
             active={tab === "demanda"} onClick={() => setTab("demanda")} />
           <KpiCard icon={<Barcode className="w-5 h-5" />} label="Códigos desconocidos" value={alertasPendientes.length} variant="info"
             active={tab === "nuevos"} onClick={() => setTab("nuevos")} />

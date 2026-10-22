@@ -1,0 +1,15 @@
+# Revisión en vivo del sistema (producción) — 2026-10-21
+Sesión de Trini (super_admin) en el navegador integrado. Solo lectura. Páginas: Dashboard, Órdenes, Panel técnico, Caja, POS, Reportes, Alertas de inventario. Más consultas a la base para confirmar.
+
+## Hallazgos
+1. **Ninguna orden de Principal está marcada "entregada" desde julio** (mayo 16, junio 10, julio 11, agosto/septiembre/octubre 0) mientras los anticipos siguen entrando (63 en cajas abiertas hasta el 21-oct). El estado del sistema va por detrás del taller (68 en "Recibido", 55 "Listo"). Por eso Reportes de octubre sale en $0.
+2. **Ventas capturadas como órdenes de reparación** (fuera de POS, stock y caja de ventas): ORD-20261020-0003 ("Teléfono venta", $3,650) y ORD-20260813-0005 (Infinix + cristal, funda y cargador, $4,700). Ambas siguen en "Recibido".
+3. **Caja:** el historial de sesiones no muestra "Monto declarado / Diferencia" en los cierres hechos en $0 (los −$13,290, −$3,380… no se ven); tres cierres con el mismo "declarado" $1,128; el POS muestra "Caja abierta CAJA-2026-00013" aunque lleva 181 días y deja vender sobre ella; "Tiempo abierto 4353h" sin alerta. El dashboard ("Ventas POS hoy → Caja CAJA-2026-00013") también muestra esa caja vieja.
+4. **Dashboard:** "63 urgentes" de 129 (la prioridad urgente no distingue nada); cada API del dashboard se llama 2 veces (el `fetchAll` se recrea cuando cambia `role`); "Comparativa por sucursal" usa "Cobrado hoy"/"Ingreso 7 días" con la definición vieja (pagos de crédito); "Actividad reciente" mezcla "en_reparacion" crudo con "Recibida".
+5. **Órdenes vs Panel técnico:** Órdenes muestra 182 (tienda activa) y el Panel técnico "Todos" muestra 205 (incluye la tienda desactivada de Lalo). Tarjetas Diagnóstico 0, Esp. Piezas 0, Garantías 0; sin tarjeta para Recibido (68). Cotizaciones de pantalla etiquetadas "Mano de obra $900" aunque es precio all-in. Marca/modelo mal escritos: "Samsung Sin modelo", "Ip Ip 11", "ANSUNG GALAXY A06".
+6. **Bolsa virtual $51,690** = anticipos pendientes de órdenes activas (cuadra con la base: $68,920 − $17,230). Esos $17,230 son 43 anticipos sin aplicar en órdenes ya entregadas/canceladas de Principal.
+7. **Inventario:** Alertas mostraba 5 productos y el dashboard 26 (definiciones distintas, tres mínimos por defecto: 5, 3 y ninguno). CORREGIDO: ahora ambos usan `lib/inventario/stock.ts` (mínimo 1, negativos incluidos). "Batería portátil" tiene mínimo 51 (¿dato mal capturado?).
+8. **Reportes:** abre en la pestaña "Créditos y Cobranza" (todo en 0, sin uso); Estado de Resultados de octubre en $0 porque no cuenta anticipos; la nota cita la sección "Facturación" (apagada).
+9. **Consola:** timeouts del beacon de Cloudflare Insights (inocuo) y dos respuestas HTTP 400 en todas las páginas (origen sin identificar todavía); cada página precarga ~20 rutas del menú.
+## Lo que se ve bien
+Stepper nuevo en tarjetas y Panel técnico; "Por aprobar" con los 6 cambios de precio y el depósito; "Dinero en caja hoy" correcto ($0: el anticipo de $350 fue el 20-oct 9:07 pm); semáforo de stock coherente tras el ajuste.
