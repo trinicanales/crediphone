@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/verificar-columnas.js\"",
+            "timeout": 45,
+            "statusMessage": "Revisando columnas contra la base..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/verificar-tipos.js\"",
+            "timeout": 300,
+            "statusMessage": "Verificando tipos (tsc)..."
+          }
+        ]
+      }
+    ]
+  }
+}
