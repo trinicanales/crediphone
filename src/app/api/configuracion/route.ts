@@ -23,11 +23,13 @@ function getSubdominioFromHost(host: string): string | null {
 export async function GET(request: Request) {
   try {
     let distribuidorId: string | null = null;
+    let autenticado = false;
 
     // 1. Intentar obtener distribuidorId de sesión autenticada
     try {
       const auth = await getAuthContext();
       distribuidorId = auth.distribuidorId ?? null;
+      autenticado = !!auth.userId;
     } catch {
       // Sin sesión o error de auth — continuar con resolución por Host
     }
@@ -43,6 +45,17 @@ export async function GET(request: Request) {
     }
 
     const config = await getConfiguracion(distribuidorId);
+
+    // Sin sesión (páginas públicas): no exponer datos internos de la tienda
+    if (!autenticado && config) {
+      const publica = { ...config } as Record<string, unknown>;
+      delete publica.contadorNombre;
+      delete publica.contadorTelefono;
+      delete publica.contadorEmail;
+      delete publica.waWebhookVerifyToken;
+      return NextResponse.json({ success: true, data: publica });
+    }
+
     return NextResponse.json({ success: true, data: config });
   } catch (error) {
     console.error("Error en GET /api/configuracion:", error);

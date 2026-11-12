@@ -9,18 +9,22 @@ import {
 } from "@/lib/db/ubicaciones";
 import { getProductosByUbicacion } from "@/lib/db/productos";
 import type { NuevaUbicacionFormData } from "@/types";
+import { registroEsDeMiTienda } from "@/lib/auth/tienda";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await getAuthContext();
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { id } = await params;
+    if (!(await registroEsDeMiTienda("ubicaciones_inventario", id, distribuidorId, isSuperAdmin))) {
+      return NextResponse.json({ success: false, error: "Recurso no encontrado" }, { status: 404 });
+    }
     const searchParams = request.nextUrl.searchParams;
     const action = searchParams.get("action");
 
@@ -63,7 +67,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -76,6 +80,9 @@ export async function PUT(
     }
 
     const { id } = await params;
+    if (!(await registroEsDeMiTienda("ubicaciones_inventario", id, distribuidorId, isSuperAdmin))) {
+      return NextResponse.json({ success: false, error: "Recurso no encontrado" }, { status: 404 });
+    }
     const body = await request.json();
 
     const updates: Partial<NuevaUbicacionFormData> = {};
@@ -106,7 +113,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
@@ -119,6 +126,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    if (!(await registroEsDeMiTienda("ubicaciones_inventario", id, distribuidorId, isSuperAdmin))) {
+      return NextResponse.json({ success: false, error: "Recurso no encontrado" }, { status: 404 });
+    }
 
     await deleteUbicacion(id);
 

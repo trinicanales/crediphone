@@ -165,13 +165,15 @@ const navGroups: NavGroup[] = [
         roles: ["admin", "super_admin"],
         moduleKey: "inventario_avanzado",
       },
-      {
-        href: "/dashboard/lotes-piezas",
-        label: "Lotes de Piezas",
-        icon: Package,
-        roles: ["admin", "super_admin"],
-        moduleKey: "inventario_avanzado",
-      },
+      // Lotes de Piezas oculto por decisión de Trini (2026-11-11): faltan las pantallas /nuevo y /[id].
+      // Para reactivar, descomentar. No se borró código.
+      // {
+      //   href: "/dashboard/lotes-piezas",
+      //   label: "Lotes de Piezas",
+      //   icon: Package,
+      //   roles: ["admin", "super_admin"],
+      //   moduleKey: "inventario_avanzado",
+      // },
       {
         kind: "accordion",
         label: "Stock y Ubicaciones",

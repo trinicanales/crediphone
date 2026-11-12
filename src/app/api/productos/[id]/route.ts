@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth/guard";
 import { getAuthContext } from "@/lib/auth/server";
 import { tienePermiso } from "@/lib/permisos";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { registroEsDeMiTienda } from "@/lib/auth/tienda";
 
 export async function GET(
   request: Request,
@@ -217,6 +218,10 @@ export async function DELETE(
     if (!auth.ok) return auth.response;
 
     const { id } = await params;
+
+    if (!(await registroEsDeMiTienda("productos", id, auth.distribuidorId ?? null, !!auth.isSuperAdmin))) {
+      return NextResponse.json({ success: false, error: "Recurso no encontrado" }, { status: 404 });
+    }
 
     await deleteProducto(id);
 

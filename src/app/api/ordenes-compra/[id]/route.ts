@@ -7,18 +7,22 @@ import {
   eliminarOrdenCompra,
 } from "@/lib/db/ordenes-compra";
 import type { EstadoOrdenCompra } from "@/types";
+import { registroEsDeMiTienda } from "@/lib/auth/tienda";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     if (!["admin", "super_admin"].includes(role ?? "")) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
 
     const { id } = await params;
+    if (!(await registroEsDeMiTienda("ordenes_compra", id, distribuidorId, isSuperAdmin))) {
+      return NextResponse.json({ success: false, error: "Recurso no encontrado" }, { status: 404 });
+    }
     const orden = await getOrdenCompra(id);
     if (!orden) return NextResponse.json({ success: false, error: "No encontrada" }, { status: 404 });
 
@@ -30,13 +34,16 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     if (!["admin", "super_admin"].includes(role ?? "")) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
 
     const { id } = await params;
+    if (!(await registroEsDeMiTienda("ordenes_compra", id, distribuidorId, isSuperAdmin))) {
+      return NextResponse.json({ success: false, error: "Recurso no encontrado" }, { status: 404 });
+    }
     const body = await req.json();
 
     // Operación especial: recibir mercancía
@@ -63,13 +70,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    const { userId, role } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
     if (!userId) return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
     if (!["admin", "super_admin"].includes(role ?? "")) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
 
     const { id } = await params;
+    if (!(await registroEsDeMiTienda("ordenes_compra", id, distribuidorId, isSuperAdmin))) {
+      return NextResponse.json({ success: false, error: "Recurso no encontrado" }, { status: 404 });
+    }
     await eliminarOrdenCompra(id);
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -31,7 +31,10 @@ export async function POST(request: Request) {
   try {
     // Verificar header interno de seguridad
     const internalSecret = request.headers.get("x-internal-secret");
-    const expectedSecret = process.env.INTERNAL_API_SECRET ?? "crediphone-internal";
+    const expectedSecret = process.env.INTERNAL_API_SECRET;
+    if (!expectedSecret) {
+      return NextResponse.json({ success: false, error: "Ruta interna deshabilitada" }, { status: 503 });
+    }
     if (internalSecret !== expectedSecret) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }

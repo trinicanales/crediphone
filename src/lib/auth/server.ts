@@ -53,7 +53,7 @@ export async function getAuthContext(): Promise<{
     const [{ data: userData }, { data: permisosRows }] = await Promise.all([
         adminClient
             .from("users")
-            .select("role, distribuidor_id")
+            .select("role, distribuidor_id, activo")
             .eq("id", user.id)
             .single(),
         adminClient
@@ -61,6 +61,11 @@ export async function getAuthContext(): Promise<{
             .select("permiso, activo")
             .eq("usuario_id", user.id),
     ]);
+
+    // Empleado desactivado: se trata como sin sesión (antes `activo=false` no bloqueaba nada)
+    if (userData?.activo === false) {
+        return { userId: null, role: null, distribuidorId: null, isSuperAdmin: false, permisosExplicitos: {} };
+    }
 
     const role = userData?.role || null;
     const distribuidorId = userData?.distribuidor_id || null;

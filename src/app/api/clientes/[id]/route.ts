@@ -85,10 +85,18 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    const { userId, role, distribuidorId, isSuperAdmin } = await getAuthContext();
 
     if (!userId) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+
+    // Decisión de Trini (2026-11-11): solo admin o super_admin pueden borrar clientes
+    if (role !== "admin" && role !== "super_admin") {
+      return NextResponse.json(
+        { success: false, error: "Solo administradores pueden eliminar clientes" },
+        { status: 403 }
+      );
     }
 
     await deleteCliente(id, isSuperAdmin ? undefined : (distribuidorId ?? undefined));
