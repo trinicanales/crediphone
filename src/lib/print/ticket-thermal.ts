@@ -395,6 +395,85 @@ export function buildTicketPagoCredito(
   return EscPos.build(cmds);
 }
 
+// ─── Ticket de Anticipo de Reparación (comprobante para el cliente) ─────────
+
+export interface TicketAnticipoData {
+  folioRecibo: string;       // ej. ANT-1A2B3C4D
+  folioOrden: string;
+  fecha: Date | string;
+  clienteNombre: string;
+  equipo?: string;
+  montoAnticipo: number;
+  totalOrden: number;        // 0 si aun no hay presupuesto
+  saldoRestante: number;
+  metodoPago: string;
+  referencia?: string;
+  recibidoPor?: string;
+  pendienteConfirmacion?: boolean; // transferencia / deposito por confirmar
+}
+
+export function buildTicketAnticipo(
+  data: TicketAnticipoData,
+  empresa: EmpresaConfig,
+  paperWidth: PaperWidth = 58
+): Uint8Array {
+  const W = PAPER_CHARS[paperWidth] as 32 | 48;
+  const cmds: Uint8Array[] = [];
+
+  cmds.push(EscPos.init());
+  cmds.push(EscPos.charsetCP437());
+
+  cmds.push(EscPos.align('center'));
+  cmds.push(EscPos.size(1, 1));
+  cmds.push(EscPos.text('COMPROBANTE DE ANTICIPO'));
+  cmds.push(EscPos.sizeNormal());
+  cmds.push(EscPos.text(truncate(empresa.nombre, W)));
+  if (empresa.rfc) cmds.push(EscPos.text(`RFC: ${empresa.rfc}`));
+  cmds.push(EscPos.feed(1));
+
+  cmds.push(EscPos.align('left'));
+  cmds.push(EscPos.divider('-', W));
+  cmds.push(EscPos.row('Recibo:', data.folioRecibo, W));
+  cmds.push(EscPos.row('Orden:', data.folioOrden, W));
+  cmds.push(EscPos.row('Fecha:', fmtFecha(data.fecha), W));
+  cmds.push(EscPos.row('Cliente:', truncate(data.clienteNombre, W - 9), W));
+  if (data.equipo) cmds.push(EscPos.row('Equipo:', truncate(data.equipo, W - 8), W));
+  cmds.push(EscPos.divider('-', W));
+
+  cmds.push(EscPos.bold(true));
+  cmds.push(EscPos.size(1, 0));
+  cmds.push(EscPos.row('ANTICIPO:', fmt(data.montoAnticipo), Math.floor(W / 2) as 32 | 48));
+  cmds.push(EscPos.sizeNormal());
+  cmds.push(EscPos.bold(false));
+  if (data.totalOrden > 0) {
+    cmds.push(EscPos.row('Total servicio:', fmt(data.totalOrden), W));
+    cmds.push(EscPos.row('Saldo restante:', fmt(data.saldoRestante), W));
+  }
+  cmds.push(EscPos.divider('=', W));
+  cmds.push(EscPos.row('Metodo:', metodoPagoLabel(data.metodoPago), W));
+  if (data.referencia) cmds.push(EscPos.row('Ref:', truncate(data.referencia, W - 5), W));
+  if (data.recibidoPor) cmds.push(EscPos.row('Recibio:', truncate(data.recibidoPor, W - 9), W));
+
+  if (data.pendienteConfirmacion) {
+    cmds.push(EscPos.feed(1));
+    cmds.push(EscPos.align('center'));
+    cmds.push(EscPos.bold(true));
+    cmds.push(EscPos.text('PENDIENTE DE CONFIRMAR'));
+    cmds.push(EscPos.bold(false));
+    cmds.push(EscPos.text('en banco'));
+  }
+
+  cmds.push(EscPos.feed(1));
+  cmds.push(EscPos.align('center'));
+  cmds.push(EscPos.text('Conserva este comprobante'));
+  cmds.push(EscPos.text('para recoger tu equipo.'));
+  if (empresa.telefono) cmds.push(EscPos.text(`Tel: ${empresa.telefono}`));
+  cmds.push(EscPos.feed(1));
+
+  cmds.push(EscPos.cut());
+  return EscPos.build(cmds);
+}
+
 // ─── Ticket de Entrega de Reparación ─────────────────────────────────────────
 
 export interface TicketEntregaData {

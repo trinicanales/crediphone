@@ -519,6 +519,11 @@ export function AnticipoCajaPanel({ orden, onOrdenUpdated }: AnticipoCajaPanelPr
         ordenFolio={orden.folio}
         saldoPendiente={saldoPendiente}
         esTecnico={esTecnico}
+        clienteNombre={[orden.clienteNombre, orden.clienteApellido].filter(Boolean).join(" ")}
+        clienteTelefono={orden.clienteTelefono}
+        equipo={[orden.marcaDispositivo, orden.modeloDispositivo].filter(Boolean).join(" ")}
+        totalOrden={costoTotal}
+        enlaceSeguimiento={orden.trackingToken ? `${typeof window !== "undefined" ? window.location.origin : ""}/tracking/${orden.trackingToken}` : null}
         onSuccess={() => { cargarAnticipos(); onOrdenUpdated(); }}
       />
 

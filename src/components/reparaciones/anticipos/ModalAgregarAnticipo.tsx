@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { TipoPago, DesglosePagoMixto } from "@/types";
 import { DollarSign, AlertCircle, ArrowRightLeft, BanknoteIcon } from "lucide-react";
+import { ComprobantePagoModal } from "@/components/print/ComprobantePagoModal";
+import type { DatosComprobante } from "@/lib/print/comprobante";
 
 interface ModalAgregarAnticipoProps {
   isOpen: boolean;
@@ -16,6 +18,12 @@ interface ModalAgregarAnticipoProps {
   onSuccess: () => void;
   /** FASE 37: Si el usuario actual es técnico, se muestra aviso de traspaso */
   esTecnico?: boolean;
+  /** Datos para el comprobante del cliente (ticket / WhatsApp) */
+  clienteNombre?: string;
+  clienteTelefono?: string | null;
+  equipo?: string;
+  totalOrden?: number;
+  enlaceSeguimiento?: string | null;
 }
 
 export function ModalAgregarAnticipo({
@@ -26,7 +34,13 @@ export function ModalAgregarAnticipo({
   saldoPendiente,
   onSuccess,
   esTecnico = false,
+  clienteNombre,
+  clienteTelefono,
+  equipo,
+  totalOrden = 0,
+  enlaceSeguimiento,
 }: ModalAgregarAnticipoProps) {
+  const [comprobante, setComprobante] = useState<Omit<DatosComprobante, "empresaNombre"> | null>(null);
   const [monto, setMonto] = useState<number>(0);
   const [tipoPago, setTipoPago] = useState<TipoPago>("efectivo");
   const [referenciaPago, setReferenciaPago] = useState("");
@@ -51,6 +65,7 @@ export function ModalAgregarAnticipo({
       setNotas("");
       setDesgloseMixto({ efectivo: 0, transferencia: 0, tarjeta: 0 });
       setErrors({});
+      setComprobante(null);
     }
   }, [isOpen]);
 
@@ -133,7 +148,25 @@ export function ModalAgregarAnticipo({
       }
 
       onSuccess();
-      onClose();
+
+      // Comprobante para el cliente (ticket térmico o WhatsApp)
+      const anticipoId: string = String(result.data?.id ?? "");
+      setComprobante({
+        tipo: "anticipo",
+        folioRecibo: anticipoId ? `ANT-${anticipoId.replace(/-/g, "").slice(0, 8).toUpperCase()}` : `ANT-${Date.now().toString(36).toUpperCase()}`,
+        folioReferencia: ordenFolio,
+        fecha: new Date(),
+        clienteNombre: clienteNombre || "Cliente",
+        clienteTelefono,
+        descripcion: equipo,
+        monto,
+        total: totalOrden,
+        saldoRestante: Math.max(0, saldoPendiente - monto),
+        metodoPago: tipoPago,
+        referencia: referenciaPago || undefined,
+        pendienteConfirmacion: Boolean(result.requiereConfirmacion),
+        enlaceSeguimiento,
+      });
     } catch (error) {
       console.error("Error al agregar anticipo:", error);
       setErrors({
@@ -143,6 +176,16 @@ export function ModalAgregarAnticipo({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (comprobante) {
+    return (
+      <ComprobantePagoModal
+        isOpen={isOpen}
+        onClose={() => { setComprobante(null); onClose(); }}
+        datos={comprobante}
+      />
+    );
   }
 
   return (
