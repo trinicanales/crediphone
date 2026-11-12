@@ -34,3 +34,21 @@
 2. Todo acceso al detalle abre `OrdenDrawer`; la página `[id]` queda como enlace directo que abre el mismo drawer.
 3. Un solo componente de estado (badge + stepper) alimentado por `estados.ts`; Dashboard ejecutivo deja de tener su mapa propio.
 4. Decidir cuál juego de columnas es la verdad del dinero (`precio_*` vs `costo_*`).
+
+## 6. ERRORES Y FALLOS EN LOS PROCESOS DE REPARACIÓN (verificados 2026-11-11)
+**Fallan siempre (columna inexistente comprobada en BD, nivel A):**
+1. **Renotificar presupuesto** (`reparaciones/[id]/renotificar-presupuesto`): pide `ordenes_reparacion.tracking_token`, que no existe (el token vive en `tracking_tokens`). La consulta falla y el botón responde "Orden no encontrada" siempre.
+2. **Checklist de apertura/QA** (`reparaciones/[id]` PUT `checklistQA`): escribe `checklist_apertura`, columna inexistente → error 500 al guardar.
+3. **Aviso al admin cuando un técnico recibe efectivo** (`reparaciones/[id]/anticipos`): inserta en `notificaciones` con `titulo/severidad/metadata/distribuidor_id` (no existen) y lee `users.nombre/apellido` (la columna es `name`) → la alerta nunca se crea (el error se traga en un try/catch) y el nombre sale siempre "Empleado/Un técnico".
+4. **Resumen del cliente** (`clientes/[id]/resumen`): pide `total_anticipos` de la orden, inexistente → el resumen de órdenes activas no carga.
+5. **Cron de recordatorios y almacenaje**: piden `cliente_nombre/apellido/telefono` y `tecnico_nombre` en la orden, inexistentes. Reclamo de garantía escribe `motivo_garantia` (inexistente; la tabla de garantías usa `motivo_reclamo`).
+6. **Historial de estados sin responsable**: 855 de 855 filas de `historial_estado_orden` sin usuario → no se sabe quién cambió cada estado.
+
+**Dinero y cierre de órdenes (datos reales, nivel B):**
+7. **Anticipos "pendientes" en órdenes que ya terminaron:** 63 anticipos ($30,190) en 44 órdenes `entregado` y 2 ($650) en órdenes `cancelado` siguen "pendiente"; solo 15 de 190 anticipos están "aplicado". Al entregar debieron quedar aplicados. Es dinero sin conciliar y entra de más al cálculo de bolsa virtual si se cuenta por estado del anticipo.
+8. **Retenido en órdenes ya listas:** 31 órdenes `listo_entrega` con $22,800 en anticipos pendientes (mediana 117 días esperando). Probablemente ya entregadas sin cerrar.
+9. **Garantía automática no se creó:** 59 órdenes entregadas, **0** con garantía de 90 días. 33 entregadas sin `fecha_entrega`. (Indica que esas órdenes se marcaron entregadas sin pasar por el flujo de entrega.)
+10. **Órdenes que no avanzan:** 77 en `recibido` (49 sin técnico), 27 de ellas de agosto.
+11. 1 anticipo sin sesión de caja.
+
+**Qué sí funciona:** el trigger de historial registra cada cambio de estado; los 11 estados coinciden entre BD, historial y código; `entregado` ya solo se alcanza por el flujo de entrega (el servidor lo rechaza por otro camino).

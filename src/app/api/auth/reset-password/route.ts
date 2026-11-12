@@ -60,11 +60,8 @@ export async function POST(request: NextRequest) {
       distribuidorId: userRow.distribuidor_id ?? undefined,
     });
 
-    // Si WA API no está configurada, devolver link al frontend para redirección manual
-    if (waResult.canal === "link") {
-      return NextResponse.json({ success: true, waLink: waResult.waLink });
-    }
-
+    // Con WhatsApp en modo enlace NO se devuelve el enlace a quien lo pide (cualquiera con un teléfono
+    // ajeno tomaría la cuenta). El admin lo genera desde Personal (/api/empleados/[id]/enlace-recuperacion).
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[reset-password] Error:", error);

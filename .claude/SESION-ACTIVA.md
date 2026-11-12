@@ -1,5 +1,11 @@
 # Sesión Activa — CREDIPHONE
 
+## 🔶 SESIÓN 2026-11-11 — Mapa del sistema + seguridad fase 1
+- Mapa maestro y verificación: `.claude/mapa/MAPA-SISTEMA-2026-11-11.md` (+ A, B, C, D, E). Herramienta: `node scripts/mapa-sistema.js [--impacto X]`.
+- **Plan vigente: `.claude/PLAN-ACCION-UNIFICADO-2026-11-11.md`** (fases 1-5, decisiones de Trini del 11-nov).
+- Hecho (fase 1 seguridad): empleado inactivo bloqueado, borrar clientes solo admin, filtro por tienda (ubicaciones/órdenes de compra/producto), config pública recortada, push/send sin secreto por defecto, BD cerrada (fase94), enlace de recuperación de clave generado por admin desde Personal, menú Admin abierto a admin, Lotes de piezas oculto.
+- **Sigue: Fase 2 (dinero)**: ticket + envío por WhatsApp de pagos/anticipos, proceso único de cobro POS/Créditos/Reparaciones, 6 fallos de columnas en reparaciones, conciliar anticipos de órdenes entregadas ($30,190) y cierre guiado de cajas.
+
 
 ## ✅ SESIÓN 2026-10-14 → 2026-10-19 (worktree elated-kapitsa) — Auditoría general + correcciones críticas
 

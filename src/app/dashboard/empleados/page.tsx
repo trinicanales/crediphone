@@ -153,6 +153,25 @@ export default function EmpleadosPage() {
     setIsModalOpen(true);
   };
 
+  const handleRecuperar = async (empleado: Empleado) => {
+    try {
+      const res = await fetch(`/api/empleados/${empleado.id}/enlace-recuperacion`, { method: "POST" });
+      const data = await res.json();
+      if (!data.success) { alert(data.error || "No se pudo generar el enlace"); return; }
+      const { link, waLink } = data.data as { link: string; waLink: string | null };
+      try { await navigator.clipboard.writeText(link); } catch { /* sin permiso de portapapeles */ }
+      if (waLink && confirm(`Enlace de recuperación copiado.
+
+¿Abrir WhatsApp para enviárselo a ${empleado.name}?`)) {
+        window.open(waLink, "_blank", "noopener,noreferrer");
+      } else if (!waLink) {
+        alert("Enlace copiado. Este empleado no tiene teléfono registrado: pégalo y envíaselo.");
+      }
+    } catch {
+      alert("Error de conexión");
+    }
+  };
+
   const handleDeleteClick = (empleado: Empleado) => { setEmpleadoToDelete(empleado); setDeleteConfirmModal(true); };
 
   const handleDeleteConfirm = async () => {
@@ -375,6 +394,7 @@ export default function EmpleadosPage() {
                     getRoleBadgeVariant={getRoleBadgeVariant}
                     onEdit={() => handleEdit(empleado)}
                     onDelete={() => handleDeleteClick(empleado)}
+                    onRecuperar={() => handleRecuperar(empleado)}
                     onPermisos={["vendedor","cobrador","tecnico"].includes(empleado.role)
                       ? () => { setEmpleadoPermisos(empleado); setPermisosModal(true); }
                       : undefined}
@@ -646,7 +666,7 @@ export default function EmpleadosPage() {
   );
 }
 
-function EmpleadoRow({ empleado, getInitials, getRoleLabel, getRoleBadgeVariant, onEdit, onDelete, onPermisos }: {
+function EmpleadoRow({ empleado, getInitials, getRoleLabel, getRoleBadgeVariant, onEdit, onDelete, onPermisos, onRecuperar }: {
   empleado: Empleado;
   getInitials: (n: string) => string;
   getRoleLabel: (r: UserRole) => string;
@@ -654,6 +674,7 @@ function EmpleadoRow({ empleado, getInitials, getRoleLabel, getRoleBadgeVariant,
   onEdit: () => void;
   onDelete: () => void;
   onPermisos?: () => void;
+  onRecuperar?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const fmt = (n: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
@@ -719,6 +740,9 @@ function EmpleadoRow({ empleado, getInitials, getRoleLabel, getRoleBadgeVariant,
             <Button variant="ghost" size="sm" onClick={onPermisos}>
               <Shield size={14} className="mr-1" />Permisos
             </Button>
+          )}
+          {onRecuperar && empleado.activo && (
+            <Button variant="ghost" size="sm" onClick={onRecuperar}>Enlace de clave</Button>
           )}
           {empleado.activo && (
             <Button variant="danger" size="sm" onClick={onDelete}>Desactivar</Button>

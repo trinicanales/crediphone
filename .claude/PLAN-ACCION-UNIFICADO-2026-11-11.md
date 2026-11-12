@@ -3,7 +3,7 @@
 
 ## Decisiones de Trini (2026-11-11)
 1. **Dinero de reparaciones:** entregar el dinero desde el POS **o** desde Reparaciones son ambas válidas y **las dos entran a la venta del día** (un solo resultado en caja/corte).
-2. **Crédito:** se puede vender desde POS y desde Créditos → **un solo proceso compartido** (espejo). Todo pago o anticipo (de crédito o de reparación), venga de donde venga, **genera ticket** para el cliente como comprobante.
+2. **Crédito:** se puede cobrar desde POS y desde Créditos → **un solo proceso compartido** (espejo) que refleja el cambio en ambos lados y en Reparaciones. Todo pago o anticipo (de crédito o de reparación), venga de donde venga, **genera ticket**; y si el cliente no quiere ticket físico, **se le envía por WhatsApp** (enlace, sin costo).
 3. **Catálogos de servicios:** ver "Los 3 catálogos" abajo.
 4. **Lotes de piezas:** oculto por ahora (hecho en el menú, sin borrar código).
 5. **Borrar clientes:** solo admin o super_admin (hecho).
@@ -26,13 +26,14 @@ Hecho y verificado (tsc y lint limpios; permisos de BD comprobados):
 - [x] Base: vista `empleados_activos` y función `calcular_comision_vendedor` cerradas a usuarios web (migración fase94, aplicada).
 - [x] Lotes de piezas oculto del menú.
 Pendiente de la fase (necesita decisión de Trini):
-- [ ] **Recuperar contraseña** devuelve el enlace a quien conozca un teléfono. Opciones: (a) que el enlace lo genere un admin desde Personal y se lo pase al empleado; (b) correo de Supabase. Hoy, si se cierra sin alternativa, los empleados no podrían recuperar su clave.
+- [x] **Recuperar contraseña (opción a, decidida):** la ruta pública ya no devuelve el enlace; el admin lo genera desde Personal › botón "Enlace de clave" (copia el enlace y ofrece abrir WhatsApp).
+- [x] **Menú Admin:** Categorías, Proveedores y Catálogo de Reparaciones abiertos a admin; Distribuidores sigue solo super_admin (layout propio).
 - [ ] `cancelar-folio` sin sesión (diseñada para sendBeacon): exigir sesión o token del folio.
-- [ ] Menú Admin que redirige: mostrar solo a super_admin, o abrir esas pantallas a admin.
 
 ## FASE 2 — Dinero correcto (lo que rompe cuentas)
+0. **Reparaciones — arreglar los 6 fallos de columnas inexistentes** (renotificar presupuesto, checklist QA, alerta de anticipo de técnico, resumen del cliente, cron/almacenaje, reclamo de garantía) y **conciliar los anticipos** de órdenes entregadas/canceladas ($30,840) con Trini, orden por orden. Detalle en `mapa/A-reparaciones.md` §6.
 1. **Ticket de anticipo/pago** (58 mm, comprobante para el cliente) para reparaciones y créditos.
-2. **Un solo proceso de cobro** (`registrarPago`): reparación desde POS o desde Reparaciones → misma venta del día; crédito desde POS o desde Créditos → mismo pago; siempre con ticket.
+2. **Un solo proceso de cobro** (`registrarPago`): reparación desde POS o desde Reparaciones → misma venta del día; crédito desde POS o desde Créditos → mismo pago, reflejado en ambas pantallas; siempre con ticket (físico 58 mm o enlace de WhatsApp).
 3. Devoluciones y cancelación de venta (P-1, P-2): sin doble reintegro de stock, movimiento de caja.
 4. Venta a crédito: ampliar `metodo_pago` o guardar el crédito aparte (decisión técnica a presentar). Pagos de crédito: columna `detalle_pago`.
 5. Kits en F9/F12 (expandir como el cobro normal) y comprobar el precio del kit.

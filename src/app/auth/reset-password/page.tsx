@@ -47,12 +47,12 @@ export default function ResetPasswordPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>
-              {waLink ? "Abre el link de recuperación" : "¡Link enviado por WhatsApp!"}
+              {waLink ? "Abre el link de recuperación" : "Solicitud recibida"}
             </h1>
             <p className="text-sm mt-2" style={{ color: "var(--color-text-muted)" }}>
               {waLink
                 ? "Usa el siguiente link para crear tu nueva contraseña. Válido por 1 hora."
-                : "Revisa tu WhatsApp y abre el link para crear tu nueva contraseña. Válido por 1 hora."}
+                : "Si el número está registrado, pide a tu administrador que te genere el enlace para crear tu nueva contraseña."}
             </p>
           </div>
           {waLink && (
@@ -95,7 +95,7 @@ export default function ResetPasswordPage() {
             Recuperar acceso
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Te enviamos un link por WhatsApp para crear una nueva contraseña.
+            Tu administrador te generará un enlace para crear una nueva contraseña.
           </p>
         </div>
 

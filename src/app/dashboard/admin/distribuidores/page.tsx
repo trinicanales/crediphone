@@ -932,7 +932,7 @@ export default function DistribuidoresPage() {
               </p>
             ) : (
               <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-                Bloqueado para evitar cambios accidentales. Clic en "Editar" para modificar.
+                Bloqueado para evitar cambios accidentales. Clic en &quot;Editar&quot; para modificar.
               </p>
             )}
           </div>
