@@ -43,7 +43,7 @@ export function ComprobantePagoModal({ isOpen, onClose, datos }: ComprobantePago
         direccion: config?.direccionEmpresa || undefined,
         telefono: config?.telefonoEmpresa || undefined,
       };
-      if (completo.tipo === "anticipo") {
+      if (completo.tipo === "anticipo" || completo.tipo === "saldo_final") {
         return buildTicketAnticipo(
           {
             folioRecibo: completo.folioRecibo,
@@ -58,6 +58,7 @@ export function ComprobantePagoModal({ isOpen, onClose, datos }: ComprobantePago
             referencia: completo.referencia,
             recibidoPor: completo.recibidoPor,
             pendienteConfirmacion: completo.pendienteConfirmacion,
+            titulo: completo.tipo === "saldo_final" ? "COMPROBANTE DE PAGO FINAL" : undefined,
           },
           empresa,
           58
@@ -103,7 +104,7 @@ export function ComprobantePagoModal({ isOpen, onClose, datos }: ComprobantePago
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={completo.tipo === "anticipo" ? "Anticipo registrado" : "Pago registrado"}>
+    <Modal isOpen={isOpen} onClose={onClose} title={completo.tipo === "anticipo" ? "Anticipo registrado" : completo.tipo === "saldo_final" ? "Pago final y entrega registrados" : "Pago registrado"}>
       <div className="space-y-4">
         <div className="flex items-start gap-3">
           <CheckCircle className="w-6 h-6 shrink-0" style={{ color: "var(--color-success)" }} />

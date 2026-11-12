@@ -93,26 +93,39 @@ export async function POST(
       sesionCajaId = sesion?.id;
     } catch { /* sin caja activa */ }
 
-    // 5. Aplicar anticipos + registrar saldo en caja
+    // Cobrar saldo sin caja abierta dejaba el dinero sin registrar en ningún lado
+    if (saldoFinal > 0 && !sesionCajaId) {
+      return NextResponse.json({
+        success: false,
+        error: "Abre tu caja para cobrar el saldo final. Sin caja abierta el dinero no queda registrado.",
+      }, { status: 409 });
+    }
+
+    // 5. Cambiar estado primero (si falla, no se aplica nada)
+    const ahoraISO = new Date().toISOString();
+    const { error: estadoError } = await supabase
+      .from("ordenes_reparacion")
+      .update({ estado: "entregado", fecha_entregado: ahoraISO, fecha_entrega: ahoraISO, updated_at: ahoraISO })
+      .eq("id", id);
+    if (estadoError) {
+      console.error("Error al marcar entregada:", estadoError);
+      return NextResponse.json({
+        success: false,
+        error: "No se pudo marcar la orden como entregada",
+        message: estadoError.message,
+      }, { status: 500 });
+    }
+
+    // 6. Aplicar anticipos + registrar saldo en caja (igual que el cobro del POS)
     await aplicarAnticiposOrden(
       id,
       orden.folio,
       sesionCajaId,
       saldoFinal,
       metodoPago,
-      userId
+      userId,
+      { distribuidorId: orden.distribuidor_id ?? null, desgloseMixto: body.desgloseMixto ?? null }
     );
-
-    // 6. Cambiar estado a "entregado"
-    // BUG-ENTREGA-001 (2026-07-23): la columna real en Supabase es "fecha_entregado",
-    // NO "fecha_entrega" (esa columna no existe). El nombre incorrecto hacía que este
-    // UPDATE fallara en silencio y la orden se quedara atorada en "listo_entrega"
-    // (47 órdenes afectadas). Verificado contra Supabase en vivo — no confiar en
-    // docs/memoria locales para nombres de columnas, siempre confirmar con MCP.
-    await supabase
-      .from("ordenes_reparacion")
-      .update({ estado: "entregado", fecha_entregado: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq("id", id);
 
     // 7-8. Efectos compartidos: bolsa virtual, stock (ambas tablas), puntos, PDF de acuse
     const { costosPiezas, montoCajaAdvanced, ingresoNeto } = await ejecutarEfectosEntrega({

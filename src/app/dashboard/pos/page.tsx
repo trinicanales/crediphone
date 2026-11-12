@@ -268,7 +268,9 @@ export default function POSPage() {
 
     window.addEventListener("keydown", handleFKey);
     return () => window.removeEventListener("keydown", handleFKey);
-  }, [posMode, showCerrarTurnoModal]);
+    // El manejador lee carrito, caja y modales: sin estas dependencias quedaba con los valores del primer
+    // render (carrito vacío y sin caja) y F9 nunca abría el cobro.
+  }, [posMode, showCerrarTurnoModal, showCobroModal, showImeiModal, cartItems.length, sesionCaja]);
 
   const fetchAsistenciaActiva = async () => {
     try {
@@ -491,51 +493,33 @@ export default function POSPage() {
     }
   };
 
-  const handleCompletarVenta = async () => {
-    // Validaciones
-    if (cartItems.length === 0) {
-      alert("El carrito está vacío");
-      return;
-    }
-
-    if (!paymentData || !paymentData.isValid) {
-      alert(paymentData?.errorMessage || "Método de pago inválido");
-      return;
-    }
-
-    if (!sesionCaja) {
-      alert("Debe abrir una sesión de caja para realizar ventas");
-      return;
-    }
-
-    // Confirmar venta
-    if (
-      !confirm(
-        `¿Completar venta por $${total.toFixed(2)} con ${paymentData.metodoPago}?`
-      )
-    ) {
-      return;
-    }
-
+  // ── Núcleo único de cobro del POS ─────────────────────────────────────────
+  // Lo usan el botón Completar venta, F9 (cobro rápido) y F12 (pago rápido): kits, descuento por
+  // puntos, canje de puntos y modo sin internet funcionan igual en los tres.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const procesarVenta = async (paymentData: { metodoPago: any; desgloseMixto?: any; referenciaPago?: string; montoRecibido?: number }) => {
     setProcessingVenta(true);
 
     try {
       // FASE 61: Expandir kits en sus items componentes para ventas_items
       const itemsExpandidos = cartItems.flatMap((item) => {
         if (item.esKit && item.kitItems && item.kitItems.length > 0) {
-          // Distribuir el precio del kit proporcionalmente entre sus items
-          // Precio unitario por kit × cantidad de kits, distribuido proporcionalmente
-          // Por simplicidad: cada item lleva precio = 0 excepto el primero que lleva el total
-          return item.kitItems.map((ki, idx) => ({
-            productoId:    ki.productoId,
-            servicioId:    undefined,
-            servicioNombre: undefined,
-            esServicio:    false,
-            cantidad:      ki.cantidad * item.cantidad,
-            precioUnitario: idx === 0 ? item.precioUnitario : 0, // precio completo en el primer item
-            imei:          undefined,
-            notas:         `Kit: ${item.kitNombre}`,
-          }));
+          // El kit completo vale precioUnitario × cantidad de kits. Ese total va en UNA unidad del primer
+          // componente (cantidad 1) y el resto de las unidades van en $0, así el total cobrado es exacto
+          // sin fracciones (antes el precio del kit se multiplicaba por la cantidad del componente).
+          const totalKit = item.precioUnitario * item.cantidad;
+          const lineas: Array<{ productoId: string; servicioId: undefined; servicioNombre: undefined; esServicio: false; cantidad: number; precioUnitario: number; imei: undefined; notas: string }> = [];
+          item.kitItems.forEach((ki, idx) => {
+            const unidades = ki.cantidad * item.cantidad;
+            const base = { productoId: ki.productoId, servicioId: undefined, servicioNombre: undefined, esServicio: false as const, imei: undefined, notas: `Kit: ${item.kitNombre}` };
+            if (idx === 0) {
+              lineas.push({ ...base, cantidad: 1, precioUnitario: totalKit });
+              if (unidades > 1) lineas.push({ ...base, cantidad: unidades - 1, precioUnitario: 0 });
+            } else {
+              lineas.push({ ...base, cantidad: unidades, precioUnitario: 0 });
+            }
+          });
+          return lineas;
         }
         return [{
           productoId: item.esServicio ? undefined : item.producto?.id,
@@ -618,6 +602,35 @@ export default function POSPage() {
     }
   };
 
+  const handleCompletarVenta = async () => {
+    // Validaciones
+    if (cartItems.length === 0) {
+      alert("El carrito está vacío");
+      return;
+    }
+
+    if (!paymentData || !paymentData.isValid) {
+      alert(paymentData?.errorMessage || "Método de pago inválido");
+      return;
+    }
+
+    if (!sesionCaja) {
+      alert("Debe abrir una sesión de caja para realizar ventas");
+      return;
+    }
+
+    // Confirmar venta
+    if (
+      !confirm(
+        `¿Completar venta por $${total.toFixed(2)} con ${paymentData.metodoPago}?`
+      )
+    ) {
+      return;
+    }
+
+    await procesarVenta(paymentData);
+  };
+
   const handleCompletarApartado = async (apartadoId: string) => {
     setCompletandoApartado(apartadoId);
     try {
@@ -635,65 +648,11 @@ export default function POSPage() {
     }
   };
 
-  // FASE 29: F12 — pago rápido efectivo exacto
+  // FASE 29: F12 — pago rápido efectivo exacto (usa el mismo núcleo que el botón: kits, puntos, offline)
   const handlePagoRapido = async () => {
     if (cartItems.length === 0 || !sesionCaja) return;
     if (processingVenta) return;
-    setProcessingVenta(true);
-    try {
-      const ventaFormData: NuevaVentaFormData = {
-        clienteId: clienteSeleccionado?.id,
-        items: cartItems.map((item) => ({
-          productoId: item.esServicio ? undefined : item.producto?.id,
-          servicioId: item.esServicio
-            ? item.servicioId?.replace(/^svc_/, "").replace(/_\d+$/, "")
-            : undefined,
-          servicioNombre: item.esServicio ? item.servicioNombre : undefined,
-          esServicio: item.esServicio,
-          cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario,
-          imei: item.imei,
-          notas: item.notas,
-        })),
-        descuento,
-        metodoPago: "efectivo",
-        montoRecibido: total,
-        notas: notasVenta || undefined,
-      };
-
-      // ── MODO OFFLINE ──────────────────────────────────────────────
-      if (!isOnline) {
-        await encolarOperacion({ tipo: "venta", payload: ventaFormData });
-        setCartItems([]);
-        setDescuento(0);
-        alert(`✓ Venta guardada localmente ($${total.toFixed(2)})\nSe enviará al servidor cuando vuelva el internet.`);
-        setProcessingVenta(false);
-        return;
-      }
-      // ─────────────────────────────────────────────────────────────
-
-      const response = await fetch("/api/pos/ventas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(ventaFormData),
-      });
-      const data = await response.json();
-      if (data.success) {
-        verificarStockBajoDespuesVenta(cartItems);
-        setVentaCompletada(data.data);
-        setShowReciboModal(true);
-        setCartItems([]);
-        setDescuento(0);
-        fetchEstadisticas();
-      } else {
-        alert(data.error || "Error al crear venta");
-      }
-    } catch (error) {
-      console.error("Error pago rápido:", error);
-      alert("Error al procesar la venta");
-    } finally {
-      setProcessingVenta(false);
-    }
+    await procesarVenta({ metodoPago: "efectivo", montoRecibido: total });
   };
 
   // F9: cobrar en efectivo — monto exacto si se deja vacío, o con cambio si se ingresa más
@@ -702,60 +661,7 @@ export default function POSPage() {
     const montoIngresado = cobroMonto.trim() === "" ? total : parseFloat(cobroMonto);
     if (isNaN(montoIngresado) || montoIngresado < total) return;
     setShowCobroModal(false);
-    setProcessingVenta(true);
-    try {
-      const ventaFormData: NuevaVentaFormData = {
-        clienteId: clienteSeleccionado?.id,
-        items: cartItems.map((item) => ({
-          productoId: item.esServicio ? undefined : item.producto?.id,
-          servicioId: item.esServicio
-            ? item.servicioId?.replace(/^svc_/, "").replace(/_\d+$/, "")
-            : undefined,
-          servicioNombre: item.esServicio ? item.servicioNombre : undefined,
-          esServicio: item.esServicio,
-          cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario,
-          imei: item.imei,
-          notas: item.notas,
-        })),
-        descuento,
-        metodoPago: "efectivo",
-        montoRecibido: montoIngresado,
-        notas: notasVenta || undefined,
-      };
-
-      // ── MODO OFFLINE ──────────────────────────────────────────────
-      if (!isOnline) {
-        await encolarOperacion({ tipo: "venta", payload: ventaFormData });
-        setCartItems([]);
-        setDescuento(0);
-        alert(`✓ Venta guardada localmente ($${total.toFixed(2)})\nSe enviará al servidor cuando vuelva el internet.`);
-        setProcessingVenta(false);
-        return;
-      }
-      // ─────────────────────────────────────────────────────────────
-
-      const response = await fetch("/api/pos/ventas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(ventaFormData),
-      });
-      const data = await response.json();
-      if (data.success) {
-        verificarStockBajoDespuesVenta(cartItems);
-        setVentaCompletada(data.data);
-        setShowReciboModal(true);
-        setCartItems([]);
-        setDescuento(0);
-        fetchEstadisticas();
-      } else {
-        alert(data.error || "Error al crear venta");
-      }
-    } catch {
-      alert("Error al procesar la venta");
-    } finally {
-      setProcessingVenta(false);
-    }
+    await procesarVenta({ metodoPago: "efectivo", montoRecibido: montoIngresado });
   };
 
   // FASE 31: Generar Reporte X del turno actual
@@ -2139,7 +2045,7 @@ export default function POSPage() {
       {/* Modal: Cobro Rápido Efectivo (F9) */}
       {showCobroModal && cartItems.length > 0 && (() => {
         const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-        const total = subtotal - descuento;
+        const total = Math.max(0, subtotal - descuento - descuentoPuntos);
         const montoIngresado = cobroMonto.trim() === "" ? total : parseFloat(cobroMonto) || 0;
         const cambio = Math.max(0, montoIngresado - total);
         const montoInsuficiente = cobroMonto.trim() !== "" && montoIngresado < total;

@@ -45,7 +45,12 @@ Pendiente de la fase (necesita decisión de Trini):
 - [x] Los 6 fallos de columnas inexistentes en reparaciones (renotificar, checklist, alerta de anticipo de técnico, resumen del cliente, cron/almacenaje, motivo de garantía) + alertas internas en el panel "Por aprobar" (descuadre de caja incluido).
 - [x] **Comprobante de anticipo y de abono de crédito**: ventana común con ticket térmico 58 mm, imprimir desde navegador o WhatsApp en texto (con enlace de seguimiento en reparaciones). Se abre sola al registrar un anticipo (en Reparaciones y POS, es la misma pantalla) y un abono desde la ficha del crédito.
 - [x] **Pagos de crédito**: ya se pueden guardar (columna `detalle_pago`, cobrador y tienda tomados de la sesión); el crédito se marca `pagado` al liquidarse; vendedor puede registrar abonos.
-- [ ] Falta: pantalla de cobro de crédito dentro del POS (hoy solo en Créditos), comprobante en el cobro de saldo/entrega, venta a crédito (`metodo_pago` no admite 'credito'), tarjeta como método de abono (el CHECK de `pagos` no la admite).
+- [x] **Cobro del saldo final**: desde Reparaciones se registra igual que en el POS (fila aplicada + `cobro_reparacion`), entra al "dinero del día" y al cuadre solo si es efectivo; exige caja abierta; comprobante al cobrar (Reparaciones y POS). El POS ya espera el flujo de entrega (antes quedaba sin esperar y en Cloudflare se cortaba: anticipos sin aplicar, sin bolsa virtual ni garantía).
+- [x] **Anticipo por depósito bancario**: la base no lo admitía (CHECK) → corregido. El cuadre de caja ahora cuenta la parte en efectivo de pagos mixtos.
+- [x] **Devoluciones**: ya no se regresa el stock dos veces (trigger corregido y probado con 3 casos en la base); "devolución total" suma todas las devoluciones de la venta.
+- [x] **POS F9/F12 y kits**: un solo núcleo de cobro para botón, F9 y F12 (kits, descuento por puntos y canje de puntos iguales en los tres); precio del kit exacto; F9 no abría porque el manejador leía valores viejos.
+- [ ] Pantalla de cobro de crédito dentro del POS: **aplazada por decisión de Trini** (mantener para el futuro).
+- [ ] Falta (resto): pantalla de cobro de crédito dentro del POS (hoy solo en Créditos), comprobante en el cobro de saldo/entrega, venta a crédito (`metodo_pago` no admite 'credito'), tarjeta como método de abono (el CHECK de `pagos` no la admite).
 
 ## FASE 3 — Órdenes de reparación al día
 1. Cerrar las 57 `listo_entrega` (mediana 117 días) con el flujo de entrega: guiado, orden por orden, con Trini.

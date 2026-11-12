@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import type { OrdenReparacionDetallada, TipoPago } from "@/types";
 import { OrdenDrawer } from "@/components/reparaciones/drawer/OrdenDrawer";
+import { ComprobantePagoModal } from "@/components/print/ComprobantePagoModal";
+import type { DatosComprobante } from "@/lib/print/comprobante";
 
 interface OrdenListaCobro {
   ordenId: string;
@@ -474,6 +476,7 @@ export function ReparacionesPOSPanel({ onCobroCompleto, onCountChange }: Reparac
   // Modales
   const [showModalAnticipo, setShowModalAnticipo] = useState(false);
   const [showModalCobroSaldo, setShowModalCobroSaldo] = useState(false);
+  const [comprobante, setComprobante] = useState<Omit<DatosComprobante, "empresaNombre"> | null>(null);
   const [showModalCancelar, setShowModalCancelar] = useState(false);
   const [procesandoCobroSaldo, setProcesandoCobroSaldo] = useState(false);
   const [procesandoAnticipo, setProcesandoAnticipo] = useState(false);
@@ -550,6 +553,22 @@ export function ReparacionesPOSPanel({ onCobroCompleto, onCountChange }: Reparac
         return;
       }
 
+      // Comprobante del anticipo (ticket térmico o WhatsApp)
+      const antId: string = String(data.data?.anticipoId ?? "");
+      setComprobante({
+        tipo: "anticipo",
+        folioRecibo: antId ? `ANT-${antId.replace(/-/g, "").slice(0, 8).toUpperCase()}` : `ANT-${Date.now().toString(36).toUpperCase()}`,
+        folioReferencia: orden.folio,
+        fecha: new Date(),
+        clienteNombre: [orden.clienteNombre, orden.clienteApellido].filter(Boolean).join(" ") || "Cliente",
+        clienteTelefono: orden.clienteTelefono,
+        descripcion: [orden.marcaDispositivo, orden.modeloDispositivo].filter(Boolean).join(" "),
+        monto,
+        total: orden.presupuestoTotal ?? orden.costoTotal ?? 0,
+        saldoRestante: Math.max(0, saldoPendiente - monto),
+        metodoPago,
+      });
+
       // Actualizar saldo
       setTotalAnticipos(totalAnticipos + monto);
       setMensajeExito(`✅ Anticipo de ${fmtPrecio(monto)} registrado`);
@@ -583,6 +602,21 @@ export function ReparacionesPOSPanel({ onCobroCompleto, onCountChange }: Reparac
         setError(data.error ?? "Error al cobrar saldo");
         return;
       }
+
+      // Comprobante del pago final (ticket térmico o WhatsApp)
+      setComprobante({
+        tipo: "saldo_final",
+        folioRecibo: `PAG-${String(data.data?.anticipoId ?? orden.folio).replace(/[^A-Z0-9]/gi, "").slice(-8).toUpperCase()}`,
+        folioReferencia: orden.folio,
+        fecha: new Date(),
+        clienteNombre: [orden.clienteNombre, orden.clienteApellido].filter(Boolean).join(" ") || "Cliente",
+        clienteTelefono: orden.clienteTelefono,
+        descripcion: [orden.marcaDispositivo, orden.modeloDispositivo].filter(Boolean).join(" "),
+        monto: saldoPendiente,
+        total: orden.presupuestoTotal ?? orden.costoTotal ?? 0,
+        saldoRestante: 0,
+        metodoPago,
+      });
 
       // Actualizar estado
       setMensajeExito("✅ Saldo cobrado. Orden marcada como entregada.");
@@ -1068,6 +1102,10 @@ export function ReparacionesPOSPanel({ onCobroCompleto, onCountChange }: Reparac
           onConfirm={handleCancelarReparacion}
           onCancel={() => setShowModalCancelar(false)}
         />
+      )}
+
+      {comprobante && (
+        <ComprobantePagoModal isOpen onClose={() => setComprobante(null)} datos={comprobante} />
       )}
 
       {/* Drawer completo de la orden desde POS */}

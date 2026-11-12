@@ -261,13 +261,16 @@ export async function cerrarCaja(
   try {
     const { data: anticipsData } = await supabase
       .from("anticipos_reparacion")
-      .select("monto")
+      .select("monto, tipo_pago, desglose_mixto")
       .eq("sesion_caja_id", sesionId)
-      .eq("tipo_pago", "efectivo")
+      .in("tipo_pago", ["efectivo", "mixto"])
       .neq("estado", "devuelto");
 
+    // efectivo → todo el monto; mixto → solo la parte en efectivo del desglose
     totalAnticipsEfectivo = (anticipsData || []).reduce(
-      (sum: number, a: any) => sum + parseFloat(a.monto || 0), 0
+      (sum: number, a: any) =>
+        sum + (a.tipo_pago === "mixto" ? parseFloat(a.desglose_mixto?.efectivo || 0) : parseFloat(a.monto || 0)),
+      0
     );
   } catch {
     console.warn("[Caja] No se pudieron sumar anticipos de reparación al cuadre");

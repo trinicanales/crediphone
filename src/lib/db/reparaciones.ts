@@ -1524,7 +1524,8 @@ export async function aplicarAnticiposOrden(
   sesionCajaId: string | undefined,
   saldoFinal: number,
   metodoPagoSaldo: TipoPago,
-  cobradoPor: string
+  cobradoPor: string,
+  opciones?: { distribuidorId?: string | null; desgloseMixto?: DesglosePagoMixto | null }
 ): Promise<void> {
   const supabase = createAdminClient();
   const ahora = new Date().toISOString();
@@ -1536,19 +1537,41 @@ export async function aplicarAnticiposOrden(
     .eq("orden_id", ordenId)
     .eq("estado", "pendiente");
 
-  // 2. Si hay saldo final y sesión de caja, registrar en caja
+  // 2. Saldo final: se registra IGUAL que en el POS (decisión de Trini 2026-11-11: cobrar desde
+  //    el POS o desde Reparaciones es lo mismo y entra a la venta del día):
+  //    - fila en anticipos_reparacion (estado aplicado) con la sesión de caja → cuenta en el cuadre
+  //      según el método (solo la parte en efectivo entra a la gaveta)
+  //    - movimiento 'cobro_reparacion' → aparece en 'dinero del día' del dashboard
+  //    Antes se guardaba como 'deposito' (contaba como efectivo aunque fuera tarjeta y no salía en el dashboard).
   if (sesionCajaId && saldoFinal > 0) {
-    try {
-      await supabase.from("caja_movimientos").insert({
-        sesion_id: sesionCajaId,
-        tipo: "deposito",
+    const { data: saldoRow, error: saldoError } = await supabase
+      .from("anticipos_reparacion")
+      .insert({
+        orden_id: ordenId,
         monto: saldoFinal,
-        concepto: `Saldo final reparación ${folio} (${metodoPagoSaldo})`,
-        autorizado_por: cobradoPor,
-      });
-    } catch (cajaErr) {
-      console.error("Error registrando saldo final en caja:", cajaErr);
-    }
+        tipo_pago: metodoPagoSaldo,
+        desglose_mixto: opciones?.desgloseMixto ?? null,
+        estado: "aplicado",
+        fecha_aplicado: ahora,
+        sesion_caja_id: sesionCajaId,
+        recibido_por: cobradoPor,
+        creado_por: cobradoPor,
+        notas: `Saldo final al entregar (${folio})`,
+      })
+      .select("id")
+      .single();
+    if (saldoError) throw new Error(`No se pudo registrar el saldo final: ${saldoError.message}`);
+
+    const { error: movError } = await supabase.from("caja_movimientos").insert({
+      sesion_id: sesionCajaId,
+      tipo: "cobro_reparacion",
+      monto: saldoFinal,
+      concepto: `Saldo final reparación ${folio} (${metodoPagoSaldo})`,
+      referencia_id: saldoRow?.id ?? null,
+      distribuidor_id: opciones?.distribuidorId ?? null,
+      autorizado_por: cobradoPor,
+    });
+    if (movError) console.error("Error registrando movimiento de saldo final:", movError);
   }
 }
 

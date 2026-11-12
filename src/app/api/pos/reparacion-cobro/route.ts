@@ -250,6 +250,7 @@ export async function POST(request: Request) {
           // (47 órdenes afectadas). Verificado contra Supabase en vivo — no confiar en
           // docs/memoria locales para nombres de columnas, siempre confirmar con MCP.
           fecha_entregado: new Date().toISOString(),
+          fecha_entrega: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq("id", ordenId);
@@ -259,7 +260,9 @@ export async function POST(request: Request) {
       } else {
         entregado = true;
         // P2: Ejecutar flujo completo de entrega (bolsa virtual, stock, puntos, historial)
-        ejecutarEntregaCompleta(
+        // Se espera a que termine: en Cloudflare Workers lo que queda sin esperar se corta al responder
+        // (anticipos sin aplicar, sin bolsa virtual, sin garantía). ejecutarEntregaCompleta ya atrapa sus errores.
+        await ejecutarEntregaCompleta(
           ordenId,
           orden.folio,
           orden.distribuidor_id || null,
@@ -268,7 +271,7 @@ export async function POST(request: Request) {
           sesionCajaId,
           estadoAnterior,
           userId
-        ).catch((e) => console.error("[reparacion-cobro] ejecutarEntregaCompleta falló:", e));
+        );
       }
     }
 

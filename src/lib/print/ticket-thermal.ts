@@ -410,6 +410,7 @@ export interface TicketAnticipoData {
   referencia?: string;
   recibidoPor?: string;
   pendienteConfirmacion?: boolean; // transferencia / deposito por confirmar
+  titulo?: string;                 // por defecto COMPROBANTE DE ANTICIPO
 }
 
 export function buildTicketAnticipo(
@@ -425,7 +426,7 @@ export function buildTicketAnticipo(
 
   cmds.push(EscPos.align('center'));
   cmds.push(EscPos.size(1, 1));
-  cmds.push(EscPos.text('COMPROBANTE DE ANTICIPO'));
+  cmds.push(EscPos.text(data.titulo ?? 'COMPROBANTE DE ANTICIPO'));
   cmds.push(EscPos.sizeNormal());
   cmds.push(EscPos.text(truncate(empresa.nombre, W)));
   if (empresa.rfc) cmds.push(EscPos.text(`RFC: ${empresa.rfc}`));
@@ -442,7 +443,7 @@ export function buildTicketAnticipo(
 
   cmds.push(EscPos.bold(true));
   cmds.push(EscPos.size(1, 0));
-  cmds.push(EscPos.row('ANTICIPO:', fmt(data.montoAnticipo), Math.floor(W / 2) as 32 | 48));
+  cmds.push(EscPos.row(data.titulo ? 'PAGADO:' : 'ANTICIPO:', fmt(data.montoAnticipo), Math.floor(W / 2) as 32 | 48));
   cmds.push(EscPos.sizeNormal());
   cmds.push(EscPos.bold(false));
   if (data.totalOrden > 0) {

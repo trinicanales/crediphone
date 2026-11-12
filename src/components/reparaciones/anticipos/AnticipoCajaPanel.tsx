@@ -7,6 +7,8 @@ import { ModalAgregarAnticipo } from "./ModalAgregarAnticipo";
 import { PanelTraspasosPendientes } from "@/components/reparaciones/traspasos/PanelTraspasosPendientes";
 import { useAuth } from "@/components/AuthProvider";
 import type { AnticipoReparacion, OrdenReparacionDetallada, TipoPago } from "@/types";
+import { ComprobantePagoModal } from "@/components/print/ComprobantePagoModal";
+import type { DatosComprobante } from "@/lib/print/comprobante";
 import {
   DollarSign, CheckCircle2, Clock, RotateCcw,
   Banknote, ArrowUpRight, AlertTriangle, Package,
@@ -49,6 +51,7 @@ function ModalCobrarEntregar({
   const [metodoPago, setMetodoPago] = useState<TipoPago>("efectivo");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [comprobante, setComprobante] = useState<Omit<DatosComprobante, "empresaNombre"> | null>(null);
 
   const totalAnticipos = anticipos
     .filter((a) => a.estado === "pendiente")
@@ -69,12 +72,34 @@ function ModalCobrarEntregar({
       const data = await res.json();
       if (!data.success) throw new Error(data.error || data.message || "Error al procesar entrega");
       onSuccess();
-      onClose();
+      // Comprobante del pago final (si hubo saldo que cobrar) para el cliente
+      const cobrado = Number(data.data?.saldoCobrado ?? saldo);
+      if (cobrado > 0) {
+        setComprobante({
+          tipo: "saldo_final",
+          folioRecibo: `PAG-${orden.folio.replace(/[^A-Z0-9]/gi, "").slice(-8).toUpperCase()}`,
+          folioReferencia: orden.folio,
+          fecha: new Date(),
+          clienteNombre: [orden.clienteNombre, orden.clienteApellido].filter(Boolean).join(" ") || "Cliente",
+          clienteTelefono: orden.clienteTelefono,
+          descripcion: [orden.marcaDispositivo, orden.modeloDispositivo].filter(Boolean).join(" "),
+          monto: cobrado,
+          total: costoTotal,
+          saldoRestante: 0,
+          metodoPago,
+        });
+      } else {
+        onClose();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error desconocido");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (comprobante) {
+    return <ComprobantePagoModal isOpen={isOpen} onClose={() => { setComprobante(null); onClose(); }} datos={comprobante} />;
   }
 
   return (

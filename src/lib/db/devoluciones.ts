@@ -338,19 +338,26 @@ export async function crearDevolucion(
     .select("id, cantidad")
     .eq("venta_id", payload.ventaId);
 
-  const { data: todosItemsDev } = await supabase
+  // Se suman TODAS las devoluciones procesadas de la venta (antes solo la actual: una segunda
+  // devolución parcial que completaba la venta nunca la marcaba como reembolsada).
+  const { data: todasDevoluciones } = await supabase
     .from("devoluciones_items")
-    .select("venta_item_id, cantidad_devuelta")
-    .eq("devolucion_id", devolucionId);
+    .select("venta_item_id, cantidad_devuelta, devoluciones!inner(venta_id, estado)")
+    .eq("devoluciones.venta_id", payload.ventaId)
+    .eq("devoluciones.estado", "procesada");
+
+  const devueltoPorItem = new Map<string, number>();
+  for (const d of todasDevoluciones ?? []) {
+    devueltoPorItem.set(d.venta_item_id, (devueltoPorItem.get(d.venta_item_id) ?? 0) + Number(d.cantidad_devuelta));
+  }
 
   const esDevolucionTotal =
-    todosItems &&
-    todosItemsDev &&
-    todosItems.every((vi) => {
-      const devItem = todosItemsDev.find((d) => d.venta_item_id === vi.id);
-      return devItem && devItem.cantidad_devuelta >= vi.cantidad;
-    });
+    !!todosItems &&
+    todosItems.length > 0 &&
+    todosItems.every((vi) => (devueltoPorItem.get(vi.id) ?? 0) >= vi.cantidad);
 
+  // Con la venta marcada como reembolsada, el trigger de la base devuelve al stock SOLO lo que falta
+  // (cantidad vendida - lo ya reintegrado por estas devoluciones): ya no se duplica.
   if (esDevolucionTotal) {
     await supabase
       .from("ventas")
