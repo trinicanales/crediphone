@@ -79,6 +79,7 @@ Todas las funciones en `src/lib/db/` convierten snake_case → camelCase con `ma
 13. **Fuentes:** Geist (`--font-ui`), Geist Mono (`--font-data`), JetBrains Mono (`--font-mono`). NUNCA Inter
 14. **Números/IMEIs/folios:** SIEMPRE `font-mono` en el UI
 15. **Sideffects de lógica de negocio:** Si el código parece raro pero funciona → preguntar a Trini antes de cambiar
+16. **Antes de cambiar un dato, regla, estado, API o cálculo:** leer `.claude/MAPA-CONEXIONES.md` (qué más está conectado), verificar en Supabase y avisar a Trini qué pantallas/efectos se afectan
 
 ---
 
@@ -156,6 +157,7 @@ npm run lint       # corregir errores críticos
 | `.claude/DESIGN-SYSTEM.md` | Si tocas CSS, colores o componentes UI (~430 líneas) |
 | `.claude/REGLAS-NEGOCIO.md` | Si tocas caja, anticipos, reparaciones o flujos de dinero (~60 líneas) |
 | `.claude/DEPLOY.md` | Si hay error en el deploy o necesitas deployar (~80 líneas) |
+| `.claude/MAPA-CONEXIONES.md` | **Si no tienes claro qué está conectado con qué** antes de cambiar algo: tablas, triggers, efectos de cada evento, pantallas que muestran cada dato, reglas únicas |
 
 **Archivos históricos** (NO leer en sesión normal):
 `ARCHIVO/BUGS-RESUELTOS.md` · `ARCHIVO/HISTORIAL-FASES.md` · `ARCHIVO/HISTORIAL-SESIONES.md` · `ARCHIVO/DEPLOY-WORKAROUNDS-COWORK.md`
