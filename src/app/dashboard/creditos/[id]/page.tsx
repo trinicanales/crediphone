@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import type { Credito, Pago, Cliente } from "@/types";
+import { ComprobantePagoModal } from "@/components/print/ComprobantePagoModal";
+import type { DatosComprobante } from "@/lib/print/comprobante";
 
 // ─── Helpers ───────────────────────────────────────────────────
 function fmt(n: number) {
@@ -227,6 +229,7 @@ export default function CreditoDetallePage() {
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [totalPagado, setTotalPagado] = useState(0);
+  const [comprobante, setComprobante] = useState<Omit<DatosComprobante, "empresaNombre"> | null>(null);
   const [saldoPendiente, setSaldoPendiente] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -335,6 +338,22 @@ export default function CreditoDetallePage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || data.message);
       setModalPago(false);
+
+      // Comprobante para el cliente (ticket térmico o WhatsApp)
+      const pagoId: string = String(data.data?.id ?? "");
+      setComprobante({
+        tipo: "abono_credito",
+        folioRecibo: pagoId ? `PAG-${pagoId.replace(/-/g, "").slice(0, 8).toUpperCase()}` : `PAG-${Date.now().toString(36).toUpperCase()}`,
+        folioReferencia: credito.folio || credito.id.slice(0, 8).toUpperCase(),
+        fecha: new Date(),
+        clienteNombre: cliente ? [cliente.nombre, cliente.apellido].filter(Boolean).join(" ") : "Cliente",
+        clienteTelefono: cliente?.telefono,
+        monto,
+        total: credito.monto,
+        saldoRestante: typeof data.saldoRestante === "number" ? data.saldoRestante : Math.max(0, saldoPendiente - monto),
+        metodoPago: formPago.metodoPago,
+        referencia: formPago.referencia || undefined,
+      });
       await cargar();
     } catch (err) {
       setErrorPago(err instanceof Error ? err.message : "Error al registrar pago");
@@ -824,6 +843,10 @@ export default function CreditoDetallePage() {
       )}
 
       {/* ── Modal: Registrar Pago ─────────────────────────────── */}
+      {comprobante && (
+        <ComprobantePagoModal isOpen onClose={() => setComprobante(null)} datos={comprobante} />
+      )}
+
       <Modal isOpen={modalPago} onClose={() => setModalPago(false)} title="Registrar Pago">
         <form onSubmit={registrarPago} className="space-y-4">
           {errorPago && (

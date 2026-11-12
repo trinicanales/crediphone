@@ -87,12 +87,13 @@ export async function getPagoById(id: string): Promise<Pago | null> {
   return data as Pago;
 }
 
-export async function createPago(pago: Omit<Pago, "id" | "createdAt">): Promise<Pago> {
+export async function createPago(pago: Omit<Pago, "id" | "createdAt">, distribuidorId?: string | null): Promise<Pago> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("pagos")
     .insert({
       credito_id: pago.creditoId,
+      distribuidor_id: distribuidorId ?? pago.distribuidorId ?? null,
       monto: pago.monto,
       fecha_pago: pago.fechaPago,
       metodo_pago: pago.metodoPago,

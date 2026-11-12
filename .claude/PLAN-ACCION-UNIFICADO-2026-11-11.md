@@ -40,6 +40,13 @@ Pendiente de la fase (necesita decisión de Trini):
 6. Promociones en el POS (`servicio_id` uuid) y `incrementar_stock`.
 7. Caja: bloquear venta sin caja; cierre guiado de las 4 abiertas y los 20 cierres en $0 (en la próxima sesión de Trini); alerta de descuadre.
 
+
+### Avance Fase 2 (2026-11-11)
+- [x] Los 6 fallos de columnas inexistentes en reparaciones (renotificar, checklist, alerta de anticipo de técnico, resumen del cliente, cron/almacenaje, motivo de garantía) + alertas internas en el panel "Por aprobar" (descuadre de caja incluido).
+- [x] **Comprobante de anticipo y de abono de crédito**: ventana común con ticket térmico 58 mm, imprimir desde navegador o WhatsApp en texto (con enlace de seguimiento en reparaciones). Se abre sola al registrar un anticipo (en Reparaciones y POS, es la misma pantalla) y un abono desde la ficha del crédito.
+- [x] **Pagos de crédito**: ya se pueden guardar (columna `detalle_pago`, cobrador y tienda tomados de la sesión); el crédito se marca `pagado` al liquidarse; vendedor puede registrar abonos.
+- [ ] Falta: pantalla de cobro de crédito dentro del POS (hoy solo en Créditos), comprobante en el cobro de saldo/entrega, venta a crédito (`metodo_pago` no admite 'credito'), tarjeta como método de abono (el CHECK de `pagos` no la admite).
+
 ## FASE 3 — Órdenes de reparación al día
 1. Cerrar las 57 `listo_entrega` (mediana 117 días) con el flujo de entrega: guiado, orden por orden, con Trini.
 2. Revisar las 77 `recibido` (49 sin técnico).
