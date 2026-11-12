@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       .from("ordenes_reparacion")
       .select(`
         id, folio, distribuidor_id,
-        cliente_nombre, cliente_apellido, cliente_telefono,
+        cliente:clientes(nombre, apellido, telefono),
         updated_at
       `)
       .eq("estado", "listo_entrega");
@@ -131,8 +131,9 @@ export async function POST(req: NextRequest) {
       if (!tipo) continue; // no es un día objetivo
       if (enviados.has(`${orden.id}::${tipo}`)) continue; // ya enviado
 
-      const clienteNombre = [orden.cliente_nombre, orden.cliente_apellido].filter(Boolean).join(" ") || "Cliente";
-      const telefono = orden.cliente_telefono;
+      const cli = orden.cliente as unknown as { nombre?: string; apellido?: string; telefono?: string } | null;
+      const clienteNombre = [cli?.nombre, cli?.apellido].filter(Boolean).join(" ") || "Cliente";
+      const telefono = cli?.telefono;
       const tarifaDiaria = tarifasMap[orden.distribuidor_id] ?? 30;
       const cobro = dias > 30 ? (dias - 30) * tarifaDiaria : 0;
 

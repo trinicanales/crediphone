@@ -25,7 +25,7 @@ export async function POST(
 
     const { data: orden, error: fetchError } = await supabase
       .from("ordenes_reparacion")
-      .select("id, estado, aprobado_por_cliente, requiere_aprobacion, tracking_token, distribuidor_id, clientes(telefono)")
+      .select("id, estado, aprobado_por_cliente, requiere_aprobacion, distribuidor_id, clientes(telefono)")
       .eq("id", ordenId)
       .single();
 
@@ -55,7 +55,16 @@ export async function POST(
     }
 
     const telefono = (orden.clientes as any)?.telefono ?? null;
-    const trackingToken = orden.tracking_token ?? null;
+    // El token vive en tracking_tokens (no en la orden): se toma el vigente más reciente
+    const { data: tokenRow } = await supabase
+      .from("tracking_tokens")
+      .select("token")
+      .eq("orden_id", ordenId)
+      .eq("activa", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const trackingToken = tokenRow?.token ?? null;
 
     return NextResponse.json({
       success: true,

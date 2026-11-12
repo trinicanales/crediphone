@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { countSolicitudesPendientes } from "@/lib/db/autorizaciones";
+import { listarAlertasPendientes } from "@/lib/db/alertas";
 
 /**
  * GET /api/dashboard/por-aprobar
@@ -85,13 +86,17 @@ export async function GET() {
     // 3. Descuentos por autorizar (vigentes)
     const descuentos = await countSolicitudesPendientes(distId);
 
+    // 4. Alertas internas (descuadre de caja, anticipos recibidos por técnicos, etc.)
+    const alertas = await listarAlertasPendientes(distId).catch(() => []);
+
     return NextResponse.json({
       success: true,
       data: {
         precios,
         depositos: depositos ?? 0,
         descuentos,
-        total: precios.length + (depositos ?? 0) + descuentos,
+        alertas,
+        total: precios.length + (depositos ?? 0) + descuentos + alertas.length,
       },
     });
   } catch (error) {

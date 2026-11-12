@@ -34,7 +34,7 @@ export async function GET(
     // Órdenes activas (no canceladas, no entregadas)
     let ordenesQuery = supabase
       .from("ordenes_reparacion")
-      .select("id, estado, costo_total, precio_total, total_anticipos, folio")
+      .select("id, estado, costo_total, precio_total, folio")
       .eq("cliente_id", clienteId)
       .not("estado", "in", "(cancelado,entregado)");
     if (distId) ordenesQuery = ordenesQuery.eq("distribuidor_id", distId);
@@ -63,8 +63,21 @@ export async function GET(
     ]);
 
     const ordenesActivas = (ordenes ?? []).length;
+
+    // Anticipos por orden (la orden no guarda el total; se suma desde anticipos_reparacion)
+    const anticiposPorOrden = new Map<string, number>();
+    if ((ordenes ?? []).length > 0) {
+      const { data: antRows } = await supabase
+        .from("anticipos_reparacion")
+        .select("orden_id, monto")
+        .in("orden_id", (ordenes ?? []).map((o) => o.id))
+        .in("estado", ["pendiente", "aplicado"]);
+      for (const a of antRows ?? []) {
+        anticiposPorOrden.set(a.orden_id, (anticiposPorOrden.get(a.orden_id) ?? 0) + Number(a.monto ?? 0));
+      }
+    }
     const saldoPendiente = (ordenes ?? []).reduce(
-      (sum, o) => sum + Math.max(0, Number(o.precio_total ?? o.costo_total ?? 0) - Number(o.total_anticipos ?? 0)),
+      (sum, o) => sum + Math.max(0, Number(o.precio_total || o.costo_total || 0) - (anticiposPorOrden.get(o.id) ?? 0)),
       0
     );
 

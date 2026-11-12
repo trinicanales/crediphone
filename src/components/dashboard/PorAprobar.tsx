@@ -22,10 +22,19 @@ interface SolicitudPrecio {
   diasEspera: number;
 }
 
+interface AlertaInterna {
+  id: string;
+  titulo: string;
+  mensaje: string;
+  severidad: "info" | "media" | "alta";
+  createdAt: string;
+}
+
 interface PorAprobarData {
   precios: SolicitudPrecio[];
   depositos: number;
   descuentos: number;
+  alertas?: AlertaInterna[];
   total: number;
 }
 
@@ -81,6 +90,16 @@ export function PorAprobar() {
       setTrabajando(null);
     }
   }
+
+  const marcarAlertaLeida = async (id: string) => {
+    setTrabajando(id);
+    try {
+      await fetch(`/api/alertas/${id}`, { method: "PATCH" });
+      await cargar();
+    } finally {
+      setTrabajando(null);
+    }
+  };
 
   if (!data || data.total === 0) return null;
 
@@ -171,6 +190,37 @@ export function PorAprobar() {
         </div>
       )}
 
+      {(data.alertas?.length ?? 0) > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
+            Avisos ({data.alertas!.length})
+          </p>
+          {data.alertas!.map((a) => (
+            <div
+              key={a.id}
+              className="flex items-start justify-between gap-3 rounded-lg px-3 py-2.5"
+              style={{
+                background: "var(--color-bg-elevated)",
+                border: `1px solid ${a.severidad === "alta" ? "var(--color-danger)" : a.severidad === "media" ? "var(--color-warning)" : "var(--color-border)"}`,
+              }}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>{a.titulo}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{a.mensaje}</p>
+              </div>
+              <button
+                type="button"
+                disabled={trabajando === a.id}
+                onClick={() => marcarAlertaLeida(a.id)}
+                className="text-xs font-semibold px-2.5 py-1 rounded-md shrink-0"
+                style={{ border: "1px solid var(--color-border)", color: "var(--color-text-secondary)" }}
+              >
+                Entendido
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {data.depositos > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>

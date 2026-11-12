@@ -5,6 +5,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CajaSesion, CajaMovimiento, ConteoDenominaciones, AnticipoEnSesion, TipoPago } from "@/types";
+import { crearAlertaInterna } from "@/lib/db/alertas";
 
 // =====================================================
 // MAPPERS
@@ -323,12 +324,12 @@ export async function cerrarCaja(
 
     if (Math.abs(diferencia) > tolerancia) {
       // Crear notificación para admin/super_admin del distribuidor
-      await supabase.from("notificaciones").insert({
+      await crearAlertaInterna({
+        distribuidorId: sesionData.distribuidor_id,
         tipo: "descuadre_caja",
         titulo: "⚠️ Descuadre de caja detectado",
         mensaje: `Sesión ${sesionData.folio}: diferencia de $${diferencia.toFixed(2)} (esperado $${montoEsperado.toFixed(2)}, declarado $${montoFinal.toFixed(2)})`,
         severidad: "alta",
-        distribuidor_id: sesionData.distribuidor_id || null,
         metadata: {
           sesion_id: sesionId,
           folio: sesionData.folio,
@@ -338,8 +339,6 @@ export async function cerrarCaja(
           diferencia,
           tolerancia,
         },
-        leida: false,
-        created_at: new Date().toISOString(),
       });
     }
   } catch (alertError) {

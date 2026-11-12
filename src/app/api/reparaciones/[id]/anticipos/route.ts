@@ -8,6 +8,7 @@ import {
 import { getSesionActiva } from "@/lib/db/caja";
 import { createConfirmacionDeposito } from "@/lib/db/confirmaciones";
 import type { TipoPago, DesglosePagoMixto } from "@/types";
+import { crearAlertaInterna } from "@/lib/db/alertas";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -130,12 +131,10 @@ export async function POST(
       // Obtener nombre del registrador para la notificación
       const { data: registrador } = await supabase
         .from("users")
-        .select("nombre, apellido")
+        .select("name")
         .eq("id", userId)
         .single();
-      const registradorNombre = registrador
-        ? [registrador.nombre, registrador.apellido].filter(Boolean).join(" ")
-        : "Empleado";
+      const registradorNombre = registrador?.name || "Empleado";
 
       const confirmacion = await createConfirmacionDeposito({
         distribuidorId: distribuidorId ?? undefined,
@@ -193,71 +192,42 @@ export async function POST(
     // Si quien registra es un técnico → enviar notificación informativa al admin/vendedor
     // (sin crear traspaso — el dinero ya está en caja o queda pendiente de sesión)
     if (role === "tecnico") {
-      try {
-        const { data: tecnico } = await supabase
-          .from("users")
-          .select("nombre, apellido")
-          .eq("id", userId)
-          .single();
-        const tecnicoNombre = tecnico
-          ? [tecnico.nombre, tecnico.apellido].filter(Boolean).join(" ")
-          : "Un técnico";
-
-        await supabase.from("notificaciones").insert({
-          tipo: "anticipo_recibido_tecnico",
-          titulo: "💰 Anticipo recibido por técnico",
-          mensaje: `${tecnicoNombre} recibió $${Number(body.monto).toFixed(2)} MXN en efectivo del cliente ${clienteNombre} — Orden ${folioOrden}${sesionAbierta ? " (asentado en caja)" : " (pendiente: sin sesión activa)"}`,
-          severidad: "info",
-          distribuidor_id: distribuidorId || null,
-          metadata: {
-            orden_id: id,
-            folio_orden: folioOrden,
-            anticipo_id: anticipo.id,
-            tecnico_id: userId,
-            monto: Number(body.monto),
-            sesion_caja_id: sesionCajaId || null,
-            registrado_en_caja: sesionAbierta,
-          },
-          leida: false,
-          created_at: new Date().toISOString(),
-        });
-      } catch {
-        // No fallar el registro del anticipo si falla la notificación
-        console.warn("[Anticipos] No se pudo crear notificación de técnico");
-      }
+      const { data: tecnico } = await supabase.from("users").select("name").eq("id", userId).single();
+      await crearAlertaInterna({
+        distribuidorId,
+        tipo: "anticipo_recibido_tecnico",
+        titulo: "💰 Anticipo recibido por técnico",
+        mensaje: `${tecnico?.name || "Un técnico"} recibió $${Number(body.monto).toFixed(2)} MXN en efectivo del cliente ${clienteNombre} — Orden ${folioOrden}${sesionAbierta ? " (asentado en caja)" : " (pendiente: sin sesión activa)"}`,
+        severidad: "info",
+        metadata: {
+          orden_id: id,
+          folio_orden: folioOrden,
+          anticipo_id: anticipo.id,
+          tecnico_id: userId,
+          monto: Number(body.monto),
+          sesion_caja_id: sesionCajaId || null,
+          registrado_en_caja: sesionAbierta,
+        },
+      });
     }
 
     // Si no hay sesión activa → notificación de anticipo pendiente
     if (!sesionAbierta) {
-      try {
-        const { data: empleado } = await supabase
-          .from("users")
-          .select("nombre, apellido")
-          .eq("id", userId)
-          .single();
-        const empleadoNombre = empleado
-          ? [empleado.nombre, empleado.apellido].filter(Boolean).join(" ")
-          : "El empleado";
-
-        await supabase.from("notificaciones").insert({
-          tipo: "anticipo_sin_sesion",
-          titulo: "⚠️ Anticipo pendiente de caja",
-          mensaje: `${empleadoNombre} registró un anticipo de $${Number(body.monto).toFixed(2)} MXN para la orden ${folioOrden} (${clienteNombre}) sin sesión de caja activa. Se sumará automáticamente cuando abra su sesión.`,
-          severidad: "media",
-          distribuidor_id: distribuidorId || null,
-          metadata: {
-            orden_id: id,
-            folio_orden: folioOrden,
-            anticipo_id: anticipo.id,
-            empleado_id: userId,
-            monto: Number(body.monto),
-          },
-          leida: false,
-          created_at: new Date().toISOString(),
-        });
-      } catch {
-        console.warn("[Anticipos] No se pudo crear notificación de anticipo sin sesión");
-      }
+      const { data: empleado } = await supabase.from("users").select("name").eq("id", userId).single();
+      await crearAlertaInterna({
+        distribuidorId,
+        tipo: "anticipo_sin_sesion",
+        titulo: "⚠️ Anticipo pendiente de caja",
+        mensaje: `${empleado?.name || "El empleado"} registró un anticipo de $${Number(body.monto).toFixed(2)} MXN para la orden ${folioOrden} (${clienteNombre}) sin sesión de caja activa. Se sumará automáticamente cuando abra su sesión.`,
+        severidad: "media",
+        metadata: {
+          orden_id: id,
+          folio_orden: folioOrden,
+          anticipo_id: anticipo.id,
+          empleado_id: userId,
+          monto: Number(body.monto),
+        },
+      });
     }
 
     return NextResponse.json({

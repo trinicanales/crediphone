@@ -37,9 +37,8 @@ export async function GET() {
     let q = supabase
       .from("ordenes_reparacion")
       .select(`
-        id, folio, estado,
-        cliente_nombre, cliente_apellido, cliente_telefono,
-        tecnico_nombre,
+        id, folio, estado, tecnico_id,
+        cliente:clientes(nombre, apellido, telefono),
         fecha_recepcion,
         updated_at
       `)
@@ -52,6 +51,14 @@ export async function GET() {
 
     const { data: ordenes, error } = await q;
     if (error) throw error;
+
+    // Nombres de técnicos (la orden solo guarda tecnico_id)
+    const tecnicoIds = [...new Set((ordenes ?? []).map((o: any) => o.tecnico_id).filter(Boolean))];
+    const tecnicoNombres = new Map<string, string>();
+    if (tecnicoIds.length > 0) {
+      const { data: tecs } = await supabase.from("users").select("id, name").in("id", tecnicoIds);
+      for (const t of tecs ?? []) tecnicoNombres.set(t.id, t.name);
+    }
 
     // Encontrar cuándo entraron en listo_entrega para cada orden
     const ordenIds = (ordenes ?? []).map((o: any) => o.id);
@@ -108,9 +115,9 @@ export async function GET() {
       return {
         id: o.id,
         folio: o.folio,
-        clienteNombre: [o.cliente_nombre, o.cliente_apellido].filter(Boolean).join(" ") || "—",
-        clienteTelefono: o.cliente_telefono,
-        tecnicoNombre: o.tecnico_nombre,
+        clienteNombre: [o.cliente?.nombre, o.cliente?.apellido].filter(Boolean).join(" ") || "—",
+        clienteTelefono: o.cliente?.telefono,
+        tecnicoNombre: o.tecnico_id ? tecnicoNombres.get(o.tecnico_id) ?? null : null,
         fechaListo,
         diasTranscurridos: dias,
         rango,
