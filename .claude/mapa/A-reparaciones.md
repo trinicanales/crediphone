@@ -52,3 +52,16 @@
 11. 1 anticipo sin sesión de caja.
 
 **Qué sí funciona:** el trigger de historial registra cada cambio de estado; los 11 estados coinciden entre BD, historial y código; `entregado` ya solo se alcanza por el flujo de entrega (el servidor lo rechaza por otro camino).
+
+## 7. Por qué las órdenes no se cerraron (investigado 2026-11-11, con fechas reales)
+- **Última entrega registrada en el sistema: 2026-07-31.** Antes: 24 (mayo), 23 (junio), 22 (julio). Desde agosto: **0 entregas** y 0 cobros de saldo en caja (`cobro_reparacion`); solo siguen entrando anticipos. Mientras tanto se siguieron marcando `listo_entrega` (6 ago, 2 sep, 5 oct, 2 nov).
+- **Incidente previo (BUG-ENTREGA-001, commit e15b239, 2026-07-23):** el botón de entregar escribía `fecha_entrega` (columna que no existía), el UPDATE fallaba en silencio y 47 órdenes se quedaron en `listo_entrega`. Se corrigió a `fecha_entregado`. Hoy la BD tiene las **dos** columnas (`fecha_entrega` y `fecha_entregado`); 26 entregadas no tienen `fecha_entregado` y 33 no tienen `fecha_entrega`: hay dos fechas para lo mismo.
+- **Despliegues:** el último deploy exitoso antes del 19-oct fue el 24-jul (e15b239). Los deploys del 09-sep (532c675, "unifica entrega") y del 19-oct (f5959a8) **fallaron** (R2 de Cloudflare) y el código nuevo salió hasta el 19-oct. Por eso **ningún commit explica el paro del 31-jul**: el código en producción no cambió entre el 24-jul y el 19-oct.
+- **Desde el 19-oct** `entregado` solo se alcanza por el flujo de entrega (C2). Las entregas siguen en 0 en oct–nov. No puedo probar si es porque el flujo falla o porque no se usa el paso; el código de `entregar` y `entrega.ts` hoy no usa columnas inexistentes (revisado). Hace falta una prueba real con una orden (ver plan).
+- **Garantía:** la configuración de la tienda dice `dias_garantia_default = 30`, el código crea 90 días (`entrega.ts`) y los avisos al cliente leen la configuración (30). Contradicción a resolver.
+- **Folios:** 48 folios reservados desde marzo nunca se liberaron o usaron; 26 folios "usados" no tienen orden (órdenes borradas).
+- **Conteo de órdenes a verificar** (no entregadas, no canceladas): 21 `listo_entrega` pagadas completas · 36 `listo_entrega` con saldo/sin precio · 35 en otros estados ya pagadas completas. Siete órdenes tienen anticipos mayores al total (ej. ORD-20260511-0003: $3,300 vs $1,300). Lista para empleados con garantía estimada: `.claude/verificacion/ordenes-por-verificar-2026-11-11.csv` (no se sube a Git: contiene datos de clientes).
+
+## 8. cancelar-folio (qué es)
+- Solo libera el **número de folio** reservado al abrir "Nueva orden" cuando se cierra la ventana sin guardar. No existe orden todavía, por lo tanto **no mueve dinero, stock ni caja** (los anticipos del formulario se guardan hasta crear la orden).
+- La cancelación real de una orden es `reparaciones/[id]/cancelar` (la usan Reparaciones y POS): libera piezas, marca anticipos como devueltos, descuenta cargo de cancelación y piezas ya llegadas, y registra la salida en la caja abierta + bolsa virtual. Ahora muestra el monto exacto y dónde quedó registrado.

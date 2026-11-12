@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthContext } from "@/lib/auth/server";
 
 /**
  * POST /api/reparaciones/cancelar-folio
@@ -9,6 +10,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 export async function POST(request: Request) {
   try {
+    // sendBeacon envía las cookies de sesión del mismo origen: ya se exige sesión y tienda
+    const { userId, distribuidorId, isSuperAdmin } = await getAuthContext();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+
     let folio: string | undefined;
 
     try {
@@ -24,7 +31,7 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
 
-    await supabase
+    let query = supabase
       .from("folios_reparacion")
       .update({
         estado: "cancelado",
@@ -32,6 +39,8 @@ export async function POST(request: Request) {
       })
       .eq("folio", folio)
       .eq("estado", "reservado"); // Solo cancelar si aún está reservado
+    if (!isSuperAdmin && distribuidorId) query = query.eq("distribuidor_id", distribuidorId);
+    await query;
 
     return NextResponse.json({ success: true });
   } catch (error) {

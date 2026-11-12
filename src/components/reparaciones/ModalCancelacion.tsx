@@ -103,7 +103,20 @@ export function ModalCancelacion({
         return;
       }
 
-      if (data.sinRegistroCaja) {
+      // Mensaje claro de a dónde va el dinero (decisión de Trini 2026-11-11)
+      if (data.anticiposDevueltos && Number(data.totalAnticipoDevuelto) > 0) {
+        const devuelto = formatMXN(Number(data.totalAnticipoDevuelto));
+        const cargo = Number(data.cargoAplicado) > 0 ? ` Se retuvo cargo de cancelación de ${formatMXN(Number(data.cargoAplicado))}.` : "";
+        alert(
+          data.sinRegistroCaja
+            ? `Orden cancelada. Se devolverá ${devuelto} al cliente.${cargo}
+
+OJO: no hay caja abierta, así que la salida NO quedó registrada en caja. Regístrala manualmente.`
+            : `Orden cancelada. Se devolverá ${devuelto} al cliente.${cargo}
+
+Quedó registrado como salida en la caja abierta del turno y en la bolsa virtual de la orden.`
+        );
+      } else if (data.sinRegistroCaja) {
         alert("Orden cancelada. OJO: no hay caja abierta, así que la devolución en efectivo NO quedó registrada en caja. Regístrala manualmente.");
       }
       onConfirm();
@@ -254,7 +267,7 @@ export function ModalCancelacion({
 
                     {devolverAnticipos && (
                       <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-                        Se marcarán como &ldquo;devuelto&rdquo; en el historial. Asegúrate de entregar el efectivo al cliente.
+                        Se devuelve al cliente el total menos el cargo de cancelación y el costo de las piezas que ya llegaron. La salida se registra en la caja abierta del turno y en la bolsa virtual; al confirmar verás el monto exacto. Entrega el dinero al cliente.
                       </p>
                     )}
                   </div>
