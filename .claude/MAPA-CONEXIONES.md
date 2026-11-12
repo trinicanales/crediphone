@@ -66,3 +66,6 @@
 
 ## 7. Cobertura (lo que NO está mapeado todavía — verificar antes de tocar)
 Clientes + puntos de lealtad · créditos/cobranza/apartados (apartados incompleto) · empleados y asistencia · catálogo de servicios (hay 2 catálogos: `servicios` y `catalogo_servicios_reparacion`) · kits · lotes de piezas y de series · órdenes de compra · notificaciones push · PDFs/versiones · garantías (reclamo roto) · configuración · distribuidores/multitienda (4 tiendas, solo Principal activa).
+
+## 8. Mapa completo y automático (2026-11-11)
+Para ver TODO (páginas↔APIs↔tablas, espejos, errores con evidencia, lo desconectado) leer `.claude/mapa/MAPA-SISTEMA-2026-11-11.md`. Herramienta de impacto: `node scripts/mapa-sistema.js --impacto <tabla|/api/ruta|tabla.columna>` (en Git Bash anteponer `MSYS_NO_PATHCONV=1` si la ruta empieza con `/`).
